@@ -1,16 +1,22 @@
 // Couche d'accès Firebase (Auth + Firestore). Toute l'appli passe par ce fichier.
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut as fbSignOut, sendPasswordResetEmail, updatePassword
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc,
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./config.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js";
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
+// App Check protège l'IA (Gemini) contre les usages extérieurs à l'appli.
+if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.includes("A_REMPLACER")) {
+  try { initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
+  catch (e) { console.warn("App Check", e); }
+}
 const auth = getAuth(app);
 let db;
 try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
@@ -82,6 +88,13 @@ export const deleteLogin = login => deleteDoc(doc(db, "logins", login));
 export const setCoaching = (id, data) => setDoc(doc(db, "coachings", id), { ...clean(data), createdAt: serverTimestamp() });
 export const deleteCoaching = id => deleteDoc(doc(db, "coachings", id));
 export const listCoachings = async uid => list(await getDocs(query(collection(db, "coachings"), where("coachUid", "==", uid))));
+
+/* ---------- Modèles de carnets (créés avec l'IA) ---------- */
+export const listModeles = async profId => list(await getDocs(query(collection(db, "modeles"), where("profId", "==", profId))));
+export const getModele = async id => snap(await getDoc(doc(db, "modeles", id)));
+export const createModele = async data => (await addDoc(collection(db, "modeles"), { ...clean(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() })).id;
+export const updateModele = (id, patch) => updateDoc(doc(db, "modeles", id), { ...clean(patch), updatedAt: serverTimestamp() });
+export const deleteModele = id => deleteDoc(doc(db, "modeles", id));
 
 /* ---------- Demandes d'accès prof ---------- */
 export const createDemande = data => addDoc(collection(db, "demandes"), { ...clean(data), statut: "nouvelle", createdAt: serverTimestamp() });

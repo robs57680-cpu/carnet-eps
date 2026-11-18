@@ -93,6 +93,15 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.eleveUid == request.auth.uid;
     }
 
+    // ---------- Modèles de carnets créés avec l'IA ----------
+    match /modeles/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+
     // ---------- Demandes d'accès prof ----------
     match /demandes/{id} {
       allow create: if request.resource.data.keys().hasOnly(['email', 'etablissement', 'message', 'statut', 'createdAt'])

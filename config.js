@@ -17,3 +17,6 @@ export const DEV_EMAIL = "robs_57680@hotmail.fr";
 // Domaine technique des comptes élèves : aucun e-mail n'y est envoyé.
 // L'élève tape seulement son identifiant (ex. 1g2-07-k4m).
 export const STUDENT_DOMAIN = "eleves.carnet-eps.app";
+
+// Clé de site reCAPTCHA (Fraud Defense / Enterprise) utilisée par Firebase App Check, obligatoire pour l'IA Gemini.
+export const RECAPTCHA_SITE_KEY = "6LfWJicuAAAAAAtI-b0MTPs6-XQ5KtutnCB9dMPm";

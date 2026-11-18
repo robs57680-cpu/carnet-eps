@@ -43,6 +43,12 @@ Sur la page de connexion : **Initialiser le compte développeur** → choisir un
 ## Si Firestore demande un index
 Si l'écran « Carnets des élèves » affiche une erreur d'index, ouvrez la console du navigateur : Firebase fournit un lien qui crée l'index en un clic.
 
+## Carnets créés avec l'IA (Gemini)
+- Onglet **Carnets IA** (profs) : importer un référentiel (PDF, photo ou texte) → l'IA Gemini prépare une ébauche de carnet (parties, champs, critères, barème, correction automatique).
+- Le prof la vérifie dans l'aperçu (« Tester la correction »), la modifie en écrivant ses demandes à l'IA (avec annulation), l'enregistre puis l'active pour ses classes.
+- Les élèves de ces classes voient l'activité à côté du CA5 ; le prof suit les carnets comme pour le CA5.
+- IA : Firebase AI Logic, API Gemini Developer (palier gratuit, quota limité par jour), protégée par App Check (Fraud Defense / reCAPTCHA Enterprise, clé de site dans config.js).
+
 ## Sécurité (firestore.rules)
 - Un élève ne lit et n'écrit que son propre carnet, et ne peut plus modifier une séance validée.
 - Un prof ne voit que ses classes, ses élèves et leurs carnets ; il ne peut modifier que l'AFL3 et le verrouillage des séances.
