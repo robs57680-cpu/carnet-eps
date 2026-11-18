@@ -1,0 +1,106 @@
+rules_version = '2';
+// Carnet d'entraînement EPS : règles de sécurité Firestore.
+// Compte développeur : robs_57680@hotmail.fr (même adresse que dans config.js).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uidIs(u) { return signedIn() && request.auth.uid == u; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasUser() { return signedIn() && exists(userPath()); }
+    function me() { return get(userPath()).data; }
+    function isDev() { return hasUser() && me().role == 'dev'; }
+    function isProf() { return hasUser() && (me().role == 'prof' || me().role == 'dev'); }
+    function isEleve() { return hasUser() && me().role == 'eleve'; }
+    function isDevEmail() { return signedIn() && request.auth.token.email == 'robs_57680@hotmail.fr'; }
+    function onlyKeys(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // ---------- Comptes ----------
+    match /users/{uid} {
+      allow read: if uidIs(uid) || isDev()
+        || (signedIn() && resource.data.profId == request.auth.uid);
+      allow create: if (uidIs(uid) && isDevEmail() && request.resource.data.role == 'dev')
+        || (isDev() && request.resource.data.role in ['prof', 'eleve'])
+        || (isProf() && request.resource.data.role == 'eleve' && request.resource.data.profId == request.auth.uid);
+      allow update: if isDev() && uid != request.auth.uid;
+      allow delete: if (isDev() && uid != request.auth.uid)
+        || (isProf() && resource.data.role == 'eleve' && resource.data.profId == request.auth.uid);
+    }
+
+    // ---------- Classes (et identifiants des élèves, visibles du seul prof) ----------
+    match /classes/{cid} {
+      allow read: if signedIn() && (resource.data.profId == request.auth.uid || isDev()
+        || (isEleve() && me().classeId == cid));
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+
+      match /eleves/{eid} {
+        allow read, write: if isProf()
+          && get(/databases/$(database)/documents/classes/$(cid)).data.profId == request.auth.uid;
+      }
+    }
+
+    // ---------- Carnets d'entraînement ----------
+    match /carnets/{carnetId} {
+      allow read: if signedIn() && (resource.data.eleveUid == request.auth.uid
+        || resource.data.profId == request.auth.uid || isDev());
+      allow create: if isEleve()
+        && request.resource.data.eleveUid == request.auth.uid
+        && request.resource.data.profId == me().profId
+        && request.resource.data.classeId == me().classeId
+        && carnetId == request.auth.uid + '_' + request.resource.data.activite
+        && !('afl3Prof' in request.resource.data);
+      allow update: if signedIn() && (
+        (resource.data.eleveUid == request.auth.uid && onlyKeys(['profil', 'updatedAt']))
+        || (resource.data.profId == request.auth.uid && onlyKeys(['afl3Prof', 'updatedAt'])));
+      allow delete: if signedIn() && resource.data.profId == request.auth.uid;
+
+      match /seances/{sid} {
+        function carnet() { return get(/databases/$(database)/documents/carnets/$(carnetId)).data; }
+        allow read: if signedIn() && (resource.data.coachUid == request.auth.uid
+          || carnet().eleveUid == request.auth.uid || carnet().profId == request.auth.uid || isDev());
+        allow create: if signedIn() && carnet().eleveUid == request.auth.uid;
+        // Une séance validée est verrouillée pour l'élève ; seul le prof peut la déverrouiller.
+        allow update: if signedIn() && (
+          (carnet().eleveUid == request.auth.uid && resource.data.valide != true)
+          || (carnet().profId == request.auth.uid && onlyKeys(['valide']))
+          // Le coach choisi par l'élève ne peut écrire que les tours (passages, NO REP, adaptations).
+          || (resource.data.coachUid == request.auth.uid && resource.data.valide != true
+              && onlyKeys(['real', 'coachMaj'])
+              && request.resource.data.real.diff(resource.data.real).affectedKeys().hasOnly(['tours'])));
+        allow delete: if signedIn() && (
+          (carnet().eleveUid == request.auth.uid && resource.data.valide != true)
+          || carnet().profId == request.auth.uid);
+      }
+    }
+
+    // ---------- Identifiants élèves (pour choisir un coach de sa classe) ----------
+    match /logins/{login} {
+      allow read: if signedIn() && (resource.data.profId == request.auth.uid
+        || (isEleve() && resource.data.classeId == me().classeId));
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+
+    // ---------- Séances à coacher ----------
+    match /coachings/{id} {
+      allow read: if signedIn() && (resource.data.coachUid == request.auth.uid || resource.data.eleveUid == request.auth.uid);
+      allow create, update: if isEleve() && request.resource.data.eleveUid == request.auth.uid
+        && get(/databases/$(database)/documents/carnets/$(request.resource.data.carnetId)).data.eleveUid == request.auth.uid
+        && id == request.resource.data.carnetId + '__' + request.resource.data.sid;
+      allow delete: if signedIn() && resource.data.eleveUid == request.auth.uid;
+    }
+
+    // ---------- Demandes d'accès prof ----------
+    match /demandes/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'etablissement', 'message', 'statut', 'createdAt'])
+        && request.resource.data.email is string && request.resource.data.email.size() > 5 && request.resource.data.email.size() < 120
+        && request.resource.data.etablissement is string && request.resource.data.etablissement.size() < 200
+        && request.resource.data.message is string && request.resource.data.message.size() < 1000
+        && request.resource.data.statut == 'nouvelle';
+      allow read, update, delete: if isDev();
+    }
+  }
+}
