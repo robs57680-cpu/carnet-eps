@@ -125,11 +125,17 @@ export function iaMessage(e) {
 }
 
 /** Crée une ébauche de modèle à partir d'un référentiel (fichier PDF/image en base64 et/ou texte). */
-export async function genererModele({ fichier, texte, consignes, cle }) {
+export async function genererModele({ fichiers, fichier, texte, consignes, cle }) {
   const parts = [{ text: `Tu es un expert de l'EPS au lycée (référentiels du baccalauréat, France). À partir du référentiel d'évaluation fourni, conçois le carnet d'entraînement numérique que l'élève remplira à chaque séance, avec une correction automatique fidèle au référentiel.
 ${SCHEMA}
 ${consignes ? "CONSIGNES DU PROFESSEUR : " + consignes : ""}` }];
-  if (fichier) parts.push({ inlineData: { mimeType: fichier.mime, data: fichier.base64 } });
+  const fs = fichiers || (fichier ? [{ role: "referentiel", ...fichier }] : []);
+  for (const f of fs) {
+    parts.push({ text: f.role === "fiche"
+      ? "FICHE D'OBSERVATION / D'ÉVALUATION utilisée par le professeur (s'en inspirer pour les champs à relever pendant la séance et pour les critères) :"
+      : "RÉFÉRENTIEL D'ÉVALUATION (source principale pour les AFL, les degrés et le barème) :" });
+    parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } });
+  }
   if (texte) parts.push({ text: "RÉFÉRENTIEL (texte) :\n" + texte });
   return call(parts, cle);
 }

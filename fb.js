@@ -9,7 +9,7 @@ import {
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-1";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-4";
 
 // Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
 export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);

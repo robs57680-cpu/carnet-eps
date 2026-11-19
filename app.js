@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.19-1";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-1";
-const APP_VERSION="2026.11.19-1";
+import * as fb from "./fb.js?v=2026.11.19-4";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-4";
+const APP_VERSION="2026.11.19-4";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -479,7 +479,7 @@ function vLogin(){return`<div class="login">
   </form>
   <section class="card"><div class="row"><div><strong>Vous êtes professeur d'EPS ?</strong><div class="hint">Demandez un accès pour créer vos classes.</div></div><span class="spacer"></span><button class="btn" data-act="askAccess">Demander un accès</button></div></section>
   <p class="hint center">Aucun nom d'élève n'est enregistré : chaque élève se connecte avec un identifiant anonyme.</p>
-  ${DEV_EMAIL&&!DEV_EMAIL.includes("A_REMPLACER")?`<p class="center"><button class="btn ghost small" data-act="devInit">Initialiser le compte développeur</button></p>`:""}
+  ${DEV_EMAIL&&!DEV_EMAIL.includes("A_REMPLACER")&&new URLSearchParams(location.search).has("init")?`<p class="center"><button class="btn ghost small" data-act="devInit">Initialiser le compte développeur</button></p>`:""}
 </div>`}
 
 /* ---------- Écrans : élève ---------- */
@@ -561,7 +561,7 @@ function printIds(){const url=location.origin+location.pathname,rep=getReperes(c
   window.print()}
 
 async function openSuivi(act){go("loading",{msg:"Chargement des carnets…"});
-  try{activite=act;PREVIEW=false;MOD=null;if(!ACTIVITES[act]){const d=await fb.getModele(act);if(!d)throw{code:"not-found"};MODDOC=d;MOD=normModele(d.modele)}const cs=await fb.listCarnets(me.uid,classe.id,act);
+  try{activite=act;PREVIEW=false;MOD=null;if(!ACTIVITES[act]){const d=await fb.getModele(act);if(!d)throw{code:"not-found"};MODDOC=d;MOD=normModele(d.modele||d.brouillon)}const cs=await fb.listCarnets(me.uid,classe.id,act);
     const withS=await Promise.all(cs.map(async c=>({c,ss:await fb.listSeances(c.id)})));
     suivi={act,rows:eleves.map(e=>{const f=withS.find(x=>x.c.eleveUid===e.id);return{e,c:f&&f.c,ss:f&&f.ss}})};
     settings=mergeSettings(classe.reglages&&classe.reglages[act]);go("suivi")}
@@ -679,6 +679,7 @@ function onField(e){const el=e.target;
   if(el.dataset.a3!==undefined){if(e.type==="change")setAfl3(el.value?+el.value:null,+el.dataset.a3);return}
   if(el.dataset.set){if(route.name!=="suivi")return;const st=settings;if(el.dataset.set==="tol")st.tol=num(el.value)||5;else{const[t,p,i]=el.dataset.set.split(".");const v=num(el.value);if(!isNaN(v))st.themes[t][p][+i]=v}
     if(e.type==="change"){saveReglages();rerenderKeep()}return}
+  if(mField(el,e))return;
   if(el.dataset.actcls!==undefined){if(e.type==="change")toggleActivite(el.dataset.actcls,el.checked);return}
   if(!el.dataset.k||RO||(route.name!=="carnet"&&route.name!=="modele"))return;
   if(/^seances\.\d+\./.test(el.dataset.k)){const si=+el.dataset.k.split(".")[1];if(data.seances[si]&&data.seances[si].valide)return}
@@ -694,7 +695,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.19-1");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.19-4");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -738,8 +739,9 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="openModele"){(async()=>{go("loading");try{await loadClasses();const d=await fb.getModele(b.dataset.id);if(!d)throw{code:"not-found"};startEditor(d)}catch(x){go("error",{msg:authMsg(x)})}})();return}
   if(a==="backModeles"){if(modeleEdit&&modeleEdit.dirty){confirmBox("Quitter sans enregistrer ?","Les modifications de ce carnet seront perdues.","Quitter",async()=>{closeModal();PREVIEW=false;openModeles()},true);return}PREVIEW=false;openModeles();return}
   if(a==="saveModele"){saveModele();return}
+  if(route.name==="modele"||a==="mBlank"){if(mClick(a,b))return}
   if(a==="iaEdit"){if(!iaBusy)iaModifier();return}
-  if(a==="iaUndo"){if(modeleHist.length){modeleEdit.modele=modeleHist.pop();modeleEdit.dirty=true;setPreview();rerenderKeep()}return}
+  if(a==="iaUndo"){if(modeleHist.length){modeleEdit.draft=modeleHist.pop();modeleEdit.dirty=true;setPreview();rerenderKeep()}return}
   if(a==="delModele"){confirmBox("Supprimer ce carnet ?","Le modèle sera supprimé et retiré de vos classes. Les carnets déjà remplis par les élèves restent en base mais ne seront plus accessibles.","Supprimer",async()=>{
       try{for(const c of classes){if((c.activites||[]).includes(modeleEdit.id)){const a2=c.activites.filter(x=>x!==modeleEdit.id);await fb.updateClasse(c.id,{activites:a2});c.activites=a2}}await fb.deleteModele(modeleEdit.id);closeModal();PREVIEW=false;openModeles()}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(route.name!=="carnet"&&route.name!=="coach"&&route.name!=="modele")return;
@@ -1005,46 +1007,153 @@ function gSuivi(){const rep=getReperes(classe.id);
 
 /* --- Modèles : liste et éditeur avec l'IA --- */
 async function openModeles(){go("loading");try{modeles=(await fb.listModeles(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("modeles")}catch(e){go("error",{msg:authMsg(e)})}}
-function vModeles(){return`<div class="stack"><h2>Carnets créés avec l'IA</h2>
-  <p class="hint" style="margin:-6px 0 0">Importez un référentiel : l'IA prépare une ébauche de carnet d'entraînement avec sa correction automatique. Vous la modifiez ensuite en lui écrivant vos demandes.</p>
-  ${modeles.length?`<div class="list-s">${modeles.map(m=>`<button class="s-item" data-act="openModele" data-id="${m.id}" style="border-left-color:var(--accent)"><div><strong>${esc(m.titre)}</strong><div class="hint">${esc(m.ca||"")} · ${(m.modele&&m.modele.sections||[]).length} parties · ${(m.modele&&m.modele.criteres||[]).length} critères</div></div><span class="chip">Ouvrir →</span></button>`).join("")}</div>`:""}
-  <form class="card stack" id="gen-form" style="gap:10px"><h3>Nouveau carnet à partir d'un référentiel</h3>
-    <label class="f">Référentiel (PDF ou photo)<input type="file" id="gen-file" accept="application/pdf,image/*"></label>
-    <label class="f">ou texte du référentiel<textarea id="gen-text" placeholder="Collez ici le texte du référentiel si vous n'avez pas de fichier"></textarea></label>
-    <label class="f">Vos consignes (facultatif)<textarea id="gen-cons" placeholder="ex. Séances de 1 h, 4 tours de 8 min, fréquence cardiaque en fin de tour, niveau terminale"></textarea></label>
+function vModeles(){const st=m=>m.modele&&m.statut!=="brouillon"?'<span class="chip" style="border-color:var(--d4);color:var(--d4)">Publié</span>':m.modele?'<span class="chip" style="border-color:var(--d2);color:#8a6400">Bac à sable · version publiée en ligne</span>':'<span class="chip">Bac à sable</span>';
+  return`<div class="stack"><h2>Carnets créés avec l'IA</h2>
+  <p class="hint" style="margin:-6px 0 0">Importez votre référentiel (et si vous voulez votre fiche d'observation) : l'IA prépare une ébauche. Vous la modifiez librement en bac à sable, puis vous la publiez pour vos élèves.</p>
+  ${modeles.length?`<div class="list-s">${modeles.map(m=>{const M=m.brouillon||m.modele||{};return`<button class="s-item" data-act="openModele" data-id="${m.id}" style="border-left-color:var(--accent)"><div><strong>${esc(m.titre)}</strong><div class="row" style="margin-top:4px;gap:6px">${st(m)}<span class="hint">${(M.sections||[]).length} parties · ${(M.criteres||[]).length} critères</span></div></div><span class="chip">Ouvrir →</span></button>`}).join("")}</div>`:""}
+  <form class="card stack" id="gen-form" style="gap:10px"><h3>Nouveau carnet</h3>
+    <label class="f">1. Référentiel d'évaluation (PDF ou photo)<input type="file" id="gen-file" accept="application/pdf,image/*"></label>
+    <label class="f">2. Fiche d'observation / d'évaluation (facultatif)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
+    <details><summary class="hint">Pas de fichier ? Coller le texte du référentiel</summary><textarea id="gen-text" placeholder="Texte du référentiel"></textarea></details>
+    <label class="f">Vos consignes (facultatif)<textarea id="gen-cons" placeholder="ex. Séances de 1 h, 4 tours de 8 min, niveau terminale"></textarea></label>
     <div class="err" id="gen-err"></div>
-    <button class="btn primary big" type="submit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA lit le référentiel…":"✨ Créer l'ébauche avec l'IA"}</button>
-    <p class="hint" style="margin:0">${IAKEY?"Gemini avec votre clé personnelle (votre propre quota gratuit).":"Gemini, quota gratuit partagé entre les profs de l'appli. Pour avoir votre propre quota, ajoutez votre clé Gemini dans « Compte »."} La génération prend environ 30 secondes à 2 minutes. Vérifiez toujours l'ébauche avant de l'activer pour une classe.</p></form></div>`}
-function startEditor(doc){modeleEdit={id:doc.id||null,modele:normModele(doc.modele),dirty:!doc.id};modeleHist=[];setPreview();go("modele")}
-function setPreview(){MOD=modeleEdit.modele;PREVIEW=true;RO=false;carnetId=null;carnetDoc=null;const s={id:"apercu",ordre:1,date:today(),valide:false,epreuve:false,theme:MOD.themes[0]&&MOD.themes[0].id||"",valeurs:{},autoeval:{}};gEnsure(MOD,s);data={profil:{projet:"",repartition:"4-4"},seances:[s]};cur=s.id}
-function vModele(){const M=modeleEdit.modele;const myClasses=classes;
-  const crit=M.criteres.map(c=>`<div class="crit">${stamp(null)}<div><div class="t">${esc(c.afl)} · ${esc(c.label)}</div><div class="tip">${esc(gCalcText(M,c))}</div>
-    <details><summary class="hint">Degrés et points</summary><ol class="hint" style="margin:6px 0 0;padding-left:18px">${c.descripteurs.map((d,i)=>`<li><strong>D${i+1}</strong>${c.afl==="AFL1"?` (${fmtN(c.points[i])} pt)`:""} : ${esc(d)}</li>`).join("")}</ol></details></div><div></div></div>`).join("");
-  const act=myClasses.map(c=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-actcls="${c.id}" ${modeleEdit.id&&(c.activites||[]).includes(modeleEdit.id)?"checked":""} ${modeleEdit.id?"":"disabled"} style="width:20px;height:20px"> ${esc(c.nom)}</label>`).join("");
-  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="backModeles">← Carnets IA</button><span class="spacer"></span>${modeleEdit.id?`<button class="btn danger small" data-act="delModele">Supprimer</button>`:""}<button class="btn primary small" data-act="saveModele">${modeleEdit.dirty?"Enregistrer":"Enregistré ✓"}</button></div>
-  <section class="card ia-box"><div class="sec-h"><h3>✨ Modifier avec l'IA</h3>${modeleHist.length?`<span class="spacer"></span><button class="btn ghost small" data-act="iaUndo">↶ Annuler (${modeleHist.length})</button>`:""}</div>
-    <textarea id="ia-req" placeholder="ex. Ajoute la fréquence cardiaque à la fin de chaque tour · Retire le tableau d'échauffement · Le critère de charge doit compter les tours au-dessus de 80 % FCmax"></textarea>
+    <button class="btn primary big" type="submit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA lit vos documents…":"✨ Créer l'ébauche avec l'IA"}</button>
+    <button class="btn" type="button" data-act="mBlank">Partir d'un carnet vide</button>
+    <p class="hint" style="margin:0">${IAKEY?"Gemini avec votre clé personnelle (votre propre quota gratuit).":"Gemini, quota gratuit partagé entre les profs de l'appli. Pour avoir votre propre quota, ajoutez votre clé Gemini dans « Compte »."} Comptez 30 secondes à 2 minutes.</p></form></div>`}
+
+/* --- Éditeur : bac à sable / publié --- */
+const newId=p=>p+"_"+Math.random().toString(36).slice(2,7);
+function blankModele(){return{titre:"Nouvelle activité",ca:"",apsa:"",description:"",themes:[],sections:[{id:newId("s"),titre:"Ma séance",consigne:"",champs:[{id:newId("c"),type:"texte_long",label:"Ce que j'ai fait",aide:"",unite:"",requis:true}]}],criteres:[],bareme:{afl1:{max:12,table:[]}}}}
+function startEditor(doc){const pub=doc.modele?normModele(doc.modele):null,draft=normModele(doc.brouillon||doc.modele||blankModele());
+  modeleEdit={id:doc.id||null,draft,pub,statut:pub&&doc.statut!=="brouillon"?"publie":"brouillon",publieLe:doc.publieLe||null,dirty:!doc.id,tab:"seance"};
+  modeleHist=[];setPreview();go("modele")}
+function setPreview(){MOD=normModele(modeleEdit.draft);PREVIEW=true;RO=false;carnetId=null;carnetDoc=null;const s={id:"apercu",ordre:1,date:today(),valide:false,epreuve:false,theme:MOD.themes[0]&&MOD.themes[0].id||"",valeurs:{},autoeval:{}};gEnsure(MOD,s);data={profil:{projet:"",repartition:"4-4"},seances:[s]};cur=s.id}
+const SB=()=>modeleEdit&&modeleEdit.statut==="brouillon";
+function mIn(path,val,attrs="",label=""){return`<label class="f">${label}<input data-m="${path}" value="${esc(val??"")}" ${attrs}></label>`}
+function mTa(path,val,label,attrs=""){return`<label class="f">${label}<textarea data-m="${path}" ${attrs}>${esc(val??"")}</textarea></label>`}
+function mSel(path,val,opts,label,attrs=""){return`<label class="f">${label}<select data-m="${path}" ${attrs}>${opts.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(val)?"selected":""}>${esc(l)}</option>`).join("")}</select></label>`}
+function allFields(M,types){const out=[];M.sections.forEach(S=>S.champs.forEach(f=>{if(!types||types.includes(f.type))out.push([S.id+"."+f.id,`${S.titre} › ${f.label}`])}));return out}
+function mFieldEd(M,si,fi,f){const p=`sections.${si}.champs.${fi}`;let extra="";
+  if(f.type==="choix")extra=mIn(p+".options",(f.options||[]).join(", "),'data-mt="list"',"Choix proposés (séparés par des virgules)");
+  if(f.type==="echelle")extra=`<div class="grid2">${mIn(p+".min",f.min,'data-mt="num" inputmode="numeric"',"De")}${mIn(p+".max",f.max,'data-mt="num" inputmode="numeric"',"À")}</div>`;
+  if(f.type==="tableau")extra=`<div class="f"><span class="mlab">Colonnes</span>${(f.colonnes||[]).map((c,ci)=>`<div class="mcol">${mIn(`${p}.colonnes.${ci}.label`,c.label,"","")}${mSel(`${p}.colonnes.${ci}.type`,c.type,[["texte","Texte"],["nombre","Nombre"],["temps","Temps"],["choix","Choix"]],"","data-rerender")}<button class="btn ghost small" data-act="mDelCol" data-si="${si}" data-fi="${fi}" data-ci="${ci}" aria-label="Retirer la colonne">✕</button>${c.type==="choix"?`<div style="grid-column:1/-1">${mIn(`${p}.colonnes.${ci}.options`,(c.options||[]).join(", "),'data-mt="list"',"Choix (virgules)")}</div>`:""}</div>`).join("")}<button class="btn small" data-act="mAddCol" data-si="${si}" data-fi="${fi}" style="justify-self:start">+ Colonne</button></div>`;
+  if(f.type==="passages")extra=`<div class="grid2">${mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric"',"Nombre de tours")}${mSel(p+".nbChamp",f.nbChamp||"",[["","Nombre fixe"],...allFields(M,["nombre"])],"ou lu dans la case","data-rerender")}</div><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.noRep" data-mt="bool" ${f.noRep?"checked":""} style="width:20px;height:20px"> Compteur de NO REP par tour</label>`;
+  return`<div class="mfield"><div class="mf-h"><span class="chip">${esc(G_TYPES[f.type]||f.type)}</span><span class="spacer"></span>
+    <button class="btn ghost small" data-act="mUpChamp" data-si="${si}" data-fi="${fi}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownChamp" data-si="${si}" data-fi="${fi}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelChamp" data-si="${si}" data-fi="${fi}" aria-label="Supprimer la case">✕</button></div>
+    <div class="grid2">${mIn(p+".label",f.label,"","Intitulé")}${mSel(p+".type",f.type,Object.entries(G_TYPES),"Type de case","data-rerender")}</div>
+    <div class="grid2">${mIn(p+".unite",f.unite,"","Unité (facultatif)")}${mIn(p+".aide",f.aide,"","Aide pour l'élève")}</div>${extra}
+    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.requis" data-mt="bool" ${f.requis?"checked":""} style="width:20px;height:20px"> Obligatoire pour valider</label></div>`}
+function mCritEd(M,ci,c){const p=`criteres.${ci}`,cal=c.calcul||{type:"autoeval"};const nums=allFields(M,["nombre","temps","echelle","compteur","case","choix","tableau","passages"]);
+  let cfg="";const srcF=cal.source&&gField(M,cal.source.champ);
+  if(cal.type==="seuils"||cal.type==="ecart"){
+    cfg+=mSel(p+".calcul.source.champ",cal.source&&cal.source.champ||"",[["","— choisir une case —"],...nums],"Case mesurée","data-rerender");
+    if(srcF&&srcF.type==="tableau")cfg+=`<div class="grid2">${mSel(p+".calcul.source.colonne",cal.source.colonne||"",[["","—"],...(srcF.colonnes||[]).map(x=>[x.id,x.label])],"Colonne")}${mSel(p+".calcul.source.agg",cal.source.agg||"moyenne",Object.entries(AGG_FR),"Calcul")}</div>`;
+    if(srcF&&srcF.type==="passages"){const cb=cal.source.cible;cfg+=`<div class="grid2">${mSel(p+".calcul.source.mesure",cal.source.mesure||"proportion_dans_cible",Object.entries(MES_FR),"Mesure")}${mIn(p+".calcul.source.tolerance",cal.source.tolerance??5,'data-mt="num" inputmode="numeric"',"Tolérance (s)")}</div>
+      <div class="grid2"><label class="f">Temps visé par tour<select data-mcible="${ci}" data-where="source" data-rerender>${[["num","Valeur fixe"],...allFields(M,["temps","nombre"])].map(([v,l])=>`<option value="${v}" ${(typeof cb==="object"&&cb&&cb.champ===v)||(v==="num"&&typeof cb!=="object")?"selected":""}>${esc(l)}</option>`).join("")}</select></label>${typeof cb!=="object"||!cb?mIn(p+".calcul.source.cible",cb??60,'data-mt="num" inputmode="numeric"',"Secondes"):"<span></span>"}</div>`}
+    if(cal.type==="ecart"){const cb=cal.cible;cfg+=`<div class="grid2"><label class="f">Comparée à<select data-mcible="${ci}" data-where="calcul" data-rerender>${[["num","Valeur fixe"],...nums].map(([v,l])=>`<option value="${v}" ${(typeof cb==="object"&&cb&&cb.champ===v)||(v==="num"&&typeof cb!=="object")?"selected":""}>${esc(l)}</option>`).join("")}</select></label>${typeof cb!=="object"||!cb?mIn(p+".calcul.cible",cb??0,'data-mt="num" inputmode="decimal"',"Valeur"):"<span></span>"}</div>`}
+    if(cal.type==="seuils")cfg+=mSel(p+".calcul.sens",cal.sens||"haut",[["haut","Plus c'est haut, mieux c'est"],["bas","Plus c'est bas, mieux c'est"]],"Sens","data-rerender");
+    const op=cal.type==="ecart"?"écart ≤":cal.sens==="bas"?"≤":"≥";
+    cfg+=`<div class="grid3">${[0,1,2].map(k=>mIn(`${p}.calcul.seuils.${k}`,(cal.seuils||[])[k],'data-mt="num" inputmode="decimal"',`D${4-k} si ${op}`)).join("")}</div><p class="hint" style="margin:0">Sinon : D1.</p>`}
+  if(cal.type==="complet")cfg=`<div class="f"><span class="mlab">Cases à remplir</span><div class="mchecks">${allFields(M).map(([v,l])=>`<label><input type="checkbox" data-mcomplet="${ci}" value="${v}" ${(cal.champs||[]).includes(v)?"checked":""}> ${esc(l)}</label>`).join("")}</div></div>`;
+  return`<div class="mfield"><div class="mf-h"><span class="chip">${esc(c.afl)}</span><strong style="flex:1;min-width:0">${esc(c.label)}</strong><button class="btn ghost small danger" data-act="mDelCrit" data-ci="${ci}" aria-label="Supprimer le critère">✕</button></div>
+    <div class="grid2">${mSel(p+".afl",c.afl,[["AFL1","AFL1"],["AFL2","AFL2"],["AFL3","AFL3"]],"AFL","data-rerender")}${mIn(p+".label",c.label,"","Élément évalué")}</div>
+    ${[0,1,2,3].map(d=>`<div class="mdeg"><span class="cell d${d+1}">D${d+1}</span>${mTa(`${p}.descripteurs.${d}`,c.descripteurs[d],"",'rows="2"')}${c.afl==="AFL1"?mIn(`${p}.points.${d}`,c.points[d],'data-mt="num" inputmode="decimal" style="width:70px"',"pts"):""}</div>`).join("")}
+    ${mSel(p+".calcul.type",cal.type,[["autoeval","Autoévaluation de l'élève"],["seuils","Calcul automatique : seuils"],["ecart","Calcul automatique : écart à une valeur"],["complet","Calcul automatique : cases remplies"]],"Correction","data-rerender")}${cfg}</div>`}
+function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=E.publieLe&&E.publieLe.toDate?E.publieLe.toDate().toLocaleDateString("fr-FR"):"";
+  const act=classes.map(c=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-actcls="${c.id}" ${E.id&&(c.activites||[]).includes(E.id)?"checked":""} ${E.id?"":"disabled"} style="width:20px;height:20px"> ${esc(c.nom)}</label>`).join("");
+  const head=`<div class="row"><button class="btn ghost small" data-act="backModeles">← Carnets IA</button><span class="spacer"></span>${E.id?`<button class="btn danger small" data-act="delModele">Supprimer</button>`:""}${sb?`<button class="btn small" data-act="saveModele">${E.dirty?"Enregistrer":"Enregistré ✓"}</button>`:""}</div>
+  <section class="class-hero"><span class="eyebrow">${esc(M.ca||"")}${M.apsa?" · "+esc(M.apsa):""}</span><h2>${esc(M.titre)}</h2>
+    <div class="row" style="margin-top:8px">${sb?`<span class="chip" style="background:#fff3cd;color:#7a5a00;border-color:#f2d16b">🧪 Bac à sable</span>${E.pub?`<span class="hint" style="color:#cfd6dc">Les élèves utilisent la version publiée${pubDate?" du "+pubDate:""}.</span>`:`<span class="hint" style="color:#cfd6dc">Pas encore visible par les élèves.</span>`}`:`<span class="chip" style="background:#d9f2e4;color:#155c36;border-color:#8fd3ae">✅ Publié${pubDate?" le "+pubDate:""}</span><span class="hint" style="color:#cfd6dc">Les élèves remplissent cette version.</span>`}</div></section>`;
+  if(!sb)return`<div class="stack">${head}
+    <section class="card"><div class="row"><div style="flex:1;min-width:200px"><strong>Modifier ce carnet ?</strong><div class="hint">Repassez en bac à sable : les élèves gardent la version publiée et toutes leurs données jusqu'à ce que vous republiiez.</div></div><button class="btn primary" data-act="mSandbox">✏️ Repasser en bac à sable</button></div></section>
+    <section class="card"><div class="sec-h"><h3>Activé pour</h3></div>${act||'<p class="hint">Aucune classe.</p>'}</section>
+    <h2 style="margin-top:6px">Aperçu élève</h2>${gSeance(curS())}</div>`;
+  const tabs=[["seance","Séance"],["criteres","Critères"],["infos","Infos"],["apercu","Aperçu"]];
+  let body="";
+  if(E.tab==="seance")body=M.sections.map((S,si)=>`<section class="card sec"><div class="sec-h"><span class="num">${si+1}</span><h3>${esc(S.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="mUpSec" data-si="${si}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownSec" data-si="${si}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelSec" data-si="${si}" aria-label="Supprimer la partie">✕</button></div>
+      <div class="grid2">${mIn(`sections.${si}.titre`,S.titre,"","Titre de la partie")}${mIn(`sections.${si}.consigne`,S.consigne,"","Consigne pour l'élève")}</div>
+      <div class="stack" style="gap:10px;margin-top:10px">${S.champs.map((f,fi)=>mFieldEd(M,si,fi,f)).join("")}</div>
+      <button class="btn small" data-act="mAddChamp" data-si="${si}" style="margin-top:10px">+ Ajouter une case</button></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
+  if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
+    <section class="card"><div class="sec-h"><h3>Barème AFL1</h3></div>${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
+    <p class="hint">Table de conversion (facultative) : à partir de tant de points, la note vaut… Sans table, la note est proportionnelle aux points.</p>
+    ${M.bareme.afl1.table.map((r,ri)=>`<div class="mcol">${mIn(`bareme.afl1.table.${ri}.pts`,r.pts,'data-mt="num" inputmode="decimal"',"Points ≥")}${mIn(`bareme.afl1.table.${ri}.note`,r.note,'data-mt="num" inputmode="decimal"',"Note")}<button class="btn ghost small" data-act="mDelRow" data-ri="${ri}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddRow">+ Ligne</button></section>`;
+  if(E.tab==="infos")body=`<section class="card stack" style="gap:10px">${mIn("titre",M.titre,"","Nom de l'activité")}<div class="grid2">${mSel("ca",M.ca,[["",""],["CA1","CA1"],["CA2","CA2"],["CA3","CA3"],["CA4","CA4"],["CA5","CA5"]],"Champ d'apprentissage")}${mIn("apsa",M.apsa,"","APSA")}</div>${mTa("description",M.description,"Description pour l'élève")}</section>
+    <section class="card"><div class="sec-h"><h3>Thèmes au choix de l'élève</h3></div>${M.themes.map((t,ti)=>`<div class="mcol">${mIn(`themes.${ti}.label`,t.label,"","Thème")}${mIn(`themes.${ti}.desc`,t.desc,"","Description")}<button class="btn ghost small" data-act="mDelTheme" data-ti="${ti}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddTheme">+ Thème</button></section>
+    <section class="card"><div class="sec-h"><h3>Activer pour mes classes</h3></div>${E.id?(act||'<p class="hint">Aucune classe.</p>'):'<p class="hint">Enregistrez d\'abord le carnet.</p>'}<p class="hint" style="margin:6px 0 0">Les élèves le voient une fois publié.</p></section>`;
+  if(E.tab==="apercu")body=`<p class="hint" style="margin:0">Remplissez l'aperçu puis « Tester la correction ». Rien n'est enregistré.</p>${gSeance(curS())}`;
+  return`<div class="stack">${head}
+  <section class="card ia-box"><div class="sec-h"><h3>✨ Demander à l'IA</h3>${modeleHist.length?`<span class="spacer"></span><button class="btn ghost small" data-act="iaUndo">↶ Annuler (${modeleHist.length})</button>`:""}</div>
+    <textarea id="ia-req" placeholder="ex. Ajoute la fréquence cardiaque à la fin de chaque tour · Le critère de régularité doit tolérer 3 s"></textarea>
     <div class="err" id="ia-err"></div><button class="btn primary" data-act="iaEdit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA modifie le carnet…":"Envoyer à l'IA"}</button></section>
-  <section class="card"><div class="sec-h"><h3>Critères et correction automatique</h3><span class="chip">${M.criteres.length}</span></div>${crit}
-    <p class="hint" style="margin:8px 0 0">AFL1 sur ${M.bareme.afl1.max} points${M.bareme.afl1.table.length?" (table de conversion du référentiel)":" (proportionnel aux points)"} · AFL2 et AFL3 selon la répartition choisie par l'élève.</p></section>
-  <section class="card"><div class="sec-h"><h3>Activer pour mes classes</h3></div>${modeleEdit.id?(act||'<p class="hint">Aucune classe.</p>'):'<p class="hint">Enregistrez d\'abord le carnet.</p>'}</section>
-  <h2 style="margin-top:6px">Aperçu élève</h2><p class="hint" style="margin:-8px 0 0">Remplissez l'aperçu puis « Tester la correction » pour vérifier les calculs. Rien n'est enregistré.</p>
-  ${gSeance(curS())}</div>`}
+  <div class="seg2" style="grid-template-columns:repeat(4,1fr)">${tabs.map(([k,l])=>`<button data-act="mTab" data-t="${k}" aria-current="${E.tab===k}">${l}</button>`).join("")}</div>
+  ${body}
+  <div class="valid-bar"><button class="btn big go-valid" style="--th:var(--d4)" data-act="mPublish"><span>✅ Valider et publier</span><small>${E.pub?"Remplace la version des élèves · leurs données sont conservées":"Le carnet apparaît pour les élèves des classes activées"}</small></button></div></div>`}
 const fileToB64=f=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(",")[1]);r.onerror=ko;r.readAsDataURL(f)});
-async function iaGenerer(){const file=$("#gen-file").files[0],texte=$("#gen-text").value.trim(),consignes=$("#gen-cons").value.trim(),err=$("#gen-err");err.textContent="";
-  if(!file&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
-  if(file&&file.size>15*1024*1024){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
+async function iaGenerer(){const f1=$("#gen-file").files[0],f2=$("#gen-fiche").files[0],texte=($("#gen-text")||{value:""}).value.trim(),consignes=$("#gen-cons").value.trim(),err=$("#gen-err");err.textContent="";
+  if(!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
+  if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.19-1");const fichier=file?{mime:file.type||"application/pdf",base64:await fileToB64(file)}:null;
-    const m=await ia.genererModele({fichier,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:m});toast("Ébauche prête : vérifiez-la puis enregistrez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  try{const ia=await import("./ia.js?v=2026.11.19-4");const fichiers=[];
+    if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
+    if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
+    const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.19-1");const m=await ia.modifierModele(modeleEdit.modele,req,IAKEY);modeleHist.push(clone(modeleEdit.modele));modeleEdit.modele=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié : vérifiez l'aperçu")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
-async function saveModele(){const M=modeleEdit.modele;
-  try{if(modeleEdit.id)await fb.updateModele(modeleEdit.id,{titre:M.titre,ca:M.ca,modele:M});else modeleEdit.id=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,modele:M});
-    modeleEdit.dirty=false;toast("Carnet enregistré");rerenderKeep()}catch(e){toast(authMsg(e))}}
+  try{const ia=await import("./ia.js?v=2026.11.19-4");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
+  try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
+    else E.id=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:null,statut:"brouillon"});
+    E.dirty=false;if(!quiet)toast("Brouillon enregistré");rerenderKeep();return true}catch(e){toast(authMsg(e));return false}}
+async function publierModele(){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
+  const prob=[];if(!M.criteres.some(c=>c.afl==="AFL1"))prob.push("aucun critère AFL1");M.criteres.forEach(c=>{if(c.descripteurs.some(d=>!d.trim()))prob.push(`descripteurs vides pour « ${c.label} »`)});
+  const go2=async()=>{try{if(!E.id){E.statut="brouillon";if(!await saveModele(true))return}
+      await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,modele:M,statut:"publie",publieLe:fb.now()});
+      E.pub=M;E.statut="publie";E.publieLe={toDate:()=>new Date()};E.dirty=false;closeModal();setPreview();toast("Carnet publié pour les élèves");rerenderKeep()}catch(e){closeModal();toast(authMsg(e))}};
+  confirmBox("Publier ce carnet ?",`${E.pub?"Les élèves passeront à cette nouvelle version. Les réponses déjà saisies sont conservées ; une case supprimée n'est plus affichée.":"Il apparaîtra pour les élèves des classes activées."}${prob.length?`<br><br><strong>À vérifier :</strong> ${esc(prob.join(" ; "))}.`:""}`,"Publier",go2)}
+function mutDraft(fn,rr=true){const M=modeleEdit.draft;fn(M);modeleEdit.dirty=true;if(rr)rerenderKeep()}
+function mClick(a,b){if(!modeleEdit)return false;const si=+b.dataset.si,fi=+b.dataset.fi,ci=+b.dataset.ci,mv=(arr,i,d)=>{const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]};
+  switch(a){
+    case"mTab":modeleEdit.tab=b.dataset.t;if(modeleEdit.tab==="apercu")setPreview();render();return true;
+    case"mSandbox":modeleEdit.statut="brouillon";fb.updateModele(modeleEdit.id,{statut:"brouillon"}).catch(x=>toast(authMsg(x)));modeleEdit.tab="seance";render();toast("Bac à sable : les élèves gardent la version publiée");return true;
+    case"mPublish":publierModele();return true;
+    case"mAddSec":mutDraft(M=>M.sections.push({id:newId("s"),titre:"Nouvelle partie",consigne:"",champs:[]}));return true;
+    case"mDelSec":confirmBox("Supprimer cette partie ?","Ses cases ne seront plus affichées. Les réponses déjà saisies restent enregistrées.","Supprimer",async()=>{closeModal();mutDraft(M=>M.sections.splice(si,1))},true);return true;
+    case"mUpSec":mutDraft(M=>mv(M.sections,si,-1));return true;
+    case"mDownSec":mutDraft(M=>mv(M.sections,si,1));return true;
+    case"mAddChamp":mutDraft(M=>M.sections[si].champs.push({id:newId("c"),type:"nombre",label:"Nouvelle case",aide:"",unite:"",requis:true}));return true;
+    case"mDelChamp":mutDraft(M=>M.sections[si].champs.splice(fi,1));return true;
+    case"mUpChamp":mutDraft(M=>mv(M.sections[si].champs,fi,-1));return true;
+    case"mDownChamp":mutDraft(M=>mv(M.sections[si].champs,fi,1));return true;
+    case"mAddCol":mutDraft(M=>{const f=M.sections[si].champs[fi];f.colonnes=f.colonnes||[];f.colonnes.push({id:newId("k"),type:"texte",label:"Colonne",options:[]})});return true;
+    case"mDelCol":mutDraft(M=>M.sections[si].champs[fi].colonnes.splice(ci,1));return true;
+    case"mAddCrit":mutDraft(M=>M.criteres.push({id:newId("k"),afl:"AFL1",label:"Nouveau critère",descripteurs:["","","",""],points:[1,2,3,4],calcul:{type:"autoeval"}}));return true;
+    case"mDelCrit":mutDraft(M=>M.criteres.splice(ci,1));return true;
+    case"mAddTheme":mutDraft(M=>M.themes.push({id:newId("t"),label:"Thème",desc:""}));return true;
+    case"mDelTheme":mutDraft(M=>M.themes.splice(+b.dataset.ti,1));return true;
+    case"mAddRow":mutDraft(M=>M.bareme.afl1.table.push({pts:0,note:0}));return true;
+    case"mDelRow":mutDraft(M=>M.bareme.afl1.table.splice(+b.dataset.ri,1));return true;
+    case"mBlank":startEditor({modele:null,brouillon:blankModele()});return true}
+  return false}
+function mField(el,e){if(!modeleEdit||route.name!=="modele")return false;const M=modeleEdit.draft;
+  if(el.dataset.mcomplet!==undefined){if(e.type!=="change")return true;const c=M.criteres[+el.dataset.mcomplet].calcul;c.champs=c.champs||[];el.checked?c.champs.push(el.value):c.champs=c.champs.filter(x=>x!==el.value);modeleEdit.dirty=true;return true}
+  if(el.dataset.mcible!==undefined){if(e.type!=="change")return true;const c=M.criteres[+el.dataset.mcible].calcul,tgt=el.dataset.where==="source"?c.source:c;tgt.cible=el.value==="num"?(el.dataset.where==="source"?60:0):{champ:el.value};modeleEdit.dirty=true;rerenderKeep();return true}
+  if(el.dataset.m===undefined)return false;
+  const path=el.dataset.m,t=el.dataset.mt;let v=t==="bool"?el.checked:el.value;
+  if(t==="num")v=el.value===""?"":num(el.value);if(t==="list")v=el.value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
+  setPath(M,path,v);modeleEdit.dirty=true;
+  if(/\.type$/.test(path)&&/^sections\.\d+\.champs\.\d+\.type$/.test(path)&&e.type==="change"){const[, si,fi]=path.match(/sections\.(\d+)\.champs\.(\d+)/);const f=M.sections[+si].champs[+fi];
+    if(v==="tableau"&&!(f.colonnes&&f.colonnes.length))f.colonnes=[{id:newId("k"),type:"texte",label:"Colonne",options:[]}];if(v==="passages"&&!f.nb)f.nb=4;if(v==="echelle"){f.min=f.min||1;f.max=f.max||10}if(v==="choix"&&!f.options)f.options=[]}
+  if(/^criteres\.\d+\.calcul\.type$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci],first=(allFields(normModele(M),["nombre","temps","compteur","echelle"])[0]||[""])[0];
+    c.calcul=v==="seuils"?{type:"seuils",source:{champ:first},sens:"haut",seuils:[3,2,1]}:v==="ecart"?{type:"ecart",source:{champ:first},cible:0,seuils:[1,2,3]}:v==="complet"?{type:"complet",champs:[],seuils:[1,.85,.5]}:{type:"autoeval"}}
+  if(/calcul\.source\.champ$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci].calcul,f=gField(normModele(M),v);
+    if(f&&f.type==="passages"){c.source.mesure=c.source.mesure||"proportion_dans_cible";if(c.source.cible===undefined)c.source.cible=60;c.source.tolerance=c.source.tolerance??5}
+    if(f&&f.type==="tableau"){c.source.colonne=c.source.colonne||(f.colonnes[0]&&f.colonnes[0].id);c.source.agg=c.source.agg||"moyenne"}}
+  if(e.type==="change"&&el.dataset.rerender!==undefined)rerenderKeep();
+  return true}
+
 async function toggleActivite(cid,on){const c=classes.find(x=>x.id===cid);if(!c||!modeleEdit.id)return;const a=new Set(c.activites||[]);on?a.add(modeleEdit.id):a.delete(modeleEdit.id);
   try{await fb.updateClasse(cid,{activites:[...a]});c.activites=[...a];toast(on?`Activé pour ${c.nom}`:`Retiré de ${c.nom}`)}catch(e){toast(authMsg(e))}}
 
@@ -1082,8 +1191,38 @@ function showMaj(v){if(!newer(v))return;majVersion=v;let b=$("#maj");
   $("#maj-go").onclick=deja?()=>{location.replace(location.pathname+"?v="+encodeURIComponent(v)+"&r="+Date.now())}:majNow;
   if(deja)return;
   if(document.visibilityState==="hidden")majNow()}
-async function majNow(){try{await Promise.race([flush(),new Promise(r=>setTimeout(r,3000))])}catch(e){}location.replace(location.pathname+"?v="+encodeURIComponent(majVersion||Date.now()))}
+async function majNow(){try{await Promise.race([flush(),new Promise(r=>setTimeout(r,3000))])}catch(e){}location.replace(location.pathname+"?v="+encodeURIComponent(majVersion||"")+"&t="+Date.now())}
 async function checkVersion(){try{const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;const j=await r.json();showMaj(j.version)}catch(e){}}
 let bc=null;try{bc=new BroadcastChannel("carnet-eps");bc.onmessage=e=>{const d=e.data||{};if(d.type==="hello"&&newer(d.v))showMaj(d.v);else if(d.type==="hello"&&d.v&&String(d.v)<String(APP_VERSION))bc.postMessage({type:"hello",v:APP_VERSION})};bc.postMessage({type:"hello",v:APP_VERSION})}catch(e){}
 checkVersion();setInterval(checkVersion,5*60*1000);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkVersion();else if(majVersion)majNow()});
+let partant=false;window.addEventListener("pagehide",()=>{partant=true});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkVersion();else if(majVersion&&!partant)setTimeout(()=>{if(!partant&&document.visibilityState==="hidden")majNow()},1500)});
+
+/* ---------- Pavé numérique intégré (virgule et deux-points) ---------- */
+const PAD_SEL='input[inputmode="numeric"],input[inputmode="decimal"]';
+const tactile=()=>{try{return matchMedia("(pointer: coarse)").matches}catch(e){return false}};
+let padField=null,padEl=null;
+function padPrepare(root){if(!tactile())return;(root.querySelectorAll?root:document).querySelectorAll(PAD_SEL).forEach(i=>{if(i.dataset.pad)return;i.dataset.pad=i.getAttribute("inputmode");i.setAttribute("inputmode","none");i.setAttribute("autocomplete","off")})}
+function padBuild(){if(padEl)return padEl;padEl=document.createElement("div");padEl.id="pad";padEl.className="pad";padEl.hidden=true;padEl.setAttribute("role","group");padEl.setAttribute("aria-label","Pavé numérique");
+  const keys=[["1"],["2"],["3"],["⌫","del"],["4"],["5"],["6"],[":","sep"],["7"],["8"],["9"],[",","sep"],["Effacer","clear"],["0"],["Suivant","next"],["OK","ok"]];
+  padEl.innerHTML=`<div class="pad-top"><span id="pad-label"></span><b id="pad-val"></b></div><div class="pad-keys">${keys.map(([k,c])=>`<button type="button" class="pk${c?" "+c:""}" data-pk="${k}">${k}</button>`).join("")}</div>`;
+  padEl.addEventListener("pointerdown",e=>{const b=e.target.closest("button");e.preventDefault();if(b)padKey(b.dataset.pk)});
+  document.body.appendChild(padEl);return padEl}
+function padLabel(i){const l=i.closest("label");if(l){const t=[...l.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join(" ").trim();if(t)return t}return i.getAttribute("aria-label")||i.placeholder||""}
+function padShow(i){padBuild();padField=i;padEl.hidden=false;document.body.classList.add("pad-open");$("#pad-label").textContent=padLabel(i);padSync();setTimeout(()=>i.scrollIntoView({block:"center",behavior:"smooth"}),50)}
+function padHide(){if(!padEl)return;padEl.hidden=true;document.body.classList.remove("pad-open");padField=null}
+function padSync(){if(padField)$("#pad-val").textContent=padField.value||"–"}
+function padSet(v){const i=padField;if(!i)return;i.value=v;i.dispatchEvent(new Event("input",{bubbles:true}));padSync()}
+function padCommit(){const i=padField;if(!i)return;i.dispatchEvent(new Event("change",{bubbles:true}))}
+function padKey(k){const i=padField;if(!i)return;const v=i.value||"";
+  if(k==="⌫")return padSet(v.slice(0,-1));
+  if(k==="Effacer")return padSet("");
+  if(k==="OK"){padCommit();padHide();i.blur();return}
+  if(k==="Suivant"){const all=[...document.querySelectorAll("input[data-pad]")].filter(x=>!x.disabled&&x.offsetParent);const n=all[all.indexOf(i)+1];padCommit();if(n){setTimeout(()=>{const id=n.id;const el=id?document.getElementById(id):n;(el||n).focus()},30)}else{padHide();i.blur()}return}
+  if(k===","&&(/[,.]/.test(v.split(":").pop())))return;
+  if(k===":"&&v.includes(":"))return;
+  padSet(v+k)}
+document.addEventListener("focusin",e=>{const i=e.target;if(i.matches&&i.matches("input[data-pad]")&&!i.disabled&&!i.readOnly){if(padField&&padField!==i)padCommit();padShow(i)}else if(padField&&!(padEl&&padEl.contains(i)))padHide()});
+document.addEventListener("pointerdown",e=>{if(!padField)return;if(padEl.contains(e.target)||e.target===padField)return;if(!(e.target.matches&&e.target.matches("input[data-pad]"))){padCommit();padHide()}},true);
+new MutationObserver(ms=>{for(const m of ms)m.addedNodes.forEach(n=>{if(n.nodeType===1)padPrepare(n)});if(padField&&!document.body.contains(padField))padHide()}).observe(document.body,{childList:true,subtree:true});
+padPrepare(document);

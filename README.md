@@ -31,7 +31,7 @@ Dans `config.js` : coller `firebaseConfig` et mettre votre e-mail dans `DEV_EMAI
 3. L'appli est en ligne à `https://VOTRE-PSEUDO.github.io/carnet-eps/`.
 
 ### 4. Compte développeur
-Sur la page de connexion : **Initialiser le compte développeur** → choisir un mot de passe. Le compte est créé avec le rôle développeur (autorisé uniquement pour l'e-mail `DEV_EMAIL`).
+Ouvrir l'appli avec `?init` à la fin de l'adresse (ex. `…/carnet-eps/?init`) : le bouton **Initialiser le compte développeur** apparaît (il est caché sinon) → choisir un mot de passe. Le compte est créé avec le rôle développeur (autorisé uniquement pour l'e-mail `DEV_EMAIL`).
 
 ## Utilisation
 
