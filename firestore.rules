@@ -97,6 +97,49 @@ service cloud.firestore {
         || (isEleve() && resource.data.classeId == me().classeId));
       allow create: if isProf() && request.resource.data.profId == request.auth.uid;
       allow delete: if isProf() && resource.data.profId == request.auth.uid;
+      // Pseudo affiché sur les feuilles de match : choisi par l'élève (ou corrigé par son prof)
+      allow update: if onlyKeys(['pseudo', 'avatar'])
+        && request.resource.data.get('pseudo', '') is string && request.resource.data.get('pseudo', '').size() <= 20
+        && request.resource.data.get('avatar', '') is string && request.resource.data.get('avatar', '').size() <= 8
+        && ((isEleve() && resource.data.uid == request.auth.uid) || (isProf() && resource.data.profId == request.auth.uid));
+    }
+
+    // ---------- Séances d'outils (feuille de match, scoreur) ----------
+    match /sessions/{id} {
+      allow read: if signedIn() && (resource.data.profId == request.auth.uid
+        || (isEleve() && resource.data.classeId == me().classeId));
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+      // Scores : tous les élèves de la classe pendant la séance ouverte, et le prof
+      match /matchs/{mid} {
+        function sess() { return get(/databases/$(database)/documents/sessions/$(id)).data; }
+        allow read: if signedIn() && (sess().profId == request.auth.uid
+          || (isEleve() && sess().classeId == me().classeId));
+        allow write: if signedIn() && (sess().profId == request.auth.uid
+          || (isEleve() && sess().classeId == me().classeId && sess().active == true));
+      }
+    }
+
+    // ---------- Accueil élève ----------
+    // Réglages du prof (barème du score d'activité, couleurs, défi de la semaine), lus par ses élèves
+    match /profcfg/{pid} {
+      allow read: if signedIn();
+      allow write: if uidIs(pid) && isProf();
+    }
+    // Activité physique de la semaine (saisie par l'élève, bientôt importée depuis Santé), lue par son prof
+    match /activite/{uid} {
+      allow read: if signedIn() && (uidIs(uid) || resource.data.profId == request.auth.uid);
+      allow create, update: if uidIs(uid) && isEleve() && request.resource.data.profId == me().profId;
+    }
+    // Actualités : compétitions, AS, informations
+    match /actus/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
     }
 
     // ---------- Séances à coacher ----------

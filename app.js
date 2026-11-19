@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.19-9";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-9";
-const APP_VERSION="2026.11.19-9";
+import * as fb from "./fb.js?v=2026.11.19-13";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-13";
+const APP_VERSION="2026.11.19-13";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -292,8 +292,8 @@ function vTours(s,r,TE,V){const n=nT(s),prev=r.prev,S=d=>V?stamp(d):"",dis=TE?""
 function vCoachBox(s,L){
   if(s.coachLogin)return`<div class="coach-box on"><span class="cb-ic">📣</span><div><strong>Coach : <code>${esc(s.coachLogin)}</code></strong><div class="hint">${s.valide?"A coaché cette séance.":"Il relève les temps de passage, les NO REP et les adaptations depuis son téléphone. Ils s'affichent ici en direct."}</div></div>${L?"":`<button class="btn ghost small" data-act="delCoach">Retirer</button>`}</div>`;
   if(L)return"";
-  return`<div class="coach-box"><span class="cb-ic">📣</span><div style="flex:1;min-width:0"><strong>Mon coach</strong><div class="hint">Entre l'identifiant de l'élève qui te coache : il remplira cette partie depuis son téléphone. Sinon, ton coach utilise ton téléphone.</div>
-    <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input id="coach-id" placeholder="ex. 1g2-05-x7p" autocapitalize="none" spellcheck="false" style="flex:1;min-width:0"><button class="btn primary small" data-act="setCoach">Ajouter</button></div><div class="err" id="coach-err"></div></div></div>`}
+  return`<div class="coach-box"><span class="cb-ic">📣</span><div style="flex:1;min-width:0"><strong>Mon coach</strong><div class="hint">Choisis l'élève qui te coache : il remplira cette partie depuis son téléphone. Sinon, ton coach utilise ton téléphone.</div>
+    <div class="row" style="margin-top:8px;flex-wrap:nowrap">${rosterSelect("coach-id",[],"Choisir mon coach…")}<button class="btn primary small" data-act="setCoach">Ajouter</button></div><div class="err" id="coach-err"></div></div></div>`}
 function vCoach(s){const th=settings.themes[s.theme]||settings.themes.cardio,r=correct(s,data.profil,settings);
   return`<div class="stack seance" style="--th:var(--t-${s.theme in settings.themes?s.theme:"cardio"})">
   <div class="row"><button class="btn ghost small" data-act="coachBack">← Mes activités</button><span class="spacer"></span><span id="sync" class="sync dark"></span></div>
@@ -417,7 +417,7 @@ function save(){if(COACH){const s=curS();if(!s||s.valide)return;clearTimeout(sav
   if(RO||!carnetId)return;dirtyProfil=true;if(cur)dirty.add(cur);clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(flush,700)}
 async function flushCoach(){clearTimeout(saveTimer);saveTimer=null;const s=curS();if(!COACH||!s)return;setSync(navigator.onLine===false?"offline":"saving");
   try{if(MOD){const up={};coachPaths(MOD).forEach(p=>{up["valeurs."+p]=gVal(s,p)??null});await fb.updateSeance(carnetId,s.id,up)}else await fb.coachSaveTours(carnetId,s.id,s.real.tours);setSync("ok")}catch(e){console.error(e);setSync("error");toast(e&&e.code==="permission-denied"?"Tu n'es plus le coach de cette séance.":authMsg(e))}}
-async function flush(){clearTimeout(saveTimer);saveTimer=null;if(COACH)return flushCoach();if(RO||!carnetId)return;const jobs=[];
+async function flush(){clearTimeout(saveTimer);saveTimer=null;if(VUE){dirty.clear();dirtyProfil=false;return}if(COACH)return flushCoach();if(RO||!carnetId)return;const jobs=[];
   if(dirtyProfil){dirtyProfil=false;jobs.push(fb.updateCarnet(carnetId,{profil:data.profil}))}
   for(const id of [...dirty]){dirty.delete(id);const s=data.seances.find(x=>x.id===id);if(!s||savedValide.has(id))continue;const v=!!s.valide;
     if(isGroupe()&&SYNCED[id]){const p=groupPatch(s);if(p&&Object.keys(p).length){const snap=flatVals(s);jobs.push(fb.updateSeance(carnetId,id,p).then(()=>{SYNCED[id]=snap;if(v)savedValide.add(id)}))}continue}
@@ -441,10 +441,10 @@ function renderHeader(){
   if((route.name==="carnet"&&!RO)||route.name==="coach")setSync(syncState);
   const t=$("#tabs");let h="";
   if(route.name==="carnet"){const w=PW(MOD);h=`<button class="back" data-nav="${RO?"suivi":dossierCtx?"dossier":"acts"}" aria-label="Retour">←</button>`+[["seances",MOD&&MOD.pages==="cycle"?"Ma page":w.many[0].toUpperCase()+w.many.slice(1)],["bilan","Bilan"],["profil",isGroupe()?"Groupe":"Profil"]].map(([v,l])=>`<button data-view="${v}" aria-current="${view===v}">${l}</button>`).join("")}
-  else if(me&&me.role!=="eleve"&&!["loading","login"].includes(route.name)){const cur2=["classes","classe","suivi"].includes(route.name)?"classes":["modele","dossiers","dossierEd"].includes(route.name)?"modeles":route.name;
-    h=[["classes","Classes"],["modeles","Activités"],["stock","Stock"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
+  else if(me&&me.role!=="eleve"&&!["loading","login"].includes(route.name)){const cur2=["classes","classe","suivi"].includes(route.name)?"classes":["modele","dossiers","dossierEd"].includes(route.name)?"modeles":route.name==="profAccueil"?"accueilEl":route.name;
+    h=[["classes","Classes"],["modeles","Activités"],["accueilEl","Élèves"],["stock","Stock"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
   t.querySelector(".wrap").innerHTML=h;t.hidden=!h}
-function render(){renderHeader();const m=$("#main");let h="";
+function render(){document.body.classList.toggle("vue",!!VUE);document.body.classList.toggle("shell",!!(me&&me.role==="eleve"&&["home","enclasse","profilEl","conseils","actus"].includes(route.name)));renderHeader();const m=$("#main");let h="";
   try{switch(route.name){
     case"loading":h=`<div class="center-msg"><div class="spinner"></div><p>${esc(route.msg||"Chargement…")}</p></div>`;break;
     case"setup":h=vSetup();break;
@@ -459,6 +459,15 @@ function render(){renderHeader();const m=$("#main");let h="";
     case"dossierEd":h=vDossierEd();break;
     case"dossier":h=vDossierEleve();break;
     case"stock":h=vStock();break;
+    case"home":h=vHome()+vBottomNav();break;
+    case"enclasse":h=vEnClasse()+vBottomNav();break;
+    case"profilEl":h=vProfilEl()+vBottomNav();break;
+    case"conseils":h=vConseilsPage()+vBottomNav();break;
+    case"actus":h=vActusPage()+vBottomNav();break;
+    case"profAccueil":h=PA?vProfAccueil():"";break;
+    case"feuille":h=FE?vFeuillePage():"";break;
+    case"feuilleLocale":h=FL?vFeuilleLocale():"";break;
+    case"outilProf":h=OP?vOutilProf():"";break;
     case"modele":h=vModele();break;
     case"classes":h=vClasses();break;
     case"classe":h=vClasse();break;
@@ -466,7 +475,7 @@ function render(){renderHeader();const m=$("#main");let h="";
     case"dev":h=vDev();break;
     case"compte":h=vCompte();break;
   }}catch(e){console.error(e);h=`<div class="card center-card"><h2>Erreur d'affichage</h2><p>${esc(e.message)}</p></div>`}
-  m.innerHTML=h;syncWatch()}
+  m.innerHTML=vVueBanner()+h;syncWatch()}
 function syncWatch(){const s=curS&&data?curS():null;
   const want=s&&((route.name==="coach"&&COACH)||(route.name==="carnet"&&!RO&&!COACH&&(s.coachUid||isGroupe())&&!s.valide))?`${carnetId}/${s.id}`:null;
   if(want===watchKey)return;if(watchUnsub){watchUnsub();watchUnsub=null}watchKey=want;if(!want)return;
@@ -499,13 +508,14 @@ function vLogin(){return`<div class="login">
 function vActs(){const cl=coachings.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
   const coachH=`<section class="card"><div class="sec-h"><h3>📣 Séances à coacher</h3><span class="spacer"></span><button class="btn ghost small" data-act="refreshCoach">Actualiser</button></div>
     ${cl.length?`<div class="list-s">${cl.map(c=>`<button class="s-item" data-act="openCoach" data-id="${c.id}" style="border-left-color:var(--accent)"><div><strong><code>${esc(c.eleveLogin)}</code></strong><div class="hint">${esc((ACTIVITES[c.activite]||{}).titre||"")} · séance du ${fmtDate(c.date)}</div></div><span class="chip">Coacher →</span></button>`).join("")}</div>`:`<p class="hint" style="margin:0">Quand un camarade te choisit comme coach, sa séance apparaît ici.</p>`}</section>`;
-  if(actsDossiers)return`<div class="stack">${coachH}<h2>Mes activités</h2><p class="hint" style="margin:-6px 0 0">Choisis une activité : tu y trouves ton carnet d'entraînement et les fiches de ton enseignant.</p>
+  if(actsDossiers)return`<div class="stack">${coachH}${vPseudoCard()}${vOutilsGeneraux()}<h2>Mes activités</h2><p class="hint" style="margin:-6px 0 0">Choisis une activité : tu y trouves ton carnet d'entraînement et les fiches de ton enseignant.</p>
   ${actsDossiers.length?`<div class="acts">${actsDossiers.map(d=>`<button class="act-card" data-act="openDossier" data-id="${d.id}"><span class="act-ca">${esc(d.ca||"")}</span><span class="act-t">${esc(d.titre)}</span><span class="act-d">${esc(d.desc||"")}</span><span class="act-go">Ouvrir →</span></button>`).join("")}</div>`:`<div class="card"><p style="margin:0">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</p></div>`}</div>`;
-  return`<div class="stack">${coachH}<h2>Mes activités</h2><p class="hint" style="margin:-6px 0 0">Choisis l'activité pour ouvrir ton carnet d'entraînement.</p>
+  return`<div class="stack">${coachH}${vPseudoCard()}${vOutilsGeneraux()}<h2>Mes activités</h2><p class="hint" style="margin:-6px 0 0">Choisis l'activité pour ouvrir ton carnet d'entraînement.</p>
   <div class="acts">${[...Object.entries(ACTIVITES).map(([k,a])=>({id:k,...a})),...actsList].map(a=>`<button class="act-card" data-act="openAct" data-a="${a.id}"><span class="act-ca">${esc(a.ca||"")}</span><span class="act-t">${esc(a.titre)}</span><span class="act-d">${esc(a.desc||"")}</span><span class="act-go">Ouvrir mon carnet →</span></button>`).join("")}</div></div>`}
 async function openActs(){dossierCtx=null;COACH=false;coachCtx=null;carnetId=null;data=null;cur=null;MOD=null;PREVIEW=false;go("loading");
   try{coachings=await fb.listCoachings(me.uid)}catch(e){console.error(e);coachings=[]}
-  try{const cl=await fb.getClasse(me.classeId);actsDossiers=await loadClasseDossiers(cl);actsList=actsDossiers?[]:await loadActs(cl)}catch(e){console.error(e);actsList=[];actsDossiers=null}go("acts")}
+  try{const cl=await fb.getClasse(me.classeId);eleveClasse=cl;actsDossiers=await loadClasseDossiers(cl);actsList=actsDossiers?[]:await loadActs(cl)}catch(e){console.error(e);actsList=[];actsDossiers=null}
+  try{eleveSessions=await fb.listSessionsActives(me.classeId,me.profId)}catch(e){eleveSessions=[]}go(actsDossiers?"enclasse":"acts")}
 let actsDossiers=null;
 async function openCoach(id){const c=coachings.find(x=>x.id===id);if(!c)return;go("loading",{msg:"Ouverture de la séance…"});
   try{const sd=await fb.getSeance(c.carnetId,c.sid);if(!sd)throw{code:"not-found"};
@@ -527,7 +537,7 @@ function setCarnetData(c,ss){carnetDoc=c;carnetId=c.id;
   else data.seances.forEach(s=>{s.autoeval=s.autoeval||{afl2:null,afl3:null};s.real=s.real||{tours:[]};s.real.tours=s.real.tours||[];s.echauffement=s.echauffement||{exos:[],pret:""};s.analyse=s.analyse||{}});
   savedValide=new Set(data.seances.filter(s=>s.valide).map(s=>s.id));dirty.clear();dirtyProfil=false;if(c.groupe)data.seances.forEach(markSynced)}
 
-async function setCoach(s){const inp=$("#coach-id"),err=$("#coach-err"),login=String(inp.value||"").trim().toLowerCase();err.textContent="";
+async function setCoach(s){if(apercuBloque())return;const inp=$("#coach-id"),err=$("#coach-err"),login=String(inp.value||"").trim().toLowerCase();err.textContent="";
   if(!login){err.textContent="Entre l'identifiant de ton coach.";return}
   if(login===String(me.login).toLowerCase()){err.textContent="Tu ne peux pas être ton propre coach.";return}
   try{const l=await fb.getLogin(login);if(!l){err.textContent="Identifiant introuvable dans ta classe.";return}
@@ -551,8 +561,8 @@ async function openClasse(id,tab){go("loading");try{await migrerDossiers();class
 function vClasse(){const c=classe,rep=getReperes(c.id);
   const tabs=`<div class="seg2">${[["activites","Activités"],["eleves",`Élèves (${eleves.length})`]].map(([k,l])=>`<button data-act="classeTab" data-t="${k}" aria-current="${classeTab===k}">${l}</button>`).join("")}</div>`;
   let body="";
-  if(classeTab==="activites"&&classeDossiers)body=(classeDossiers.length?classeDossiers.map(({d,carnets})=>`<section class="card"><div class="sec-h"><span class="act-ca">${esc(d.ca||"")}</span><h3>${esc(d.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="openDossierEd" data-id="${d.id}">Modifier</button></div>
-      ${carnets.length?`<div class="list-s">${carnets.map(x=>`<button class="s-item" data-act="openSuivi" data-a="${x.id}" style="border-left-color:var(--accent)"><div><strong>📒 ${esc(x.titre)}</strong><div class="hint">${x.pub?"Carnets des élèves et notes":"Pas encore publié"}</div></div><span class="chip">Voir →</span></button>`).join("")}</div>`:'<p class="hint" style="margin:0">Pas de carnet dans cette activité.</p>'}</section>`).join(""):`<div class="card"><p style="margin:0">Aucune activité ouverte pour cette classe.</p></div>`)
+  if(classeTab==="activites"&&classeDossiers)body=vSeanceJourProf()+(classeDossiers.length?classeDossiers.map(({d,carnets,outils})=>`<section class="card"><div class="sec-h"><span class="act-ca">${esc(d.ca||"")}</span><h3>${esc(d.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="openDossierEd" data-id="${d.id}">Modifier</button></div>
+      ${carnets.length?`<div class="list-s">${carnets.map(x=>`<button class="s-item" data-act="openSuivi" data-a="${x.id}" style="border-left-color:var(--accent)"><div><strong>📒 ${esc(x.titre)}</strong><div class="hint">${x.pub?"Carnets des élèves et notes":"Pas encore publié"}</div></div><span class="chip">Voir →</span></button>`).join("")}</div>`:""}${(outils||[]).length?`<div class="list-s" style="margin-top:8px">${outils.map(x=>`<button class="s-item" data-act="openOutilProf" data-d="${d.id}" data-o="${x.id}" style="border-left-color:var(--d2)"><div><strong>${OUTILS[x.kind].ic} ${esc(x.titre)}</strong><div class="hint">Réglages, ${x.kind==="feuille"?"poules et séances":"séances"}</div></div><span class="chip">Ouvrir →</span></button>`).join("")}</div>`:""}${!carnets.length&&!(outils||[]).length?'<p class="hint" style="margin:0">Rien dans cette activité.</p>':""}</section>`).join(""):`<div class="card"><p style="margin:0">Aucune activité ouverte pour cette classe.</p></div>`)
     +`<section class="card"><div class="sec-h"><h3>Activités de la classe</h3></div>${dossiers.map(d=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-clsdos="${d.id}" ${(classe.dossiers||[]).includes(d.id)?"checked":""} style="width:20px;height:20px"> ${esc(d.titre)}</label>`).join("")||'<p class="hint">Aucune activité.</p>'}
       <div class="row" style="margin-top:8px"><button class="btn small" data-nav="modeles">Gérer mes activités</button></div></section>`;
   else if(classeTab==="activites")body=`<div class="acts">${[...Object.entries(ACTIVITES).map(([k,a])=>({id:k,...a})),...classeActs].map(a=>`<button class="act-card" data-act="openSuivi" data-a="${a.id}"><span class="act-ca">${esc(a.ca||"")}</span><span class="act-t">${esc(a.titre)}</span><span class="act-d">Carnets d'entraînement des élèves et notes.</span><span class="act-go">Voir les carnets →</span></button>`).join("")}</div>
@@ -563,7 +573,7 @@ function vClasse(){const c=classe,rep=getReperes(c.id);
     <form id="add-eleves" class="row" style="margin-top:12px;align-items:end"><label class="f" style="width:150px">Nombre de comptes<input id="ae-n" type="number" min="1" max="40" value="${eleves.length?1:30}"></label><button class="btn primary" type="submit">Créer les comptes</button></form>
     <div id="ae-prog" class="hint" style="margin-top:8px"></div></section>
     ${eleves.length?"":`<button class="btn danger small" data-act="delClasse">Supprimer la classe</button>`}`;
-  return`<div class="stack"><div class="row"><button class="btn ghost small" data-nav="classes">← Mes classes</button></div>
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-nav="classes">← Mes classes</button><span class="spacer"></span><button class="btn small" data-act="vueEleve">👁 Vue élève</button></div>
   <div class="class-hero"><span class="eyebrow">${esc(c.annee||"")}</span><h2>${esc(c.nom)}</h2></div>${tabs}${body}</div>`}
 async function addEleves(n){const prog=$("#ae-prog"),c=classe;let maxN=eleves.reduce((m,e)=>Math.max(m,e.numero||0),0),ok=0;
   const btn=$("#add-eleves button");if(btn)btn.disabled=true;
@@ -688,6 +698,7 @@ function confirmBox(title,text,label,run,danger){openModal(`<h3>${esc(title)}</h
 
 /* ---------- Événements ---------- */
 document.addEventListener("click",async e=>{const n=e.target.closest("[data-nav]");if(!n)return;const v=n.dataset.nav;
+  if(v==="logout"&&VUE){quitterVueEleve();return}
   if(v==="logout"){await flush();if(watchUnsub){watchUnsub();watchUnsub=null;watchKey=null}RO=false;COACH=false;MOD=null;PREVIEW=false;carnetId=null;data=null;await fb.signOut();return}
   if(v==="home"){location.replace(location.pathname+"?r="+Date.now());return}
   if(v==="acts"){await flush();dossierCtx=null;openActs();return}
@@ -697,7 +708,8 @@ document.addEventListener("click",async e=>{const n=e.target.closest("[data-nav]
   if(v==="classes"){PREVIEW=false;MOD=null;go("loading");try{await loadClasses();go("classes")}catch(err){go("error",{msg:authMsg(err)})}return}
   if(v==="dev"){openDev();return}
   if(v==="compte"){go("compte");return}
-  if(v==="stock"){openStock();return}});
+  if(v==="stock"){openStock();return}
+  if(v==="accueilEl"){openProfAccueil();return}});
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-view]");if(!b)return;if(b.dataset.view==="fiches")openFiches();else setView(b.dataset.view)});
 const main=$("#main");
 function onField(e){const el=e.target;
@@ -706,6 +718,18 @@ function onField(e){const el=e.target;
   if(el.dataset.set){if(route.name!=="suivi")return;const st=settings;if(el.dataset.set==="tol")st.tol=num(el.value)||5;else{const[t,p,i]=el.dataset.set.split(".");const v=num(el.value);if(!isNaN(v))st.themes[t][p][+i]=v}
     if(e.type==="change"){saveReglages();rerenderKeep()}return}
   if(el.dataset.dos!==undefined){if(e.type==="change"){const v=el.value.trim();if(el.dataset.dos==="titre"&&!v)return;saveDossier({[el.dataset.dos]:v}).then(()=>{if(el.dataset.dos!=="desc")rerenderKeep()})}return}
+  if(el.dataset.pa!==undefined){if(e.type==="change"&&PA){paField(el.dataset.pa,el.type==="color"?el.value:el.value);if(el.type!=="color")rerenderKeep()}return}
+  if(el.id==="sj-d"){if(e.type==="change"){SJ.d=el.value;rerenderKeep()}return}
+  if(el.dataset.flj!==undefined){FL.joueurs[+el.dataset.flj]=el.value.slice(0,20);lsSet("feuilleLocale",FL);return}
+  if(el.dataset.flt!==undefined){if(e.type==="change"){FL.cfg.terrains=parseInt(el.value)||2;delete FL.M.cfg_0;lsSet("feuilleLocale",FL)}return}
+  if(el.dataset.flc!==undefined){if(e.type==="change")flCfg(el.dataset.flc,el.value);return}
+  if(el.dataset.ms!==undefined){if(e.type==="change")saveScore(el);return}
+  if(el.dataset.ter!==undefined){if(e.type==="change"&&FE)matchSet(FE.S.id,"cfg_"+el.dataset.ter,{terrains:parseInt(el.value)||1}).catch(x=>toast(authMsg(x)));return}
+  if(el.dataset.cfg!==undefined){if(e.type==="change")feuilleCfgChange(el.dataset.cfg,el.dataset.k2,el.value);return}
+  if(el.dataset.aff!==undefined){if(e.type==="change"&&OP&&OP.draft){OP.draft.aff[el.dataset.aff]=parseInt(el.value)||0;rerenderKeep()}return}
+  if(el.id==="op-nbp"){if(e.type==="change"&&OP&&OP.draft){OP.draft.nbP=Math.max(1,Math.min(10,parseInt(el.value)||1));rerenderKeep()}return}
+  if(el.id==="op-date"){if(OP&&OP.draft)OP.draft.date=el.value;return}
+  if(el.dataset.outilTitre!==undefined){if(e.type==="change"){const t=el.value.trim().slice(0,40);if(!t)return;const it=(dossier.items||[]).map(x=>x.id===el.dataset.outilTitre?{...x,titre:t}:x);const di=dossierItems.find(x=>x.id===el.dataset.outilTitre);if(di)di.titre=t;dosItems(it).then(()=>toast("Nom enregistré"))}return}
   if(el.dataset.clsdos!==undefined){if(e.type==="change"){const ds=new Set(classe.dossiers||[]);el.checked?ds.add(el.dataset.clsdos):ds.delete(el.dataset.clsdos);fb.updateClasse(classe.id,{dossiers:[...ds]}).then(()=>{classe.dossiers=[...ds];const c=classes.find(x=>x.id===classe.id);if(c)c.dossiers=classe.dossiers;openClasse(classe.id,"activites")}).catch(x=>toast(authMsg(x)))}return}
   if(el.dataset.doscls!==undefined){if(e.type==="change")toggleDossierClasse(el.dataset.doscls,el.checked);return}
   if(el.dataset.ficheTitre!==undefined){if(e.type==="change"){const t=el.value.trim().slice(0,80);const f=fiches.find(x=>x.id===el.dataset.ficheTitre);if(f&&t){f.titre=t;const di=dossierItems.find(x=>x.id===f.id);if(di)di.titre=t;fb.updateFiche(f.id,{titre:t}).then(()=>toast("Titre enregistré")).catch(x=>toast(authMsg(x)))}}return}
@@ -723,11 +747,14 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
     try{const id=await fb.createClasse({profId:me.uid,nom,annee,nbEleves:0,reglages:{}});await loadClasses();await openClasse(id,"eleves");toast("Classe créée : ajoutez les comptes élèves")}catch(x){toast(authMsg(x))}return}
   if(f.id==="add-eleves"){const n=Math.max(1,Math.min(40,parseInt($("#ae-n").value)||0));addEleves(n);return}
   if(f.id==="fiche-form"){if(!ficheBusy)deposerFiches();return}
+  if(f.id==="actu-form"){const d={profId:me.uid,type:$("#au-type").value,titre:$("#au-t").value.trim().slice(0,60),date:$("#au-date").value,lieu:$("#au-lieu").value.trim().slice(0,60),lien:$("#au-lien").value.trim().slice(0,300),classes:[...document.querySelectorAll(".au-cls:checked")].map(x=>x.value)};
+    if(!d.titre||!d.date)return;if(d.lien&&!/^https?:\/\//.test(d.lien)){toast("Le lien doit commencer par https://");return}
+    try{d.id=await fb.createActu(d);PA.actus.push(d);PA.actus.sort((a,b)=>String(a.date).localeCompare(String(b.date)));toast("Actualité publiée");rerenderKeep()}catch(x){toast(authMsg(x))}return}
   if(f.id==="new-dossier"){const t=$("#nd-t").value.trim();if(!t)return;try{const id=await fb.createDossier({profId:me.uid,titre:t,ca:$("#nd-ca").value,desc:"",items:[]});openDossierEd(id)}catch(x){toast(authMsg(x))}return}
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.19-9");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.19-13");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -789,6 +816,49 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
       try{for(const c of classes){if((c.dossiers||[]).includes(dossier.id)){const ds=c.dossiers.filter(x=>x!==dossier.id);await fb.updateClasse(c.id,{dossiers:ds});c.dossiers=ds}}
         for(const x of dossierItems){if(x.t==="fiche")await fb.deleteFiche(x.id,x.f.nb).catch(()=>{});else if(x.id!==CA5_ID)await fb.deleteModele(x.id).catch(()=>{})}
         await fb.deleteDossier(dossier.id);closeModal();dossierCtx=null;openDossiers()}catch(y){closeModal();toast(authMsg(y))}},true);return}
+  // Espace élève
+  if(a==="vueEleve"){entrerVueEleve();return}
+  if(a==="vueQuit"){quitterVueEleve();return}
+  if(a==="shTab"){shTab(b.dataset.t);return}
+  if(a==="shConseils"){go("conseils");return}
+  if(a==="shActus"){go("actus");return}
+  if(a==="shDefi"){toggleDefi();return}
+  if(a==="acSave"){saveActivite();return}
+  if(a==="avPick"){savePseudoAvatar(b.dataset.v);return}
+  if(a==="sjOpen"){sjOpen(b.dataset.d,b.dataset.id,b.dataset.t);return}
+  if(a==="sjFeuille"){openFeuille(b.dataset.id);return}
+  // Prof : accueil élèves et séance du jour
+  if(a==="paSave"||a==="paDefi"){(async()=>{if(a==="paDefi"){if(!PA.pc.defi.valeur){toast("Indiquez l'objectif du défi");return}PA.pc.defi.semaine=semaineId()}try{await fb.setProfCfg(me.uid,PA.pc);toast(a==="paDefi"?"Défi lancé pour cette semaine":"Barème enregistré");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
+  if(a==="paDelActu"){confirmBox("Supprimer cette actualité ?","Elle ne sera plus affichée aux élèves.","Supprimer",async()=>{try{await fb.deleteActu(b.dataset.id);PA.actus=PA.actus.filter(x=>x.id!==b.dataset.id);closeModal();rerenderKeep()}catch(x){closeModal();toast(authMsg(x))}},true);return}
+  if(a==="sjSave"){(async()=>{const did=$("#sj-d").value,dd=(classeDossiers||[]).find(x=>x.d.id===did);if(!dd)return;const ids=[...document.querySelectorAll(".sj-it:checked")].map(x=>x.value);
+      const items=dd.all.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,t:x.t,titre:x.titre,...(x.kind?{kind:x.kind}:{})}));const sj={date:today(),dossierId:did,titre:dd.d.titre,items};
+      try{await fb.updateClasse(classe.id,{seanceJour:sj});classe.seanceJour=sj;toast("Séance d'aujourd'hui affichée aux élèves");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
+  if(a==="sjClear"){(async()=>{try{await fb.updateClasse(classe.id,{seanceJour:null});classe.seanceJour=null;rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
+  // Outils généraux
+  if(a==="toolScoreur"){openScoreur({cfg:lsGet("scoreurCfg",CFG_DEF),reglable:true});return}
+  if(a==="toolFeuille"){openFeuilleLocale();return}
+  if(a==="flBack"){FE=null;openActs();return}
+  if(a==="flAdd"){if(FL.joueurs.length<8){FL.joueurs.push("");lsSet("feuilleLocale",FL);rerenderKeep()}return}
+  if(a==="flDel"){if(FL.joueurs.length>3){const n=FL.joueurs.length;FL.joueurs.splice(i,1);FL.M={};lsSet("feuilleLocale",FL);rerenderKeep();if(Object.keys(FL.M).length===0&&n)toast("Liste des joueurs modifiée")}return}
+  if(a==="flStart"){FL.etape="feuille";lsSet("feuilleLocale",FL);render();window.scrollTo(0,0);return}
+  if(a==="flEdit"){FL.etape="reglages";lsSet("feuilleLocale",FL);render();return}
+  if(a==="flReset"){confirmBox("Nouveau tournoi ?","Les scores de cette feuille seront effacés.","Effacer",async()=>{closeModal();FL.M={};FL.etape="reglages";lsSet("feuilleLocale",FL);render()},true);return}
+  // Outils
+  if(a==="psSave"){savePseudo();return}
+  if(a==="openOutil"){const x=dossierItems.find(y=>y.id===b.dataset.id);if(x)ouvrirOutilEleve(x);return}
+  if(a==="feuilleBack"){if(matchUnsub){matchUnsub();matchUnsub=null}FE=null;if(dossierCtx)openDossier(dossierCtx.id);else openActs();return}
+  if(a==="scoreLibre"){openScoreur({cfg:FE?cfgFor({},null,FE.S):OP?cfgFor(OP.item,OP.cls,null):CFG_DEF,reglable:!!(FE&&FE.local)});return}
+  if(a==="arbitrer"){if(!FE)return;const pi=+b.dataset.pi,x=b.dataset.a,y=b.dataset.b;openScoreur({a:nomDe(x,FE.S.noms),b:nomDe(y,FE.S.noms),cfg:cfgFor({},null,FE.S),ctx:{sid:FE.S.id,key:mKey(pi,x,y),a:x,b:y,pi}});return}
+  if(a==="openOutilProf"){openOutilProf(classe.id,b.dataset.d,b.dataset.o);return}
+  if(a==="opBack"){if(matchUnsub){matchUnsub();matchUnsub=null}FE=null;const c=OP.cls.id;OP=null;openClasse(c,"activites");return}
+  if(a==="opAuto"||a==="opMix"){opAuto(a==="opMix");return}
+  if(a==="opOpen"){opOpen();return}
+  if(a==="opNew"){if(matchUnsub){matchUnsub();matchUnsub=null}FE=null;OP.draft=newDraft();render();return}
+  if(a==="opHist"){const s=OP.sessions.find(z=>z.id===b.dataset.id);if(s)openFeuilleProf(s);return}
+  if(a==="opClose"){confirmBox("Clôturer la séance ?","Les élèves ne pourront plus modifier les scores. Vous pourrez la rouvrir.","Clôturer",async()=>{try{await fb.updateSession(FE.S.id,{active:false});FE.S.active=false;closeModal();toast("Séance clôturée");render()}catch(x){closeModal();toast(authMsg(x))}});return}
+  if(a==="opReopen"){(async()=>{try{for(const s of OP.sessions.filter(z=>z.active&&z.id!==FE.S.id)){await fb.updateSession(s.id,{active:false});s.active=false}await fb.updateSession(FE.S.id,{active:true});FE.S.active=true;toast("Séance rouverte");render()}catch(x){toast(authMsg(x))}})();return}
+  if(a==="opSaveCls"){(async()=>{try{const m={...(OP.cls.outilsCfg||{}),[OP.item.id]:OP.cfgCls};await fb.updateClasse(OP.cls.id,{outilsCfg:m});OP.cls.outilsCfg=m;toast("Réglages enregistrés pour la classe")}catch(x){toast(authMsg(x))}})();return}
+  if(a==="dosAddOutil"){const k=b.dataset.k;(async()=>{await dosItems([...(dossier.items||[]),{t:"outil",id:"o_"+Math.random().toString(36).slice(2,9),kind:k,titre:OUTILS[k].nom,cfg:CFG_DEF}]);openDossierEd(dossier.id)})();return}
   // Stock
   if(a==="stockDos"){stockDos=b.dataset.k;stockOpen=null;ficheOpen=null;render();window.scrollTo(0,0);return}
   if(a==="stockBack"){stockDos=null;render();return}
@@ -863,7 +933,7 @@ else{render();
       if(!d&&u.email&&u.email.toLowerCase()===String(DEV_EMAIL).toLowerCase()){await fb.setUser(u.uid,{role:"dev",email:u.email});d={role:"dev",email:u.email}}
       if(!d){me={uid:u.uid,role:""};go("noaccount");return}
       me={uid:u.uid,...d};
-      if(me.role==="eleve"){openActs()}else{try{const pr=await fb.getPrefs(u.uid);IAKEY=(pr&&pr.geminiKey)||""}catch(e){IAKEY=""}await loadClasses();go("classes")}}
+      if(me.role==="eleve"){try{const l=await fb.getLogin(me.login);me.pseudo=(l&&l.pseudo)||"";me.avatar=(l&&l.avatar)||""}catch(e){me.pseudo=""}openHome()}else{try{const pr=await fb.getPrefs(u.uid);IAKEY=(pr&&pr.geminiKey)||""}catch(e){IAKEY=""}await loadClasses();go("classes")}}
     catch(e){console.error(e);go("error",{msg:authMsg(e)})}})}
 
 /* ====================================================================
@@ -1217,6 +1287,7 @@ async function openCarnetModele(act){go("loading",{msg:"Ouverture du carnet…"}
   try{if(act===CA5_ID){const r=await ca5Modele(me.profId);MODDOC=r.doc;MOD=r.M}
     else{const md=actsList.find(a=>a.id===act)||{doc:await fb.getModele(act)};if(!md.doc)throw{code:"not-found"};MODDOC=md.doc;MOD=normModele(md.doc.modele||md.doc.brouillon)}
     activite=act;RO=false;PREVIEW=false;MODBASE=MOD;let c;
+    if(VUE){carnetId="apercu";c={id:"apercu",eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};setCarnetData(c,[]);view="seances";cur=null;syncState="ok";if(MOD.pages==="cycle"){newPage();cur=data.seances[0].id}go("carnet");toast("Vue élève : tu peux tout essayer, rien n'est enregistré");return}
     if(MOD.partage==="groupe"){c=await fb.findGroupeCarnet(me.uid,act);if(!c){carnetId=null;carnetDoc={sansGroupe:true};data={profil:blankProfil(),seances:[]};view="seances";cur=null;go("carnet");return}MOD=modFor(MODBASE,me.uid);carnetId=c.id}
     else{carnetId=`${me.uid}_${act}`;c=await fb.getCarnet(carnetId);
       if(!c){const b={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};await fb.createCarnet(carnetId,b);c={id:carnetId,...b}}}
@@ -1362,17 +1433,17 @@ async function iaGenerer(){const f1=$("#gen-file").files[0],f2=$("#gen-fiche").f
   if(!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.19-9");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.19-13");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-9");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.19-9");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-9");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.19-13");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1550,32 +1621,32 @@ function mergeRemote(loc,d){const old=SYNCED[loc.id]||{},mine=flatVals(loc),rem=
     const v=rem[k]===undefined?undefined:JSON.parse(rem[k]),ks=k.split(".");let o=loc;for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null)o[ks[i]]={};o=o[ks[i]]}o[ks[ks.length-1]]=v;ch=true});
   SYNCED[loc.id]=rem;return ch}
 /* --- Groupes --- */
-async function creerGroupe(){const err=$("#grp-err"),raw=String(($("#grp-ids")||{}).value||"").toLowerCase().split(/[\s,;]+/).filter(Boolean);err.textContent="";
+async function creerGroupe(){if(apercuBloque())return;const err=$("#grp-err"),raw=[...document.querySelectorAll(".grp-m:checked")].map(x=>x.value.toLowerCase());err.textContent="";
   const logins=[...new Set(raw)].filter(l=>l!==String(me.login).toLowerCase()),uids=[me.uid],lg=[me.login],mx=MOD.groupeMax||4;
   if(logins.length+1>mx){err.textContent=`Un groupe compte au plus ${mx} élèves (toi compris).`;return}
   try{for(const l of logins){const x=await fb.getLogin(l).catch(()=>null);if(!x){err.textContent=`Identifiant introuvable dans ta classe : ${l}`;return}uids.push(x.uid);lg.push(l)}
     const id="g_"+Math.random().toString(36).slice(2,12),b={groupe:true,membres:uids,logins:lg,profId:me.profId,classeId:me.classeId,activite,profil:blankProfil()};
     await fb.createCarnet(id,b);toast(uids.length>1?"Groupe créé : tes camarades le retrouvent dans l'activité":"Groupe créé : ajoute tes camarades dans « Groupe »");openCarnetModele(activite)}
   catch(e){console.error(e);err.textContent=authMsg(e)}}
-async function ajouterMembre(){const err=$("#gm-err"),l=String(($("#gm-id")||{}).value||"").trim().toLowerCase();err.textContent="";if(!l)return;
+async function ajouterMembre(){if(apercuBloque())return;const err=$("#gm-err"),l=String(($("#gm-id")||{}).value||"").trim().toLowerCase();err.textContent="";if(!l)return;
   if((carnetDoc.logins||[]).includes(l)){err.textContent="Déjà dans le groupe.";return}
   if((carnetDoc.membres||[]).length>=(MOD.groupeMax||4)){err.textContent=`Le groupe est complet (${MOD.groupeMax||4} élèves au plus).`;return}
   try{const x=await fb.getLogin(l);if(!x){err.textContent="Identifiant introuvable dans ta classe.";return}
     const membres=[...carnetDoc.membres,x.uid],logins=[...(carnetDoc.logins||[]),l];await fb.updateCarnet(carnetId,{membres,logins});carnetDoc.membres=membres;carnetDoc.logins=logins;toast("Camarade ajouté au groupe");rerenderKeep()}
   catch(e){err.textContent=authMsg(e)}}
-async function quitterGroupe(){const i=carnetDoc.membres.indexOf(me.uid);const membres=carnetDoc.membres.filter(u=>u!==me.uid),logins=(carnetDoc.logins||[]).filter((l,k)=>k!==i);
+async function quitterGroupe(){if(apercuBloque()){closeModal();return}const i=carnetDoc.membres.indexOf(me.uid);const membres=carnetDoc.membres.filter(u=>u!==me.uid),logins=(carnetDoc.logins||[]).filter((l,k)=>k!==i);
   try{await fb.updateCarnet(carnetId,{membres,logins});closeModal();toast("Tu as quitté le groupe");openCarnetModele(activite)}catch(e){closeModal();toast(authMsg(e))}}
 function vGroupeCard(){if(!isGroupe())return"";const c=carnetDoc;
   return`<section class="card"><div class="sec-h"><h2>Mon groupe</h2><span class="spacer"></span><span class="chip">${(c.membres||[]).length} / ${MOD.groupeMax||4} élèves</span></div>
   ${(c.membres||[]).length<(MOD.groupeMin||2)?`<p class="err" style="margin:6px 0 0">Il manque ${(MOD.groupeMin||2)-(c.membres||[]).length} camarade${(MOD.groupeMin||2)-(c.membres||[]).length>1?"s":""} : un groupe compte au moins ${MOD.groupeMin||2} élèves.</p>`:""}
   <div class="row" style="gap:6px">${(c.logins||[]).map(l=>`<span class="chip"><code>${esc(l)}</code></span>`).join("")}</div>
-  ${RO||(c.membres||[]).length>=(MOD.groupeMax||4)?"":`<div class="row" style="margin-top:10px;align-items:end"><label class="f" style="flex:1;min-width:160px">Ajouter un camarade (identifiant)<input id="gm-id" autocomplete="off" autocapitalize="none" placeholder="ex. 1g2-07-abc"></label><button class="btn" data-act="grpAdd">Ajouter</button></div><div class="err" id="gm-err"></div>
+  ${RO||(c.membres||[]).length>=(MOD.groupeMax||4)?"":`<div class="row" style="margin-top:10px;align-items:end"><label class="f" style="flex:1;min-width:160px">Ajouter un camarade${rosterSelect("gm-id",c.logins||[],"Choisir dans la classe…")}</label><button class="btn" data-act="grpAdd">Ajouter</button></div><div class="err" id="gm-err"></div>
   <p class="hint" style="margin:8px 0 0">Toutes les pages sont partagées. ${MOD.sections.some(S=>S.base)?"Les parties marquées « individuelle » sont propres à chacun.":""}</p>
   <button class="btn ghost small danger" data-act="grpLeave" style="margin-top:6px">Quitter le groupe</button>`}</section>`}
 function vSansGroupe(){return`<div class="stack"><div class="class-hero"><span class="eyebrow">${esc(MOD.ca||"")}</span><h2>${esc(MOD.titre)}</h2></div>
   <section class="card stack" style="gap:10px"><h3>Ce carnet se remplit en groupe</h3>
-  <p style="margin:0"><strong>Groupes de ${MOD.groupeMin===MOD.groupeMax?MOD.groupeMin:`${MOD.groupeMin} à ${MOD.groupeMax}`} élèves.</strong> Crée ton groupe en écrivant les identifiants de tes camarades. Si un camarade a déjà créé votre groupe, demande-lui de t'ajouter : le carnet apparaîtra ici.</p>
-  <label class="f">Identifiants de tes camarades (séparés par des espaces)<textarea id="grp-ids" autocapitalize="none" placeholder="ex. 1g2-07-abc 1g2-12-xyz"></textarea></label>
+  <p style="margin:0"><strong>Groupes de ${MOD.groupeMin===MOD.groupeMax?MOD.groupeMin:`${MOD.groupeMin} à ${MOD.groupeMax}`} élèves.</strong> Crée ton groupe en cochant tes camarades dans la liste de la classe. Si un camarade a déjà créé votre groupe, demande-lui de t'ajouter : le carnet apparaîtra ici.</p>
+  <div class="f"><span class="mlab">Coche tes camarades (${MOD.groupeMax-1} au plus)</span>${rosterChecks("grp-m",[],MOD.groupeMax-1)}</div>
   <div class="err" id="grp-err"></div><button class="btn primary" data-act="grpCreate">Créer mon groupe</button>
   <button class="btn ghost small" data-act="grpRefresh">J'ai été ajouté·e : actualiser</button></section></div>`}
 /* --- Élève : dossiers de la classe --- */
@@ -1585,15 +1656,18 @@ async function itemsOf(d,profId){const out=[];
   for(const it of d.items||[]){try{
     if(it.t==="carnet"){if(it.id===CA5_ID){const r=await ca5Modele(profId);out.push({...it,titre:r.M.titre,M:r.M,doc:r.doc,pub:true})}
       else{const m=await fb.getModele(it.id);if(m)out.push({...it,titre:(m.modele||m.brouillon||{}).titre||m.titre,doc:m,pub:!!m.modele,statut:m.statut})}}
+    else if(it.t==="outil")out.push({...it,titre:it.titre||OUTILS[it.kind].nom,pub:true});
     else{const f=await fb.getFiche(it.id);if(f)out.push({...it,titre:f.titre,f})}}catch(e){console.warn(e)}}return out}
 async function openDossier(id){go("loading",{msg:"Ouverture de l'activité…"});
   try{const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};activite=null;
-    dossierItems=await itemsOf(d,me.role==="eleve"?me.profId:me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;go("dossier")}
+    dossierItems=await itemsOf(d,me.role==="eleve"?me.profId:me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;
+    if(me.role==="eleve"&&dossierItems.some(x=>x.t==="outil")){try{[eleveSessions,eleveClasse]=await Promise.all([fb.listSessionsActives(me.classeId,me.profId),fb.getClasse(me.classeId)])}catch(e){console.warn(e);eleveSessions=[]}}
+    go("dossier")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche"||x.pub);
   return`<div class="stack"><div class="row"><button class="btn ghost small" data-nav="acts">← Mes activités</button></div>
   <div class="class-hero"><span class="eyebrow">${esc(d.ca||"")}</span><h2>${esc(d.titre)}</h2>${d.desc?`<p style="margin:6px 0 0;color:#cfd6dc">${esc(d.desc)}</p>`:""}</div>
-  ${its.length?`<div class="docs">${its.map(x=>x.t==="carnet"?`<button class="doc-item carnet" data-act="openAct" data-a="${x.id}"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</span></span><span class="chip">Ouvrir →</span></button>`
+  ${its.length?`<div class="docs">${its.map(x=>x.t==="outil"?(()=>{const s=(eleveSessions||[]).find(z=>z.outilId===x.id&&z.active),ok=x.kind!=="feuille"||s;return`<button class="doc-item outil" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${x.kind==="feuille"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte pour l'instant"):"Outil"}</span></span><span class="chip">${ok?"Ouvrir →":"Fermé"}</span></button>`})():x.t==="carnet"?`<button class="doc-item carnet" data-act="openAct" data-a="${x.id}"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</span></span><span class="chip">Ouvrir →</span></button>`
     :`<div class="fiche${ficheOpen===x.id?" open":""}"><div class="fiche-h"><button class="fiche-t" data-act="showFiche" data-id="${x.id}" aria-expanded="${ficheOpen===x.id}"><span class="fi-ic">${ficheIcon(x.f)}</span><span><strong>${esc(x.titre)}</strong></span><span class="spacer"></span><span class="chip">${ficheOpen===x.id?"Fermer":"Voir"}</span></button></div>${ficheOpen===x.id?`<div class="fiche-b">${vFicheViewer(x.f)}</div>`:""}</div>`).join("")}</div>`
     :`<div class="card"><p style="margin:0">Ton enseignant n'a encore rien déposé dans cette activité.</p></div>`}</div>`}
 /* --- Prof : dossiers --- */
@@ -1616,7 +1690,7 @@ async function openDossierEd(id){shareOpen=false;go("loading");try{await loadCla
 function vDossierEd(){const d=dossier,its=dossierItems;
   const st=x=>x.id===CA5_ID?(x.doc?(x.doc.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié · votre version"):"Publié · version d'origine"):x.pub?(x.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié"):"Bac à sable · pas encore visible";
   const rows=its.map((x,i)=>`<div class="doc-row${x.t==="fiche"&&ficheOpen===x.id?" open":""}"><div class="row" style="gap:6px;flex-wrap:nowrap">
-    ${x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
+    ${x.t==="outil"?`<div class="doc-item outil" style="flex:1;cursor:default"><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><input data-outil-titre="${x.id}" value="${esc(x.titre)}" maxlength="40" aria-label="Nom de l'outil"><span class="hint">${OUTILS[x.kind].nom} · séances et réglages : Classes › la classe › Activités</span></span></div>`:x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
       :`<button class="doc-item" data-act="showFiche" data-id="${x.id}" style="flex:1"><span class="di-ic">${ficheIcon(x.f)}</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">Fiche${x.f.type==="pdf"?" PDF":x.f.type==="texte"?" texte":` · ${x.f.nb} page${x.f.nb>1?"s":""}`}</span></span><span class="chip">${ficheOpen===x.id?"Fermer":"Voir"}</span></button>`}
     <div class="stack" style="gap:2px"><button class="btn ghost small" data-act="dosUp" data-i="${i}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="dosDown" data-i="${i}" aria-label="Descendre">↓</button></div><button class="btn ghost small danger" data-act="dosDel" data-i="${i}" aria-label="Retirer">✕</button></div>
     ${x.t==="fiche"&&ficheOpen===x.id?`<div class="fiche-b"><label class="f">Titre<input data-fiche-titre="${x.id}" value="${esc(x.titre)}" maxlength="80"></label>${vFicheViewer(x.f)}</div>`:""}</div>`).join("");
@@ -1630,6 +1704,8 @@ function vDossierEd(){const d=dossier,its=dossierItems;
   <section class="card stack" style="gap:8px"><h3>Ajouter un carnet</h3><p class="hint" style="margin:0">Carnet d'entraînement, feuille de poule, fiche de juge, fiche d'observation… Tout carnet se crée en bac à sable puis se publie.</p>
     <div class="row"><button class="btn primary" data-act="dosGen">✨ Avec l'IA</button><button class="btn" data-act="mBlank">Carnet vide</button>${hasCa5?"":`<button class="btn" data-act="dosAddCa5">Cross training CA5</button>`}</div>
     ${dosGen?vGenForm():""}</section>
+  <section class="card stack" style="gap:8px"><h3>Ajouter un outil</h3><p class="hint" style="margin:0">Feuille de match : poules de 3 à 8 joueurs sur 1 à 4 terrains, scores reportés par les élèves arbitres. Scoreur : compteur de points avec bonus et chrono.</p>
+    <div class="row"><button class="btn" data-act="dosAddOutil" data-k="feuille">🏆 Feuille de match</button><button class="btn" data-act="dosAddOutil" data-k="scoreur">⏱️ Scoreur</button></div></section>
   <form class="card stack" id="fiche-form" style="gap:10px"><h3>Ajouter une fiche</h3>
     <label class="f">Fichier (PDF ou photo : consignes, fiche technique, référentiel…)<input type="file" id="fi-file" accept="application/pdf,image/*" multiple></label>
     <details><summary class="hint">Ou écrire une fiche texte</summary><textarea id="fi-texte" placeholder="Contenu de la fiche"></textarea></details>
@@ -1654,7 +1730,7 @@ async function dosAddCarnet(id){if(!dossierCtx)return;const d=await fb.getDossie
 async function toggleDossierClasse(cid,on){const c=classes.find(x=>x.id===cid);if(!c)return;const ds=new Set(c.dossiers||[]);on?ds.add(dossier.id):ds.delete(dossier.id);
   try{await fb.updateClasse(cid,{dossiers:[...ds]});c.dossiers=[...ds];toast(on?`Activité visible pour ${c.nom}`:`Activité retirée pour ${c.nom}`)}catch(e){toast(authMsg(e))}}
 async function loadClasseActs(cl){const ds=await loadClasseDossiers(cl);if(!ds)return null;const out=[];
-  for(const d of ds){const its=await itemsOf(d,me.uid);out.push({d,carnets:its.filter(x=>x.t==="carnet")})}return out}
+  for(const d of ds){const its=await itemsOf(d,me.uid);out.push({d,all:its,carnets:its.filter(x=>x.t==="carnet"),outils:its.filter(x=>x.t==="outil")})}return out}
 
 
 /* ====================================================================
@@ -1708,6 +1784,369 @@ async function importer(e){stockBusy=e.id;rerenderKeep();
     for(const f of e.fiches||[]){const fid=await copyFiche(f,{activite:id});items.push({t:"fiche",id:fid})}
     await fb.updateDossier(id,{items});stockBusy="";toast("Activité importée : adaptez les carnets puis publiez-les");openDossierEd(id)}
   catch(x){console.error(x);stockBusy="";rerenderKeep();toast(authMsg(x))}}
+
+
+/* ====================================================================
+   Outils : feuille de match (poules, rotations, terrains) et scoreur
+   ==================================================================== */
+const OUTILS={feuille:{ic:"🏆",nom:"Feuille de match"},scoreur:{ic:"⏱️",nom:"Scoreur"}};
+const CFG_DEF={bonus:[{label:"Bonus",val:3}],duree:0,terrains:2};
+const normCfg=c=>{c=c||{};const b=(Array.isArray(c.bonus)?c.bonus:CFG_DEF.bonus).slice(0,3).map(x=>({label:String(x&&x.label||"Bonus").slice(0,14),val:Math.max(1,Math.min(20,parseInt(x&&x.val)||1))}));
+  return{bonus:b,bonusMode:c.bonusMode==="eval"?"eval":"score",duree:Math.max(0,Math.min(60,parseFloat(c.duree)||0)),terrains:Math.max(1,Math.min(4,parseInt(c.terrains)||2))}};
+const cfgFor=(item,cls,sess)=>normCfg(sess&&sess.reglages||(cls&&cls.outilsCfg&&cls.outilsCfg[item.id])||item.cfg||CFG_DEF);
+let OP=null,FE=null,matchUnsub=null,pseudoCache={};
+/* --- Pseudos --- */
+const nomDe=(uid,noms)=>{const n=(noms||{})[uid]||{};return pseudoCache[uid]||n.pseudo||n.login||"?"};
+async function chargerPseudos(noms){await Promise.all(Object.entries(noms||{}).map(async([uid,n])=>{if(pseudoCache[uid])return;try{const l=await fb.getLogin(n.login);if(l&&l.pseudo)pseudoCache[uid]=l.pseudo}catch(e){}}))}
+function vPseudoCard(){const p=me.pseudo||"";
+  return`<section class="card"><div class="row" style="align-items:end"><label class="f" style="flex:1;min-width:170px">Mon pseudo ${p?"":'<span class="chip" style="margin-left:4px">à choisir</span>'}<input id="ps-in" maxlength="20" value="${esc(p)}" placeholder="ex. Smash57" autocomplete="off"></label><button class="btn" data-act="psSave">Enregistrer</button></div>
+    <p class="hint" style="margin:6px 0 0">Il s'affiche sur les feuilles de match. N'écris pas ton vrai nom.</p><div class="err" id="ps-err"></div></section>`}
+async function savePseudo(){if(apercuBloque())return;const v=$("#ps-in").value.trim().replace(/\s+/g," "),err=$("#ps-err");err.textContent="";
+  if(v.length<2){err.textContent="2 caractères minimum.";return}
+  try{await fb.updateLogin(me.login,{pseudo:v.slice(0,20)});me.pseudo=v.slice(0,20);pseudoCache[me.uid]=me.pseudo;toast("Pseudo enregistré");rerenderKeep()}catch(e){err.textContent=authMsg(e)}}
+/* --- Tournoi : rencontres de chaque poule réparties en rotations sur les terrains --- */
+function rrRounds(ids){const p=[...ids];if(p.length%2)p.push(null);const n=p.length,R=[];
+  for(let r=0;r<n-1;r++){const m=[];for(let i=0;i<n/2;i++){const a=p[i],b=p[n-1-i];if(a&&b)m.push(r%2?[b,a]:[a,b])}R.push(m);p.splice(1,0,p.pop())}return R}
+function planning(ids,T){const out=[];let rot=0;rrRounds(ids).forEach(m=>{for(let i=0;i<m.length;i+=T){rot++;m.slice(i,i+T).forEach((x,k)=>out.push({rot,ter:k+1,a:x[0],b:x[1]}))}});return out}
+const mKey=(pi,a,b)=>`p${pi}_${[a,b].sort().join("_")}`;
+function scoresOf(M,pi,a,b){const d=M[mKey(pi,a,b)];if(!d||d.sa==null||d.sb==null)return null;return d.a===a?{sa:d.sa,sb:d.sb,d}:{sa:d.sb,sb:d.sa,d}}
+function classement(ids,pi,M){const t={};ids.forEach(u=>t[u]={u,j:0,v:0,n:0,d:0,pm:0,pe:0,bo:0});
+  for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const a=ids[i],b=ids[j],s=scoresOf(M,pi,a,b);if(!s)continue;
+    const A=t[a],B=t[b],dt=s.d.detail||{},sum=o=>Object.values(o||{}).reduce((x,y)=>x+(+y||0),0);A.bo+=sum(s.d.a===a?dt.ba:dt.bb);B.bo+=sum(s.d.a===a?dt.bb:dt.ba);A.j++;B.j++;A.pm+=s.sa;A.pe+=s.sb;B.pm+=s.sb;B.pe+=s.sa;if(s.sa>s.sb){A.v++;B.d++}else if(s.sa<s.sb){B.v++;A.d++}else{A.n++;B.n++}}
+  return Object.values(t).sort((x,y)=>y.v-x.v||y.n-x.n||(y.pm-y.pe)-(x.pm-x.pe)||y.pm-x.pm)}
+function vFeuille(S,M,edit){const myPi=S.poules.findIndex(p=>p.joueurs.includes(me.uid)),order=S.poules.map((p,i)=>i).sort((a,b)=>(b===myPi)-(a===myPi));
+  return order.map(pi=>{const P=S.poules[pi],T=Math.max(1,Math.min(4,parseInt((M["cfg_"+pi]||{}).terrains)||cfgFor({},null,S).terrains)),pl=planning(P.joueurs,T),cl=classement(P.joueurs,pi,M),mine=pi===myPi;
+    const nb=pl.length,faits=pl.filter(x=>scoresOf(M,pi,x.a,x.b)).length;let rot=0;
+    const rows=pl.map(x=>{const s=scoresOf(M,pi,x.a,x.b),k=mKey(pi,x.a,x.b),head=x.rot!==rot?(rot=x.rot,`<div class="rot-h">Rotation ${x.rot}</div>`):"";const me2=x.a===me.uid||x.b===me.uid;
+      return`${head}<div class="mrow${me2?" me":""}${s?" done":""}"><span class="ter">T${x.ter}</span><span class="pa">${esc(nomDe(x.a,S.noms))}</span>
+        <input class="sc" inputmode="numeric" aria-label="Score de ${esc(nomDe(x.a,S.noms))}" data-ms="${k}" data-a="${x.a}" data-b="${x.b}" data-side="a" value="${s?s.sa:""}" ${edit?"":"disabled"}><span class="dash">–</span>
+        <input class="sc" inputmode="numeric" aria-label="Score de ${esc(nomDe(x.b,S.noms))}" data-ms="${k}" data-a="${x.a}" data-b="${x.b}" data-side="b" value="${s?s.sb:""}" ${edit?"":"disabled"}><span class="pb">${esc(nomDe(x.b,S.noms))}</span>
+        ${edit?`<button class="btn small arb" data-act="arbitrer" data-pi="${pi}" data-a="${x.a}" data-b="${x.b}" aria-label="J'arbitre ce match">⚖️ J'arbitre</button>`:""}
+        ${s&&s.d.arbitre?`<span class="hint arb-by">arbitré par ${esc(s.d.arbitre)}</span>`:""}</div>`}).join("");
+    return`<details class="card poule" ${mine||S.poules.length===1?"open":""}><summary><strong>${esc(P.nom)}</strong>${mine?' <span class="chip">Ma poule</span>':""}<span class="spacer"></span><span class="hint">${faits} / ${nb} matchs</span></summary>
+      <div class="row" style="margin:8px 0"><label class="f" style="max-width:160px">Terrains<select data-ter="${pi}" ${edit?"":"disabled"}>${[1,2,3,4].map(n=>`<option value="${n}" ${n===T?"selected":""}>${n} terrain${n>1?"s":""}</option>`).join("")}</select></label><span class="hint">${P.joueurs.length} joueurs · ${pl.length?pl[pl.length-1].rot:0} rotations</span></div>
+      ${(()=>{const ev=cfgFor({},null,S).bonusMode==="eval"&&cfgFor({},null,S).bonus.length;return`<table class="classt"><thead><tr><th>#</th><th>Joueur</th><th>V</th><th>N</th><th>D</th><th>Diff</th>${ev?"<th>Bonus</th>":""}</tr></thead><tbody>${cl.map((r,i)=>`<tr${r.u===me.uid?' class="me"':""}><td>${i+1}</td><td>${esc(nomDe(r.u,S.noms))}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.pm-r.pe>0?"+":""}${r.pm-r.pe}</td>${ev?`<td>${r.bo}</td>`:""}</tr>`).join("")}</tbody></table>`})()}
+      <div class="matchs">${rows}</div></details>`}).join("")}
+async function saveScore(el){if(!FE)return;const k=el.dataset.ms,a=el.dataset.a,b=el.dataset.b,row=el.closest(".mrow"),[ia,ib]=row.querySelectorAll("input.sc");
+  const va=ia.value.trim(),vb=ib.value.trim();if((va==="")!==(vb==="")&&!(va===""&&vb===""))return;/* attendre les deux scores */
+  const pi=parseInt(k.slice(1));const data=va===""?{a,b,pi,sa:null,sb:null,arbitre:null,maj:new Date().toISOString()}:{a,b,pi,sa:Math.max(0,parseInt(va)||0),sb:Math.max(0,parseInt(vb)||0),arbitre:FE.S.id==="local"?"":(me.pseudo||me.login||"prof"),maj:new Date().toISOString()};
+  try{await matchSet(FE.S.id,k,data);toast("Score enregistré")}catch(e){toast(authMsg(e))}}
+async function openFeuille(sid){go("loading",{msg:"Ouverture de la feuille de match…"});
+  try{const S=await fb.getSession(sid);if(!S)throw{code:"not-found"};FE={S,M:{}};await chargerPseudos(S.noms);
+    if(matchUnsub)matchUnsub();matchUnsub=fb.watchMatchs(sid,list=>{if(!FE||FE.S.id!==sid)return;FE.M=Object.fromEntries(list.map(x=>[x.id,x]));if(["feuille","outilProf"].includes(route.name))rerenderKeep()});go("feuille")}
+  catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+function vFeuillePage(){const S=FE.S,cfg=cfgFor({},null,S);
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="feuilleBack">← ${me.role==="eleve"?"Activité":"Retour"}</button><span class="spacer"></span><button class="btn small" data-act="scoreLibre">⏱️ Scoreur</button></div>
+  <section class="class-hero"><span class="eyebrow">${S.active?"Séance en cours":"Séance terminée"} · ${fmtDate(S.date)}</span><h2>🏆 ${esc(S.titre||"Feuille de match")}</h2>
+    <p style="margin:6px 0 0;color:#cfd6dc">${cfg.bonus.length?`Bonus : ${cfg.bonus.map(b=>`${esc(b.label)} ${cfg.bonusMode==="eval"?"(compté pour l'évaluation)":"+"+b.val}`).join(" · ")}`:"Pas de bonus"}${cfg.duree?` · matchs de ${fmtN(cfg.duree)} min`:""}</p></section>
+  <p class="hint" style="margin:0">Entre les scores directement, ou touche « ⚖️ J'arbitre » pour compter les points avec le scoreur : le score est reporté ici à la fin du match.</p>
+  ${vFeuille(S,FE.M,S.active||me.role!=="eleve")}</div>`}
+/* --- Scoreur plein écran --- */
+let SC=null,scTimer=null;
+function openScoreur(o){SC={A:{nom:o.a||"Équipe A",pts:0,h:[],b:{}},B:{nom:o.b||"Équipe B",pts:0,h:[],b:{}},cfg:normCfg(o.cfg),acc:0,t0:null,ctx:o.ctx||null,libre:!o.ctx,reglable:!!o.reglable,cfgOpen:false};
+  let el=$("#scoreur");if(!el){el=document.createElement("div");el.id="scoreur";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");el.setAttribute("aria-label","Scoreur");document.body.appendChild(el)}
+  document.body.classList.add("sc-open");scRender();scTimer=setInterval(scTick,250)}
+function closeScoreur(){clearInterval(scTimer);scTimer=null;SC=null;const el=$("#scoreur");if(el)el.remove();document.body.classList.remove("sc-open")}
+const scEl=()=>SC.acc+(SC.t0?Date.now()-SC.t0:0);
+function scClock(){const ms=scEl(),d=SC.cfg.duree*60000;let t=d?Math.max(0,d-ms):ms;const s=Math.floor(t/1000)+(d&&t%1000?1:0);return`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
+function scTick(){if(!SC)return;const c=$("#sc-clock");if(c)c.textContent=scClock();if(SC.cfg.duree&&SC.t0&&scEl()>=SC.cfg.duree*60000){SC.acc=SC.cfg.duree*60000;SC.t0=null;scRender();toast("Temps écoulé !");if(navigator.vibrate)navigator.vibrate([200,100,200])}}
+function scSide(k){const T=SC[k],c=k==="A"?"blue":"orange";
+  return`<div class="sc-team ${c}"><div class="sc-emb" aria-hidden="true">${esc((T.nom.trim()[0]||"?").toUpperCase())}</div>
+    ${SC.libre?`<input class="sc-name" data-scn="${k}" value="${esc(T.nom)}" maxlength="20" aria-label="Nom ${k==="A"?"de la première équipe":"de la deuxième équipe"}">`:`<div class="sc-name">${esc(T.nom)}</div>`}
+    <div class="sc-score" aria-live="polite">${T.pts}</div>
+    ${SC.cfg.bonusMode==="eval"&&SC.cfg.bonus.length?`<div class="sc-bcount">${SC.cfg.bonus.map(b=>`<span>${esc(b.label)} ×${T.b[b.label]||0}</span>`).join("")}</div>`:""}
+    <div class="sc-btns"><button data-sc="${k}" data-v="1"><b>+1</b><small>Point</small></button>${SC.cfg.bonus.map(b=>`<button data-sc="${k}" data-v="${b.val}" data-l="${esc(b.label)}" data-bonus="1"><b>${SC.cfg.bonusMode==="eval"?"+1":"+"+b.val}</b><small>${esc(b.label)}</small></button>`).join("")}</div>
+    <button class="sc-undo" data-scu="${k}" ${T.h.length?"":"disabled"}>↶ Annuler (${T.h.length?(T.h[T.h.length-1].bonus?T.h[T.h.length-1].l:"+"+T.h[T.h.length-1].v):"–"})</button></div>`}
+function scRender(){const el=$("#scoreur");if(!el||!SC)return;
+  if(SC.cfgOpen){el.innerHTML=`<div class="sc-top"><button class="sc-round" data-scx="cfgDone" aria-label="Retour au scoreur">‹</button><h2>Scoreur</h2><span style="width:44px"></span></div>${scCfgPanel()}`;return}
+  el.innerHTML=`<div class="sc-top"><button class="sc-round" data-scx="close" aria-label="Fermer le scoreur">‹</button><h2>Scoreur</h2>${SC.reglable?`<button class="sc-round" data-scx="cfg" aria-label="Réglages du scoreur">⚙</button>`:'<span style="width:44px"></span>'}</div>
+  <div class="sc-vs">${scSide("A")}<div class="sc-v" aria-hidden="true">VS</div>${scSide("B")}</div>
+  <div class="sc-clock-bar"><span aria-hidden="true">⏱️</span><span id="sc-clock">${scClock()}</span><button class="sc-round" data-scx="play" aria-label="${SC.t0?"Pause":"Démarrer le chrono"}">${SC.t0?"❚❚":"▶"}</button></div>
+  <div class="sc-actions"><button class="sc-reset" data-scx="reset">↻ Réinitialiser</button>${SC.ctx?`<button class="sc-valid" data-scx="valid">✅ Valider le score</button>`:""}</div>`}
+function scClick(e){const b=e.target.closest("button");if(!b||!SC)return;
+  if(b.dataset.sc){const T=SC[b.dataset.sc],v=parseInt(b.dataset.v)||1,l=b.dataset.l||"Point";
+    if(b.dataset.bonus&&SC.cfg.bonusMode==="eval"){T.b[l]=(T.b[l]||0)+1;T.h.push({v:0,l,bonus:true})}else{T.pts+=v;T.h.push({v,l})}if(navigator.vibrate)navigator.vibrate(15);scRender();return}
+  if(b.dataset.scu){const T=SC[b.dataset.scu],x=T.h.pop();if(x){if(x.bonus)T.b[x.l]=Math.max(0,(T.b[x.l]||0)-1);else T.pts-=x.v}scRender();return}
+  const x=b.dataset.scx;
+  if(x==="cfg"){SC.cfgOpen=true;scRender();return}
+  if(x==="cfgDone"){SC.cfgOpen=false;scRender();return}
+  if(x==="close"){if((SC.A.h.length||SC.B.h.length)&&SC.ctx){confirmBox("Quitter le scoreur ?","Le score n'a pas été validé : il ne sera pas reporté sur la feuille de match.","Quitter",async()=>{closeModal();closeScoreur()},true);return}closeScoreur();return}
+  if(x==="play"){if(SC.t0){SC.acc+=Date.now()-SC.t0;SC.t0=null}else{if(SC.cfg.duree&&scEl()>=SC.cfg.duree*60000)SC.acc=0;SC.t0=Date.now()}scRender();return}
+  if(x==="reset"){confirmBox("Réinitialiser ?","Les scores et le chrono reviennent à zéro.","Réinitialiser",async()=>{closeModal();SC.A.pts=0;SC.B.pts=0;SC.A.h=[];SC.B.h=[];SC.A.b={};SC.B.b={};SC.acc=0;SC.t0=null;scRender()},true);return}
+  if(x==="valid"){const c=SC.ctx;if(c.sid!=="local"&&apercuBloque())return;confirmBox("Valider le score ?",`${esc(SC.A.nom)} ${SC.A.pts} – ${SC.B.pts} ${esc(SC.B.nom)} sera reporté sur la feuille de match.`,"Valider",async()=>{
+      try{await matchSet(c.sid,c.key,{a:c.a,b:c.b,pi:c.pi,sa:SC.A.pts,sb:SC.B.pts,arbitre:c.sid==="local"?"":me.pseudo||me.login||"prof",detail:{a:SC.A.h.filter(h=>!h.bonus).map(h=>h.v),b:SC.B.h.filter(h=>!h.bonus).map(h=>h.v),ba:SC.A.b,bb:SC.B.b},maj:new Date().toISOString()});closeModal();closeScoreur();toast("Score reporté sur la feuille de match")}
+      catch(y){closeModal();toast(authMsg(y))}});return}}
+document.addEventListener("click",e=>{if(e.target.closest("#scoreur"))scClick(e)});
+document.addEventListener("change",e=>{const i=e.target.closest("[data-scc]");if(i&&SC){SC.cfg=editCfg(SC.cfg,i.dataset.scc,i.value);lsSet("scoreurCfg",SC.cfg);scRender()}});
+document.addEventListener("input",e=>{const i=e.target.closest("[data-scn]");if(i&&SC){SC[i.dataset.scn].nom=i.value;const em=i.parentElement.querySelector(".sc-emb");if(em)em.textContent=(i.value.trim()[0]||"?").toUpperCase()}});
+/* --- Prof : réglages et séances d'un outil pour une classe --- */
+async function openOutilProf(cid,did,oid){go("loading",{msg:"Chargement…"});
+  try{const cls=await fb.getClasse(cid),d=await fb.getDossier(did),item=(d.items||[]).find(x=>x.id===oid);if(!item)throw{code:"not-found"};
+    const [sessions,eleves]=await Promise.all([fb.listSessions(me.uid,cid,oid),fb.listEleves(cid)]);eleves.sort((a,b)=>a.numero-b.numero);
+    await Promise.all(eleves.map(async e=>{try{const l=await fb.getLogin(e.login);if(l&&l.pseudo)pseudoCache[e.id]=l.pseudo}catch(x){}}));
+    sessions.sort((a,b)=>String(b.date).localeCompare(String(a.date)));const act=sessions.find(s=>s.active);
+    OP={cls,d,item,sessions,eleves,cfgCls:normCfg(cls.outilsCfg&&cls.outilsCfg[oid]||item.cfg),draft:null};
+    if(act){await openFeuilleProf(act)}else{OP.draft=newDraft();FE=null;if(matchUnsub){matchUnsub();matchUnsub=null}go("outilProf")}}
+  catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+function newDraft(){const n=OP.eleves.length,k=OP.item.kind==="feuille"?Math.max(1,Math.round(n/5)):0;return{date:today(),reglages:clone(OP.cfgCls),nbP:k,aff:{}}}
+async function openFeuilleProf(S){FE={S,M:{}};await chargerPseudos(S.noms);if(matchUnsub)matchUnsub();matchUnsub=fb.watchMatchs(S.id,list=>{if(!FE||FE.S.id!==S.id)return;FE.M=Object.fromEntries(list.map(x=>[x.id,x]));if(route.name==="outilProf")rerenderKeep()});go("outilProf")}
+function vCfgEd(c,pre){return`<div class="grid2"><label class="f">Nombre de bonus<select data-cfg="${pre}" data-k2="nb">${[0,1,2,3].map(n=>`<option value="${n}" ${c.bonus.length===n?"selected":""}>${n}</option>`).join("")}</select></label>
+    <label class="f">Durée d'un match (min, 0 = chrono libre)<input data-cfg="${pre}" data-k2="duree" inputmode="decimal" value="${c.duree||0}"></label></div>
+    ${c.bonus.map((b,i)=>`<div class="grid2"><label class="f">Bonus ${i+1} : nom<input data-cfg="${pre}" data-k2="bl${i}" maxlength="14" value="${esc(b.label)}"></label><label class="f">Valeur (points)<input data-cfg="${pre}" data-k2="bv${i}" inputmode="numeric" value="${b.val}"></label></div>`).join("")}
+    ${c.bonus.length?`<label class="f">Les bonus<select data-cfg="${pre}" data-k2="mode"><option value="score" ${c.bonusMode!=="eval"?"selected":""}>comptent dans le score du match</option><option value="eval" ${c.bonusMode==="eval"?"selected":""}>servent seulement à l'évaluation (ne changent pas le résultat)</option></select></label>`:""}
+    ${OP.item.kind==="feuille"?`<label class="f" style="max-width:220px">Terrains par poule au départ<select data-cfg="${pre}" data-k2="terrains">${[1,2,3,4].map(n=>`<option value="${n}" ${c.terrains===n?"selected":""}>${n}</option>`).join("")}</select></label>`:""}`}
+function editCfg(c,k,v){if(k==="nb"){const n=parseInt(v)||0;while(c.bonus.length<n)c.bonus.push({label:"Bonus",val:c.bonus.length?c.bonus[c.bonus.length-1].val+1:3});c.bonus.length=n}
+  else if(k==="mode")c.bonusMode=v==="eval"?"eval":"score";
+  else if(k==="duree")c.duree=Math.max(0,parseFloat(String(v).replace(",","."))||0);else if(k==="terrains")c.terrains=parseInt(v)||2;
+  else if(k[1]==="l")c.bonus[+k.slice(2)].label=String(v).slice(0,14)||"Bonus";else if(k[1]==="v")c.bonus[+k.slice(2)].val=Math.max(1,parseInt(v)||1);return normCfg(c)}
+function poulesOf(dr){const P=Array.from({length:dr.nbP},(_,i)=>({nom:`Poule ${i+1}`,joueurs:[]}));OP.eleves.forEach(e=>{const p=dr.aff[e.id];if(p>=1&&p<=dr.nbP)P[p-1].joueurs.push(e.id)});return P}
+function vOutilProf(){const it=OP.item,O=OUTILS[it.kind],S=FE&&FE.S,dr=OP.draft;
+  const hist=OP.sessions.filter(s=>!s.active);
+  let body="";
+  if(S){body=`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>${S.active?"🟢 Séance ouverte aux élèves":"Séance du "+fmtDate(S.date)}</h3><span class="spacer"></span>${S.active?`<button class="btn danger small" data-act="opClose">Clôturer la séance</button>`:`<button class="btn small" data-act="opReopen">Rouvrir</button>`}</div>
+      <p class="hint" style="margin:0">Réglages de cette séance : ils s'appliquent tout de suite sur les téléphones des élèves.</p>${vCfgEd(cfgFor(it,null,S),"sess")}</section>
+      ${it.kind==="feuille"?vFeuille(S,FE.M,true):`<section class="card"><p style="margin:0">Les élèves ouvrent le scoreur depuis l'activité avec ces réglages.</p><button class="btn" data-act="scoreLibre" style="margin-top:8px">⏱️ Tester le scoreur</button></section>`}
+      <button class="btn ghost small" data-act="opNew">+ Préparer une nouvelle séance</button>`}
+  else{const P=it.kind==="feuille"?poulesOf(dr):[],bad=P.filter(p=>p.joueurs.length<3||p.joueurs.length>8);
+    body=`<section class="card stack" style="gap:10px"><h3>Préparer la séance</h3><label class="f" style="max-width:200px">Date<input type="date" id="op-date" value="${dr.date}"></label>${vCfgEd(dr.reglages,"draft")}</section>
+    ${it.kind==="feuille"?`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>Poules</h3><span class="spacer"></span><span class="hint">3 à 8 joueurs par poule</span></div>
+      <div class="row" style="align-items:end"><label class="f" style="max-width:160px">Nombre de poules<input id="op-nbp" inputmode="numeric" value="${dr.nbP}"></label><button class="btn small" data-act="opAuto">Répartir automatiquement</button><button class="btn ghost small" data-act="opMix">Mélanger</button></div>
+      <div class="pchips">${P.map(p=>`<span class="chip${p.joueurs.length<3||p.joueurs.length>8?" ko":""}">${esc(p.nom)} : ${p.joueurs.length}</span>`).join("")}<span class="chip">Sans poule : ${OP.eleves.filter(e=>!(dr.aff[e.id]>=1&&dr.aff[e.id]<=dr.nbP)).length}</span></div>
+      <div class="aff">${OP.eleves.map(e=>`<label class="aff-r"><span><b>N°${e.numero}</b> ${esc(pseudoCache[e.id]||e.login)}${pseudoCache[e.id]?` <span class="hint">${esc(e.login)}</span>`:""}</span><select data-aff="${e.id}"><option value="0">—</option>${P.map((p,i)=>`<option value="${i+1}" ${dr.aff[e.id]===i+1?"selected":""}>${esc(p.nom)}</option>`).join("")}</select></label>`).join("")}</div>
+      ${bad.length?`<p class="err" style="margin:0">${bad.map(p=>esc(p.nom)).join(", ")} : il faut entre 3 et 8 joueurs.</p>`:""}</section>`:""}
+    <button class="btn primary big" data-act="opOpen" ${it.kind==="feuille"&&(bad.length||!P.length)?"disabled":""}>Ouvrir la séance aux élèves</button>`}
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="opBack">← ${esc(OP.cls.nom)}</button></div>
+  <section class="class-hero"><span class="eyebrow">${esc(OP.d.titre)} · ${esc(OP.cls.nom)}</span><h2>${O.ic} ${esc(it.titre||O.nom)}</h2></section>
+  <details class="card"><summary><strong>Réglages de la classe</strong> <span class="hint">· par défaut pour chaque nouvelle séance</span></summary><div class="stack" style="gap:10px;margin-top:10px">${vCfgEd(OP.cfgCls,"cls")}<button class="btn small" data-act="opSaveCls" style="justify-self:start">Enregistrer pour la classe</button></div></details>
+  ${body}
+  ${hist.length?`<section class="card"><div class="sec-h"><h3>Séances précédentes</h3></div><div class="list-s">${hist.map(s=>`<button class="s-item" data-act="opHist" data-id="${s.id}"><div><strong>${fmtDate(s.date)}</strong><div class="hint">${(s.poules||[]).length} poule(s)</div></div><span class="chip">Voir →</span></button>`).join("")}</div></section>`:""}</div>`}
+function opAuto(mix){const dr=OP.draft,n=OP.eleves.length;let k=Math.max(1,Math.min(Math.floor(n/3)||1,parseInt($("#op-nbp")&&$("#op-nbp").value)||dr.nbP||1));
+  if(Math.ceil(n/k)>8)k=Math.ceil(n/8);dr.nbP=k;const L=[...OP.eleves];if(mix)for(let i=L.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[L[i],L[j]]=[L[j],L[i]]}
+  dr.aff={};L.forEach((e,i)=>dr.aff[e.id]=(i%k)+1);rerenderKeep()}
+async function opOpen(){const it=OP.item,dr=OP.draft;dr.date=($("#op-date")||{value:dr.date}).value||today();
+  const poules=it.kind==="feuille"?poulesOf(dr):[];if(poules.some(p=>p.joueurs.length<3||p.joueurs.length>8))return;
+  const noms={};OP.eleves.forEach(e=>{if(poules.some(p=>p.joueurs.includes(e.id)))noms[e.id]={login:e.login,pseudo:pseudoCache[e.id]||""}});
+  try{for(const s of OP.sessions.filter(s=>s.active)){await fb.updateSession(s.id,{active:false});s.active=false}
+    const S={profId:me.uid,classeId:OP.cls.id,dossierId:OP.d.id,outilId:it.id,kind:it.kind,titre:it.titre||OUTILS[it.kind].nom,date:dr.date,active:true,reglages:normCfg(dr.reglages),poules,noms};
+    S.id=await fb.createSession(S);OP.sessions.unshift(S);toast("Séance ouverte : les élèves y ont accès");openFeuilleProf(S)}catch(e){toast(authMsg(e))}}
+function feuilleCfgChange(pre,k,v){if(pre==="draft"){OP.draft.reglages=editCfg(OP.draft.reglages,k,v);rerenderKeep();return}
+  if(pre==="cls"){OP.cfgCls=editCfg(OP.cfgCls,k,v);rerenderKeep();return}
+  if(pre==="sess"&&FE){const c=editCfg(cfgFor(OP.item,null,FE.S),k,v);FE.S.reglages=c;fb.updateSession(FE.S.id,{reglages:c}).then(()=>toast("Réglage appliqué à la séance")).catch(x=>toast(authMsg(x)));rerenderKeep()}}
+async function ouvrirOutilEleve(x){const sess=(eleveSessions||[]).find(s=>s.outilId===x.id&&s.active);
+  if(x.kind==="feuille"){if(!sess){toast("Pas de séance ouverte pour la feuille de match");return}openFeuille(sess.id);return}
+  openScoreur({cfg:cfgFor(x,eleveClasse,sess)})}
+let eleveSessions=[],eleveClasse=null;
+
+
+/* ---------- Outils généraux : scoreur et feuille de match libres, réglés par l'élève ---------- */
+const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");return v==null?d:v}catch(e){return d}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+function vOutilsGeneraux(){return`<section class="card"><div class="sec-h"><h3>🧰 Outils</h3><span class="hint">Pour toutes tes activités</span></div>
+  <div class="tools-g"><button class="doc-item outil" data-act="toolScoreur"><span class="di-ic">⏱️</span><span class="di-t"><strong>Scoreur</strong><span class="hint">Points, bonus, chrono</span></span></button>
+  <button class="doc-item outil" data-act="toolFeuille"><span class="di-ic">🏆</span><span class="di-t"><strong>Feuille de match</strong><span class="hint">3 à 8 joueurs, 1 à 4 terrains</span></span></button></div></section>`}
+let FL=null;
+async function matchSet(sid,key,data){if(sid!=="local"){if(apercuBloque())return;return fb.setMatch(sid,key,data)}
+  FL.M[key]={...(FL.M[key]||{}),...data};lsSet("feuilleLocale",FL);if(FE&&FE.local)FE.M=FL.M;if(["feuilleLocale"].includes(route.name))rerenderKeep()}
+function openFeuilleLocale(){FL=lsGet("feuilleLocale",null)||{etape:"reglages",joueurs:["","","",""],cfg:normCfg(lsGet("scoreurCfg",CFG_DEF)),M:{}};FL.cfg=normCfg(FL.cfg);FE=null;go("feuilleLocale")}
+function flSession(){const ids=FL.joueurs.map((n,i)=>"j"+i);return{id:"local",active:true,date:today(),titre:"Feuille de match",reglages:FL.cfg,poules:[{nom:"Mon tournoi",joueurs:ids}],noms:Object.fromEntries(FL.joueurs.map((n,i)=>["j"+i,{login:n.trim()||`Joueur ${i+1}`}]))}}
+function vCfgLibre(c,pre){return`<div class="grid2"><label class="f">Nombre de bonus<select data-${pre}="nb">${[0,1,2,3].map(n=>`<option value="${n}" ${c.bonus.length===n?"selected":""}>${n}</option>`).join("")}</select></label>
+  <label class="f">Durée d'un match (min, 0 = chrono libre)<input data-${pre}="duree" inputmode="decimal" value="${c.duree||0}"></label></div>
+  ${c.bonus.map((b,i)=>`<div class="grid2"><label class="f">Bonus ${i+1} : nom<input data-${pre}="bl${i}" maxlength="14" value="${esc(b.label)}"></label><label class="f">Valeur (points)<input data-${pre}="bv${i}" inputmode="numeric" value="${b.val}"></label></div>`).join("")}
+  ${c.bonus.length?`<label class="f">Les bonus<select data-${pre}="mode"><option value="score" ${c.bonusMode!=="eval"?"selected":""}>comptent dans le score du match</option><option value="eval" ${c.bonusMode==="eval"?"selected":""}>sont seulement comptés (évaluation)</option></select></label>`:""}`}
+function vFeuilleLocale(){
+  if(FL.etape==="reglages")return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="flBack">← Mes activités</button></div>
+    <section class="class-hero"><span class="eyebrow">Outil</span><h2>🏆 Feuille de match</h2></section>
+    <section class="card stack" style="gap:10px"><h3>Joueurs (3 à 8)</h3>
+      ${FL.joueurs.map((n,i)=>`<div class="row" style="flex-wrap:nowrap"><input data-flj="${i}" value="${esc(n)}" maxlength="20" placeholder="Joueur ${i+1} (pseudo)" aria-label="Joueur ${i+1}" style="flex:1;min-width:0">${FL.joueurs.length>3?`<button class="btn ghost small danger" data-act="flDel" data-i="${i}" aria-label="Retirer le joueur ${i+1}">✕</button>`:""}</div>`).join("")}
+      ${FL.joueurs.length<8?`<button class="btn small" data-act="flAdd" style="justify-self:start">+ Joueur</button>`:""}
+      <label class="f" style="max-width:200px">Terrains<select data-flt>${[1,2,3,4].map(n=>`<option value="${n}" ${FL.cfg.terrains===n?"selected":""}>${n} terrain${n>1?"s":""}</option>`).join("")}</select></label></section>
+    <section class="card stack" style="gap:10px"><h3>Scoreur</h3>${vCfgLibre(FL.cfg,"flc")}</section>
+    <button class="btn primary big" data-act="flStart">Commencer la feuille de match</button></div>`;
+  const S=flSession();FE={S,M:FL.M,local:true};
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="flBack">← Mes activités</button><span class="spacer"></span><button class="btn small" data-act="scoreLibre">⏱️ Scoreur</button></div>
+  <section class="class-hero"><span class="eyebrow">Outil · ${FL.joueurs.length} joueurs</span><h2>🏆 Feuille de match</h2><p style="margin:6px 0 0;color:#cfd6dc">${FL.cfg.bonus.length?`Bonus : ${FL.cfg.bonus.map(b=>`${esc(b.label)} ${FL.cfg.bonusMode==="eval"?"(compté à part)":"+"+b.val}`).join(" · ")}`:"Pas de bonus"}</p></section>
+  ${vFeuille(S,FL.M,true)}
+  <div class="row"><button class="btn" data-act="flEdit">Modifier les réglages</button><button class="btn ghost small danger" data-act="flReset">Nouveau tournoi</button></div></div>`}
+function flCfg(k,v){FL.cfg=editCfg(FL.cfg,k,v);lsSet("feuilleLocale",FL);lsSet("scoreurCfg",FL.cfg);rerenderKeep()}
+/* Réglages du scoreur par l'élève (outil général) */
+function scCfgPanel(){return`<div class="sc-cfg"><h3>Réglages du scoreur</h3>${vCfgLibre(SC.cfg,"scc")}<button class="sc-reset" data-scx="cfgDone">Terminé</button></div>`}
+
+
+/* ====================================================================
+   Espace élève : Accueil · En classe · Profil (barre d'onglets en bas)
+   ==================================================================== */
+const PC_DEF={act:{cible:420,pts:40},jours:{cible:5,pts:30},sed:{pts:15,seuils:[4,6]},ecran:{pts:15,seuils:[2,4]},
+  couleurs:["#22c55e","#f59e0b","#ef4444"],niveaux:[75,50],objectifJours:5,defi:{valeur:"",texte:"",semaine:""}};
+const normPC=p=>{p=p||{};const n=(v,d,a,b)=>{v=parseFloat(String(v??"").replace(",","."));return isFinite(v)?Math.max(a,Math.min(b,v)):d};
+  const pair=(s,d)=>{const a=n(s&&s[0],d[0],0,24),b=n(s&&s[1],d[1],0,24);return[Math.min(a,b),Math.max(a,b)]};
+  const col=(c,i)=>/^#[0-9a-f]{6}$/i.test(String(c||""))?c:PC_DEF.couleurs[i];
+  return{act:{cible:n(p.act&&p.act.cible,420,30,3000),pts:n(p.act&&p.act.pts,40,0,100)},jours:{cible:n(p.jours&&p.jours.cible,5,1,7),pts:n(p.jours&&p.jours.pts,30,0,100)},
+    sed:{pts:n(p.sed&&p.sed.pts,15,0,100),seuils:pair(p.sed&&p.sed.seuils,[4,6])},ecran:{pts:n(p.ecran&&p.ecran.pts,15,0,100),seuils:pair(p.ecran&&p.ecran.seuils,[2,4])},
+    couleurs:[0,1,2].map(i=>col((p.couleurs||[])[i],i)),niveaux:[n((p.niveaux||[])[0],75,1,100),n((p.niveaux||[])[1],50,0,99)],objectifJours:n(p.objectifJours,5,1,7),
+    defi:{valeur:String(p.defi&&p.defi.valeur||"").slice(0,20),texte:String(p.defi&&p.defi.texte||"").slice(0,60),semaine:String(p.defi&&p.defi.semaine||"")}}};
+function semaineId(d=new Date()){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=t.getUTCFullYear(),w=Math.ceil(((t-Date.UTC(y,0,1))/864e5+1)/7);return`${y}-S${String(w).padStart(2,"0")}`}
+let H={pc:normPC(),ac:null,actus:[],cls:null,sessions:[]};
+const lvl3=(v,s)=>v<=s[0]?0:v<=s[1]?1:2;
+function scoreAct(a,P){if(!a||a.semaine!==semaineId())return null;const tot=P.act.pts+P.jours.pts+P.sed.pts+P.ecran.pts||1;
+  const d={act:Math.min(1,(+a.min||0)/P.act.cible),jours:Math.min(1,(+a.jours||0)/P.jours.cible),sed:[1,.5,0][lvl3(+a.sed||0,P.sed.seuils)],ecran:[1,.5,0][lvl3(+a.ecran||0,P.ecran.seuils)]};
+  const s=d.act*P.act.pts+d.jours*P.jours.pts+d.sed*P.sed.pts+d.ecran*P.ecran.pts;return{score:Math.round(s*100/tot),d}}
+function niveauDe(sc,P){return sc>=P.niveaux[0]?{lab:"Bon niveau",t:"Très bien !",m:"Tu es actif cette semaine. Continue sur cette lancée !",c:P.couleurs[0]}
+  :sc>=P.niveaux[1]?{lab:"Dans la moyenne",t:"Pas mal !",m:"Tu es dans la moyenne. Un petit effort et tu passes au niveau supérieur.",c:P.couleurs[1]}
+  :{lab:"À améliorer",t:"On s'y met ?",m:"Tu bouges moins que recommandé. Regarde les conseils pour progresser.",c:P.couleurs[2]}}
+const fmtHM=m=>{m=Math.round(+m||0);return`${Math.floor(m/60)}h${String(m%60).padStart(2,"0")}`};
+const fmtH=h=>{h=+h||0;const m=Math.round(h*60);return`${Math.floor(m/60)}h${String(m%60).padStart(2,"0")}`};
+function conseils(a,P){if(!a)return[];const out=[],r=scoreAct(a,P);if(!r)return[];
+  const manque=Math.max(0,P.act.cible-(+a.min||0));
+  if(manque>0)out.push({ic:"🏃",t:`Il te manque ${fmtHM(manque)} d'activité cette semaine`,d:`Recommandé : ${fmtHM(P.act.cible)} par semaine. 3 sorties de ${Math.max(10,Math.ceil(manque/3/5)*5)} min (marche rapide, vélo, footing, danse…) suffisent.`});
+  if((+a.jours||0)<P.jours.cible)out.push({ic:"📅",t:`Bouge au moins ${P.jours.cible} jours par semaine`,d:"Mieux vaut un peu tous les jours qu'une grosse séance : va au lycée à pied ou à vélo, prends les escaliers."});
+  const ls=lvl3(+a.sed||0,P.sed.seuils);if(ls)out.push({ic:"🪑",t:"Trop de temps assis",d:"Lève-toi au moins une fois par heure : quelques pas, des étirements ou 10 squats pendant les pauses."});
+  const le=lvl3(+a.ecran||0,P.ecran.seuils);if(le)out.push({ic:"📱",t:"Beaucoup de temps d'écran",d:"Pose ton téléphone 1 h avant de dormir et remplace une partie de ce temps par une activité dehors."});
+  if(!out.length)out.push({ic:"🏆",t:"Tout est dans le vert !",d:"Garde ce rythme et pense à varier les activités : endurance, renforcement, souplesse."});
+  return out}
+async function openHome(){go("loading",{msg:"Chargement de ton espace…"});
+  try{const[pc,ac,actus,cls,sess]=await Promise.all([fb.getProfCfg(me.profId).catch(()=>null),fb.getActivite(me.uid).catch(()=>null),fb.listActus(me.profId).catch(()=>[]),fb.getClasse(me.classeId).catch(()=>null),fb.listSessionsActives(me.classeId,me.profId).catch(()=>[])]);
+    H={pc:normPC(pc),ac,cls,sessions:sess,actus:actus.filter(x=>String(x.date||"")>=today()&&(!(x.classes||[]).length||(x.classes||[]).includes(me.classeId))).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};
+    eleveClasse=cls;eleveSessions=sess;go("home")}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+const AVATARS=["🏃","🤸","⚽","🏀","🏐","🤾","🏸","🎾","🚴","🏊","🧗","🥋","🦊","🐯","🐺","🦁"];
+function avatarHTML(cls=""){return`<div class="h-av ${cls}" aria-hidden="true">${esc(me.avatar||AVATARS[0])}</div>`}
+const dLong=d=>{const x=new Date(String(d)+"T12:00:00");return isNaN(x)?"":x.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})};
+const dansJours=d=>{const n=Math.round((new Date(String(d)+"T12:00:00")-new Date(today()+"T12:00:00"))/864e5);return n<=0?"Aujourd'hui":n===1?"Demain":n<7?`Dans ${n} jours`:n<14?"Dans 1 semaine":`Dans ${Math.floor(n/7)} semaines`};
+const ACTU_T={competition:{lab:"Compétition à venir",ic:"🏆"},as:{lab:"Activité AS",ic:"🏅"},info:{lab:"Info EPS",ic:"📣"}};
+function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
+  const ring=(v,max,c,big)=>{const R=big?52:40,C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max));return`<svg viewBox="0 0 ${2*R+16} ${2*R+16}" class="ring-svg" aria-hidden="true"><circle cx="${R+8}" cy="${R+8}" r="${R}" class="rg-bg"/><circle cx="${R+8}" cy="${R+8}" r="${R}" class="rg-fg" stroke="${c}" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${R+8} ${R+8})"/></svg>`};
+  const jours=a&&a.semaine===semaineId()?+a.jours||0:0,sem=semaineId(),defiOn=P.defi.valeur&&(!P.defi.semaine||P.defi.semaine===sem),defiOk=a&&a.defis&&a.defis[sem];
+  const [a0,...aRest]=H.actus;
+  return`<div class="shell-home">
+  <section class="h-hero"><div class="h-stripes" aria-hidden="true"></div><div><div class="h-date">${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</div>
+    <h1>Salut <span>${esc(me.pseudo||"toi")}</span> ! 👋</h1><p>Prêt à bouger aujourd'hui ?</p></div><button class="h-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${avatarHTML()}</button></section>
+  <section class="h-card h-act"><div class="h-cardh"><span class="h-ic">〰️</span><h2>Mon activité physique</h2><span class="spacer"></span>${nv?`<span class="h-chip" style="--c:${nv.c}"><i></i>${nv.lab}</span>`:""}</div>
+    ${r?`<div class="h-score"><div class="h-ring">${ring(r.score,100,nv.c,true)}<div class="h-ringv"><b>${r.score}</b><small>/100</small></div></div>
+      <div class="h-msg"><div class="h-t" style="color:${nv.c}">${nv.t}</div><p>${nv.m}</p></div></div>
+      <div class="h-stats">
+        <div><span class="st-ic">👟</span><b style="color:${P.couleurs[r.d.act>=1?0:r.d.act>=.5?1:2]}">${fmtHM(a.min)}</b><small>d'activité <em>/ ${fmtHM(P.act.cible)}</em></small></div>
+        <div><span class="st-ic">📅</span><b style="color:${P.couleurs[r.d.jours>=1?0:r.d.jours>=.5?1:2]}">${jours} / 7</b><small>jours actifs</small></div>
+        <div><span class="st-ic">🪑</span><b style="color:${col(a.sed,P.sed.seuils)}">${fmtH(a.sed)}</b><small>assis / jour</small></div>
+        <div><span class="st-ic">📱</span><b style="color:${col(a.ecran,P.ecran.seuils)}">${fmtH(a.ecran)}</b><small>d'écran / jour</small></div></div>
+      <button class="h-link" data-act="shConseils">Voir mes conseils →</button>`
+    :`<p class="h-empty">Saisis ton activité de la semaine pour voir ton score et des conseils adaptés.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button>`}</section>
+  <div class="h-sech"><span class="h-ic">📢</span><h2>Actualités</h2><span class="spacer"></span>${H.actus.length>2?`<button class="h-link" data-act="shActus">Tout voir →</button>`:""}</div>
+  ${a0?`<section class="h-news"><div class="hn-trophy" aria-hidden="true">${(ACTU_T[a0.type]||ACTU_T.info).ic}</div><div class="hn-b"><span class="hn-tag">${(ACTU_T[a0.type]||ACTU_T.info).lab}</span><h3>${esc(a0.titre)}</h3><p>📅 ${esc(dLong(a0.date))} · ${dansJours(a0.date)}${a0.lieu?` · ${esc(a0.lieu)}`:""}</p></div>${a0.lien?`<a class="hn-go" href="${esc(a0.lien)}" target="_blank" rel="noopener">S'inscrire →</a>`:""}</section>
+    ${aRest.slice(0,2).map(x=>`<div class="h-row"><span class="hr-ic">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date))}${x.lieu?` · ${esc(x.lieu)}`:""}</small></div><span class="spacer"></span>${x.lien?`<a href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="Ouvrir le lien">›</a>`:""}</div>`).join("")}`
+    :`<div class="h-row"><span class="hr-ic">📣</span><div><b>Pas d'actualité pour l'instant</b><small>Les compétitions et l'AS apparaîtront ici.</small></div></div>`}
+  <div class="h-sech"><span class="h-ic">🎯</span><h2>Mes objectifs</h2></div>
+  <div class="h-obj"><section class="h-card h-goal"><div class="h-ring sm">${ring(Math.min(jours,P.objectifJours),P.objectifJours,"#8b5cf6")}<div class="h-ringv"><b>${jours} / ${P.objectifJours}</b></div></div>
+      <div><b>Bouger ${P.objectifJours} jours cette semaine</b><small>${jours>=P.objectifJours?"Objectif atteint, bravo !":`Encore ${P.objectifJours-jours} jour${P.objectifJours-jours>1?"s":""} pour atteindre ton objectif !`}</small><div class="h-bar"><i style="width:${Math.min(100,jours/P.objectifJours*100)}%"></i></div></div></section>
+    <section class="h-card h-defi"><div class="hd-h">🔥 Défi de la semaine</div>${defiOn?`<b>${esc(P.defi.valeur)}</b><small>${esc(P.defi.texte)}</small>
+      <button class="hd-btn${defiOk?" ok":""}" data-act="shDefi">${defiOk?"✅ Défi relevé !":"💪 Je relève le défi !"}</button>`:`<small>Ton enseignant n'a pas encore lancé de défi cette semaine.</small>`}</section></div>
+  <div class="h-sech"><span class="h-ic">▦</span><h2>Ton espace EPS</h2></div>
+  <div class="h-tiles"><button data-act="shTab" data-t="enclasse" style="--c:#38bdf8"><span>🗓️</span>Séance du jour</button><button data-act="shTab" data-t="enclasse" style="--c:#22c55e"><span>📚</span>Mes activités</button>
+    <button data-act="toolScoreur" style="--c:#a78bfa"><span>⏱️</span>Outils</button><button data-act="shConseils" style="--c:#fb923c"><span>💡</span>Conseils</button></div></div>`}
+function vConseilsPage(){const P=H.pc,a=H.ac,L=conseils(a,P);
+  return`<div class="shell-home"><div class="row"><button class="h-link" data-act="shTab" data-t="home">← Accueil</button></div><div class="h-sech"><span class="h-ic">💡</span><h2>Mes conseils</h2></div>
+  ${L.length?L.map(c=>`<section class="h-card h-tip"><span>${c.ic}</span><div><b>${esc(c.t)}</b><p>${esc(c.d)}</p></div></section>`).join(""):`<section class="h-card"><p class="h-empty">Saisis tes données de la semaine dans ton profil pour recevoir des conseils.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button></section>`}
+  <section class="h-card"><b>Les repères de ton enseignant</b><ul class="h-rep"><li>Activité : ${fmtHM(P.act.cible)} par semaine (environ ${Math.round(P.act.cible/7)} min par jour)</li><li>Au moins ${P.jours.cible} jours actifs par semaine</li>
+    <li><i style="background:${P.couleurs[0]}"></i>Temps assis jusqu'à ${fmtH(P.sed.seuils[0])} par jour, <i style="background:${P.couleurs[1]}"></i>jusqu'à ${fmtH(P.sed.seuils[1])}, <i style="background:${P.couleurs[2]}"></i>au-delà</li>
+    <li><i style="background:${P.couleurs[0]}"></i>Écran jusqu'à ${fmtH(P.ecran.seuils[0])} par jour, <i style="background:${P.couleurs[1]}"></i>jusqu'à ${fmtH(P.ecran.seuils[1])}, <i style="background:${P.couleurs[2]}"></i>au-delà</li></ul></section></div>`}
+function vActusPage(){return`<div class="shell-home"><div class="row"><button class="h-link" data-act="shTab" data-t="home">← Accueil</button></div><div class="h-sech"><span class="h-ic">📢</span><h2>Actualités</h2></div>
+  ${H.actus.map(x=>`<div class="h-row"><span class="hr-ic">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date))} · ${dansJours(x.date)}${x.lieu?` · ${esc(x.lieu)}`:""}</small></div><span class="spacer"></span>${x.lien?`<a href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="S'inscrire">S'inscrire ›</a>`:""}</div>`).join("")||'<p class="h-empty">Rien de prévu pour l\'instant.</p>'}</div>`}
+/* --- En classe --- */
+const CA_FR={CA1:"Réaliser une performance motrice maximale",CA2:"Adapter ses déplacements à des environnements variés",CA3:"Réaliser une prestation corporelle à voir et à apprécier",CA4:"Conduire et maîtriser un affrontement pour gagner",CA5:"Réaliser et orienter son activité physique pour s'entretenir"};
+const CA_COL={CA1:"#ef4444",CA2:"#22c55e",CA3:"#a855f7",CA4:"#f97316",CA5:"#0ea5e9","":"#64748b"};
+function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj.date===today(),sess=(eleveSessions||[]).filter(s=>s.active);
+  const ds=actsDossiers||[],groups={};ds.forEach(d=>{const k=CA_FR[d.ca]?d.ca:"";(groups[k]=groups[k]||[]).push(d)});
+  const cl=(coachings||[]).slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+  return`<div class="shell-home"><div class="h-sech" style="margin-top:6px"><span class="h-ic">🏫</span><h2>En classe</h2></div>
+  ${isToday||sess.length?`<section class="h-today"><div class="ht-h"><span class="hn-tag">Séance d'aujourd'hui</span>${sj&&isToday?`<h3>${esc(sj.titre||"")}</h3>`:""}</div>
+    <div class="ht-docs">${isToday?(sj.items||[]).map(it=>`<button data-act="sjOpen" data-d="${sj.dossierId}" data-id="${it.id}" data-t="${it.t}"><span>${it.t==="carnet"?"📒":it.t==="outil"?(OUTILS[it.kind]||{}).ic||"🧰":"📄"}</span>${esc(it.titre||"Document")}</button>`).join(""):""}
+    ${sess.filter(s=>s.kind==="feuille"&&!(isToday&&(sj.items||[]).some(i=>i.id===s.outilId))).map(s=>`<button data-act="sjFeuille" data-id="${s.id}"><span>🏆</span>${esc(s.titre||"Feuille de match")}</button>`).join("")}</div>
+    ${isToday&&!(sj.items||[]).length&&!sess.length?`<p class="h-empty" style="margin:0">Ton enseignant n'a pas encore déposé de document pour cette séance.</p>`:""}</section>`
+    :`<section class="h-today off"><span class="hn-tag">Séance d'aujourd'hui</span><p class="h-empty" style="margin:6px 0 0">Pas de séance programmée aujourd'hui.</p></section>`}
+  ${cl.length?`<div class="h-sech"><span class="h-ic">📣</span><h2>Séances à coacher</h2><span class="spacer"></span><button class="h-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="h-row btn-row" data-act="openCoach" data-id="${c.id}"><span class="hr-ic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span>›</button>`).join("")}`:""}
+  ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<div class="ca-h" style="--c:${CA_COL[k]}"><span class="ca-b">${k||"Autres"}</span><small>${esc(CA_FR[k]||"Autres activités")}</small></div>
+    <div class="ca-list">${groups[k].map(d=>`<button class="ca-card" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><b>${esc(d.titre)}</b>${d.desc?`<small>${esc(d.desc)}</small>`:""}<span>Ouvrir ›</span></button>`).join("")}</div>`).join("")}
+  ${ds.length?"":`<p class="h-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</p>`}
+  <div class="h-sech"><span class="h-ic">🧰</span><h2>Outils</h2><span class="hint" style="color:#94a3b8">pour toutes tes activités</span></div>
+  <div class="h-tiles two"><button data-act="toolScoreur" style="--c:#a78bfa"><span>⏱️</span>Scoreur</button><button data-act="toolFeuille" style="--c:#f59e0b"><span>🏆</span>Feuille de match</button></div></div>`}
+async function sjOpen(did,id,t){await openDossier(did);if(route.name!=="dossier")return;const x=dossierItems.find(y=>y.id===id);if(!x){toast("Document introuvable");return}
+  if(t==="carnet"){openCarnetEleve(id);return}if(t==="fiche"){showFiche(id);return}ouvrirOutilEleve(x)}
+/* --- Profil élève --- */
+function vProfilEl(){const a=H.ac&&H.ac.semaine===semaineId()?H.ac:{};const hm=m=>m?`${Math.floor(m/60)}:${String(Math.round(m%60)).padStart(2,"0")}`:"";
+  return`<div class="shell-home"><section class="h-hero small"><div class="h-stripes" aria-hidden="true"></div><div><div class="h-date">MON PROFIL</div><h1><span>${esc(me.pseudo||me.login)}</span></h1><p>${esc(me.login)}</p></div>${avatarHTML()}</section>
+  <section class="h-card stack" style="gap:10px"><b>Mon avatar</b><div class="av-pick">${AVATARS.map(x=>`<button data-act="avPick" data-v="${x}" aria-pressed="${(me.avatar||AVATARS[0])===x}" aria-label="Avatar ${x}">${x}</button>`).join("")}</div></section>
+  <section class="h-card stack light-in" style="gap:10px"><label class="f">Mon pseudo<input id="ps-in" maxlength="20" value="${esc(me.pseudo||"")}" placeholder="ex. Smash57" autocomplete="off"></label><p class="hint" style="margin:0;color:#94a3b8">Il s'affiche sur les feuilles de match et l'accueil. N'écris pas ton vrai nom.</p><div class="err" id="ps-err"></div><button class="h-btn" data-act="psSave">Enregistrer le pseudo</button></section>
+  <section class="h-card stack light-in" style="gap:10px"><b>Mon activité cette semaine</b><p class="hint" style="margin:0;color:#94a3b8">Bientôt récupérée automatiquement depuis l'app Santé de ton téléphone. En attendant, saisis-la toi-même.</p>
+    <div class="grid2"><label class="f">Temps d'activité (h:min)<input id="ac-min" inputmode="numeric" placeholder="ex. 5:12" value="${hm(+a.min||0)}"></label><label class="f">Jours actifs (0 à 7)<input id="ac-j" inputmode="numeric" value="${a.jours??""}"></label></div>
+    <div class="grid2"><label class="f">Temps assis par jour (h:min)<input id="ac-sed" inputmode="numeric" placeholder="ex. 4:10" value="${a.sed!=null?hm(a.sed*60):""}"></label><label class="f">Temps d'écran par jour (h:min)<input id="ac-ecr" inputmode="numeric" placeholder="ex. 3:00" value="${a.ecran!=null?hm(a.ecran*60):""}"></label></div>
+    <div class="err" id="ac-err"></div><button class="h-btn" data-act="acSave">Enregistrer</button></section>
+  <section class="h-card"><div class="row"><div><b>${esc(me.login)}</b><small style="display:block;color:#94a3b8">Identifiant de connexion</small></div><span class="spacer"></span><button class="h-btn ghost" data-nav="logout">Déconnexion</button></div></section></div>`}
+const parseHM=v=>{v=String(v||"").trim().replace("h",":").replace(",",".");if(!v)return null;if(v.includes(":")){const[h,m]=v.split(":");return(parseInt(h)||0)*60+(parseInt(m)||0)}const n=parseFloat(v);return isFinite(n)?(n<=24?n*60:n):null};
+async function saveActivite(){if(apercuBloque())return;const err=$("#ac-err");err.textContent="";const min=parseHM($("#ac-min").value),j=parseInt($("#ac-j").value),sed=parseHM($("#ac-sed").value),ecr=parseHM($("#ac-ecr").value);
+  if(min==null||isNaN(j)||sed==null||ecr==null){err.textContent="Remplis les 4 cases (ex. 5:12, 4, 4:10, 3:00).";return}
+  if(j<0||j>7||sed>24*60||ecr>24*60){err.textContent="Vérifie tes valeurs.";return}
+  const d={profId:me.profId,classeId:me.classeId,semaine:semaineId(),min,jours:j,sed:Math.round(sed/60*100)/100,ecran:Math.round(ecr/60*100)/100,defis:(H.ac&&H.ac.defis)||{},maj:new Date().toISOString()};
+  try{await fb.setActivite(me.uid,d);H.ac=d;toast("Activité enregistrée");shTab("home")}catch(e){err.textContent=authMsg(e)}}
+async function toggleDefi(){if(apercuBloque())return;const sem=semaineId(),a=H.ac||{profId:me.profId,classeId:me.classeId,semaine:"",min:0,jours:0,sed:0,ecran:0,defis:{}};a.defis={...(a.defis||{}),[sem]:!(a.defis||{})[sem]};
+  try{await fb.setActivite(me.uid,{...a,profId:me.profId,classeId:me.classeId});H.ac=a;if(a.defis[sem])toast("Bravo, défi relevé ! 💪");rerenderKeep()}catch(e){toast(authMsg(e))}}
+async function savePseudoAvatar(av){if(apercuBloque())return;try{await fb.updateLogin(me.login,{avatar:av});me.avatar=av;rerenderKeep()}catch(e){toast(authMsg(e))}}
+function shTab(t){if(t==="enclasse"){openActs();return}go(t)}
+function vBottomNav(){const t=route.name;return`<nav class="bnav" aria-label="Onglets">${[["home","🏠","Accueil"],["enclasse","🏫","En classe"],["profilEl","👤","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${t===k||(k==="home"&&["conseils","actus"].includes(t))}"><span>${ic}</span>${l}</button>`).join("")}</nav>`}
+/* --- Prof : réglages de l'accueil élèves --- */
+let PA=null;
+async function openProfAccueil(){go("loading");try{await loadClasses();const[pc,actus]=await Promise.all([fb.getProfCfg(me.uid).catch(()=>null),fb.listActus(me.uid).catch(()=>[])]);
+  PA={pc:normPC(pc),actus:actus.sort((a,b)=>String(a.date).localeCompare(String(b.date))),edit:null};go("profAccueil")}catch(e){go("error",{msg:authMsg(e)})}}
+function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`<label class="f">${l}<input data-pa="${k}" inputmode="decimal" value="${v}" ${at}></label>`;
+  return`<div class="stack"><h2>Accueil des élèves</h2><p class="hint" style="margin:-6px 0 0">Ce que vos élèves voient en ouvrant l'appli : leur score d'activité physique, vos actualités et le défi de la semaine.</p>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>Barème du score d'activité (/100)</h3></div>
+    <p class="hint" style="margin:0">Chaque partie rapporte ses points en entier quand l'objectif est atteint. Le total est ramené sur 100.</p>
+    <div class="grid2">${num("act.cible",P.act.cible,"Activité visée (min / semaine)")}${num("act.pts",P.act.pts,"Points")}</div>
+    <div class="grid2">${num("jours.cible",P.jours.cible,"Jours actifs visés / semaine")}${num("jours.pts",P.jours.pts,"Points")}</div>
+    <div class="grid3">${num("sed.seuils.0",P.sed.seuils[0],"Temps assis : vert jusqu'à (h/j)")}${num("sed.seuils.1",P.sed.seuils[1],"orange jusqu'à (h/j)")}${num("sed.pts",P.sed.pts,"Points")}</div>
+    <div class="grid3">${num("ecran.seuils.0",P.ecran.seuils[0],"Écran : vert jusqu'à (h/j)")}${num("ecran.seuils.1",P.ecran.seuils[1],"orange jusqu'à (h/j)")}${num("ecran.pts",P.ecran.pts,"Points")}</div>
+    <p class="hint" style="margin:0">Temps assis et écran : tous les points dans le vert, la moitié dans l'orange, aucun au-delà.</p>
+    <div class="grid2">${num("niveaux.0",P.niveaux[0],"« Bon niveau » à partir de")}${num("niveaux.1",P.niveaux[1],"« Dans la moyenne » à partir de")}</div>
+    ${num("objectifJours",P.objectifJours,"Objectif de la semaine : bouger … jours",'style="max-width:120px"')}
+    <div class="f"><span class="mlab">Couleurs d'affichage (temps assis, écran, niveaux)</span><div class="row">${["Bien","Moyen","À améliorer"].map((l,i)=>`<label class="colp"><input type="color" data-pa="couleurs.${i}" value="${P.couleurs[i]}"> ${l}</label>`).join("")}</div></div>
+    <button class="btn primary" data-act="paSave" style="justify-self:start">Enregistrer le barème</button></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>🔥 Défi de la semaine</h3><span class="spacer"></span><span class="hint">${P.defi.valeur&&P.defi.semaine===sem?"En cours":"Aucun défi cette semaine"}</span></div>
+    <div class="grid2"><label class="f">Objectif<input data-pa="defi.valeur" maxlength="20" value="${esc(P.defi.valeur)}" placeholder="ex. 5 min"></label><label class="f">Défi<input data-pa="defi.texte" maxlength="60" value="${esc(P.defi.texte)}" placeholder="ex. de gainage cumulé"></label></div>
+    <button class="btn" data-act="paDefi" style="justify-self:start">Lancer le défi cette semaine</button></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>📢 Actualités</h3><span class="hint">Compétitions, AS, informations</span></div>
+    ${PA.actus.length?`<div class="list-s">${PA.actus.map(x=>`<div class="s-item" style="cursor:default"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${(x.classes||[]).length?esc(classes.filter(c=>x.classes.includes(c.id)).map(c=>c.nom).join(", ")):"toutes mes classes"}${String(x.date)<today()?" · passée":""}</div></div><button class="btn ghost small danger" data-act="paDelActu" data-id="${x.id}" aria-label="Supprimer">✕</button></div>`).join("")}</div>`:'<p class="hint" style="margin:0">Aucune actualité.</p>'}
+    <form class="stack" id="actu-form" style="gap:8px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="grid2"><label class="f">Type<select id="au-type"><option value="competition">🏆 Compétition</option><option value="as">🏅 Activité AS</option><option value="info">📣 Information</option></select></label><label class="f">Date<input type="date" id="au-date" value="${today()}" required></label></div>
+      <label class="f">Titre<input id="au-t" maxlength="60" required placeholder="ex. Cross académique UNSS"></label>
+      <div class="grid2"><label class="f">Lieu (facultatif)<input id="au-lieu" maxlength="60"></label><label class="f">Lien d'inscription (facultatif)<input id="au-lien" type="url" placeholder="https://…"></label></div>
+      <div class="f"><span class="mlab">Classes</span><div class="mchecks">${classes.map(c=>`<label><input type="checkbox" class="au-cls" value="${c.id}"> ${esc(c.nom)}</label>`).join("")}</div><span class="hint">Aucune cochée = toutes vos classes.</span></div>
+      <button class="btn primary" type="submit" style="justify-self:start">Publier l'actualité</button></form></section></div>`}
+function paField(k,v){const o=clone(PA.pc);setPath(o,k,v);PA.pc=normPC(o)}
+/* --- Prof : séance du jour d'une classe --- */
+function vSeanceJourProf(){const sj=classe.seanceJour||{},isT=sj.date===today(),ds=classeDossiers||[],dsel=ds.find(x=>x.d.id===(SJ.d||sj.dossierId))||ds[0];
+  return`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>📌 Séance d'aujourd'hui</h3><span class="spacer"></span><span class="hint">${isT?`Affichée aux élèves : ${esc(sj.titre||"")}`:"Rien d'affiché aujourd'hui"}</span></div>
+    ${ds.length?`<label class="f">Activité<select id="sj-d">${ds.map(x=>`<option value="${x.d.id}" ${dsel&&dsel.d.id===x.d.id?"selected":""}>${esc(x.d.titre)}</option>`).join("")}</select></label>
+    <div class="f"><span class="mlab">Documents mis en avant</span><div class="mchecks">${(dsel&&dsel.all||[]).map(x=>`<label><input type="checkbox" class="sj-it" value="${x.id}" ${isT&&sj.dossierId===dsel.d.id&&(sj.items||[]).some(i=>i.id===x.id)?"checked":""}> ${x.t==="carnet"?"📒":x.t==="outil"?OUTILS[x.kind].ic:"📄"} ${esc(x.titre)}</label>`).join("")||'<span class="hint">Activité vide.</span>'}</div></div>
+    <div class="row"><button class="btn primary small" data-act="sjSave">Afficher pour aujourd'hui</button>${isT?`<button class="btn ghost small" data-act="sjClear">Retirer</button>`:""}</div>`:'<p class="hint" style="margin:0">Activez d\'abord une activité pour cette classe.</p>'}</section>`}
+let SJ={};
+
+
+/* ---------- Liste des élèves de la classe (choix du coach et des membres d'un groupe) ---------- */
+var ROSTER=null,rosterKey="";
+async function loadRoster(){const k=me.profId+"|"+me.classeId;if(ROSTER&&rosterKey===k)return ROSTER;
+  try{ROSTER=(await fb.listLoginsClasse(me.profId,me.classeId)).map(x=>({login:x.id,uid:x.uid,pseudo:x.pseudo||"",avatar:x.avatar||""})).sort((a,b)=>a.login.localeCompare(b.login,"fr",{numeric:true}));rosterKey=k}catch(e){console.warn(e);ROSTER=[]}
+  return ROSTER}
+const rosterLabel=x=>x.pseudo?`${esc(x.pseudo)} <span class="hint">${esc(x.login)}</span>`:`<code>${esc(x.login)}</code>`;
+function rosterSelect(id,exclude,ph){const L=(ROSTER||[]).filter(x=>!exclude.includes(x.login)&&x.login!==me.login);
+  if(!ROSTER){loadRoster().then(()=>rerenderKeep());return`<p class="hint" style="margin:0">Chargement de la liste de la classe…</p>`}
+  return`<select id="${id}" style="flex:1;min-width:0"><option value="">${esc(ph)}</option>${L.map(x=>`<option value="${esc(x.login)}">${esc(x.pseudo?x.pseudo+" · "+x.login:x.login)}</option>`).join("")}</select>`}
+function rosterChecks(cls,exclude,max){if(!ROSTER){loadRoster().then(()=>rerenderKeep());return`<p class="hint" style="margin:0">Chargement de la liste de la classe…</p>`}
+  const L=ROSTER.filter(x=>!exclude.includes(x.login)&&x.login!==me.login);
+  return`<div class="roster" data-max="${max}">${L.map(x=>`<label class="ro-it"><input type="checkbox" class="${cls}" value="${esc(x.login)}"><span class="ro-av" aria-hidden="true">${esc(x.avatar||"👤")}</span><span>${rosterLabel(x)}</span></label>`).join("")||'<span class="hint">Aucun camarade dans la liste.</span>'}</div>`}
+/* ---------- Vue élève pour le prof : l'appli comme un élève de la classe, sans rien enregistrer ---------- */
+var VUE=null;
+function apercuBloque(){if(!VUE)return false;toast("Vue élève : rien n'est enregistré");return true}
+async function entrerVueEleve(){if(!classe)return;VUE={prof:me,classeId:classe.id,nom:classe.nom};
+  me={uid:"apercu-"+me.uid,role:"eleve",login:"apercu",pseudo:"Élève",avatar:"🙂",profId:VUE.prof.uid,classeId:classe.id,apercu:true};ROSTER=null;openHome()}
+function quitterVueEleve(){if(!VUE)return;const c=VUE.classeId;me=VUE.prof;VUE=null;ROSTER=null;COACH=false;RO=false;MOD=null;carnetId=null;data=null;dossierCtx=null;FE=null;if(matchUnsub){matchUnsub();matchUnsub=null}openClasse(c,"activites")}
+function vVueBanner(){return VUE?`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`:""}
 
 /* ---------- Mises à jour de l'appli ---------- */
 let majVersion=null;

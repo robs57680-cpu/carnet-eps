@@ -9,7 +9,7 @@ import {
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-9";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-13";
 
 // Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
 export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);
@@ -95,6 +95,26 @@ export const listCoachings = async uid => list(await getDocs(query(collection(db
 /* ---------- Modèles de carnets (créés avec l'IA) ---------- */
 export const listModeles = async profId => list(await getDocs(query(collection(db, "modeles"), where("profId", "==", profId))));
 export const getModele = async id => snap(await getDoc(doc(db, "modeles", id)));
+// Pseudo choisi par l'élève (affiché sur les feuilles de match)
+export const updateLogin = (login, patch) => updateDoc(doc(db, "logins", login), clean(patch));
+// Séances d'outils (feuille de match, scoreur) et scores des matchs
+export const listSessions = async (profId, classeId, outilId) => list(await getDocs(query(collection(db, "sessions"), where("profId", "==", profId), where("classeId", "==", classeId), where("outilId", "==", outilId))));
+export const listSessionsActives = async (classeId, profId) => list(await getDocs(query(collection(db, "sessions"), where("classeId", "==", classeId), where("active", "==", true), ...(profId ? [where("profId", "==", profId)] : []))));
+// Élèves de la classe (identifiant, pseudo, avatar) pour choisir un coach ou les membres d'un groupe
+export const listLoginsClasse = async (profId, classeId) => list(await getDocs(query(collection(db, "logins"), where("profId", "==", profId), where("classeId", "==", classeId))));
+export const getSession = async id => snap(await getDoc(doc(db, "sessions", id)));
+export const createSession = async data => (await addDoc(collection(db, "sessions"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const updateSession = (id, patch) => updateDoc(doc(db, "sessions", id), clean(patch));
+export const setMatch = (sid, key, data) => setDoc(doc(db, "sessions", sid, "matchs", key), clean(data), { merge: true });
+export const watchMatchs = (sid, cb) => onSnapshot(collection(db, "sessions", sid, "matchs"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn(e));
+// Accueil élève : réglages du prof (barème, défi), activité physique de l'élève, actualités
+export const getProfCfg = async pid => snap(await getDoc(doc(db, "profcfg", pid)));
+export const setProfCfg = (pid, data) => setDoc(doc(db, "profcfg", pid), clean(data));
+export const getActivite = async uid => snap(await getDoc(doc(db, "activite", uid)));
+export const setActivite = (uid, data) => setDoc(doc(db, "activite", uid), clean(data));
+export const listActus = async profId => list(await getDocs(query(collection(db, "actus"), where("profId", "==", profId))));
+export const createActu = async data => (await addDoc(collection(db, "actus"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const deleteActu = id => deleteDoc(doc(db, "actus", id));
 // Stock : activités partagées entre profs
 export const listStock = async () => list(await getDocs(collection(db, "stock")));
 export const getStock = async id => snap(await getDoc(doc(db, "stock", id)));
