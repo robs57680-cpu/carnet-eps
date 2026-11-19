@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.19-13";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-13";
-const APP_VERSION="2026.11.19-13";
+import * as fb from "./fb.js?v=2026.11.19-16";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-16";
+const APP_VERSION="2026.11.19-16";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -444,7 +444,7 @@ function renderHeader(){
   else if(me&&me.role!=="eleve"&&!["loading","login"].includes(route.name)){const cur2=["classes","classe","suivi"].includes(route.name)?"classes":["modele","dossiers","dossierEd"].includes(route.name)?"modeles":route.name==="profAccueil"?"accueilEl":route.name;
     h=[["classes","Classes"],["modeles","Activités"],["accueilEl","Élèves"],["stock","Stock"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
   t.querySelector(".wrap").innerHTML=h;t.hidden=!h}
-function render(){document.body.classList.toggle("vue",!!VUE);document.body.classList.toggle("shell",!!(me&&me.role==="eleve"&&["home","enclasse","profilEl","conseils","actus"].includes(route.name)));renderHeader();const m=$("#main");let h="";
+function render(){document.body.classList.toggle("vue",!!VUE);document.body.classList.toggle("shell",isShell());renderHeader();const m=$("#main");let h="";
   try{switch(route.name){
     case"loading":h=`<div class="center-msg"><div class="spinner"></div><p>${esc(route.msg||"Chargement…")}</p></div>`;break;
     case"setup":h=vSetup();break;
@@ -457,7 +457,8 @@ function render(){document.body.classList.toggle("vue",!!VUE);document.body.clas
     case"modeles":h=vModeles();break;
     case"dossiers":h=vDossiers();break;
     case"dossierEd":h=vDossierEd();break;
-    case"dossier":h=vDossierEleve();break;
+    case"dossier":h=vDossierEleve()+(me&&me.role==="eleve"?vBottomNav():"");break;
+    case"progres":h=vProgres()+vBottomNav();break;
     case"stock":h=vStock();break;
     case"home":h=vHome()+vBottomNav();break;
     case"enclasse":h=vEnClasse()+vBottomNav();break;
@@ -475,7 +476,7 @@ function render(){document.body.classList.toggle("vue",!!VUE);document.body.clas
     case"dev":h=vDev();break;
     case"compte":h=vCompte();break;
   }}catch(e){console.error(e);h=`<div class="card center-card"><h2>Erreur d'affichage</h2><p>${esc(e.message)}</p></div>`}
-  m.innerHTML=vVueBanner()+h;syncWatch()}
+  m.innerHTML=(isShell()&&["dossier","enclasse","progres"].includes(route.name)?"":vVueBanner())+h;syncWatch()}
 function syncWatch(){const s=curS&&data?curS():null;
   const want=s&&((route.name==="coach"&&COACH)||(route.name==="carnet"&&!RO&&!COACH&&(s.coachUid||isGroupe())&&!s.valide))?`${carnetId}/${s.id}`:null;
   if(want===watchKey)return;if(watchUnsub){watchUnsub();watchUnsub=null}watchKey=want;if(!want)return;
@@ -749,12 +750,14 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="fiche-form"){if(!ficheBusy)deposerFiches();return}
   if(f.id==="actu-form"){const d={profId:me.uid,type:$("#au-type").value,titre:$("#au-t").value.trim().slice(0,60),date:$("#au-date").value,lieu:$("#au-lieu").value.trim().slice(0,60),lien:$("#au-lien").value.trim().slice(0,300),classes:[...document.querySelectorAll(".au-cls:checked")].map(x=>x.value)};
     if(!d.titre||!d.date)return;if(d.lien&&!/^https?:\/\//.test(d.lien)){toast("Le lien doit commencer par https://");return}
-    try{d.id=await fb.createActu(d);PA.actus.push(d);PA.actus.sort((a,b)=>String(a.date).localeCompare(String(b.date)));toast("Actualité publiée");rerenderKeep()}catch(x){toast(authMsg(x))}return}
+    try{if(PA.edit){await fb.updateActu(PA.edit,d);d.id=PA.edit;PA.actus=PA.actus.map(x=>x.id===d.id?d:x);PA.edit=null;toast("Actualité modifiée")}
+      else{d.id=await fb.createActu(d);PA.actus.push(d);toast("Actualité publiée — vous pouvez en ajouter une autre")}
+      PA.actus.sort((a,b)=>String(a.date).localeCompare(String(b.date)));rerenderKeep()}catch(x){toast(authMsg(x))}return}
   if(f.id==="new-dossier"){const t=$("#nd-t").value.trim();if(!t)return;try{const id=await fb.createDossier({profId:me.uid,titre:t,ca:$("#nd-ca").value,desc:"",items:[]});openDossierEd(id)}catch(x){toast(authMsg(x))}return}
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.19-13");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.19-16");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -822,13 +825,20 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="shTab"){shTab(b.dataset.t);return}
   if(a==="shConseils"){go("conseils");return}
   if(a==="shActus"){go("actus");return}
-  if(a==="shDefi"){toggleDefi();return}
+  if(a==="shDefi"){toggleDefi(b.dataset.id);return}
+  if(a==="shDefiNav"){DI+=+b.dataset.d;rerenderKeep();return}
+  if(a==="ecFold"){ecFold[b.dataset.k]=!ecFold[b.dataset.k];rerenderKeep();return}
+  if(a==="dosTab"){dosTab=b.dataset.t;rerenderKeep();return}
+  if(a==="openBilan"){openCarnetEleve(b.dataset.a).then(()=>{if(route.name==="carnet"&&MOD){view="bilan";render()}});return}
+  if(a==="paDefiAdd"||a==="paDefiDel"||a==="paDefiRel"){paDefi(a,b.dataset.id);return}
+  if(a==="paEditActu"){PA.edit=b.dataset.id;rerenderKeep();setTimeout(()=>{const f=$("#actu-form");if(f)f.scrollIntoView({behavior:"smooth",block:"center"})},30);return}
+  if(a==="paCancelActu"){PA.edit=null;rerenderKeep();return}
   if(a==="acSave"){saveActivite();return}
   if(a==="avPick"){savePseudoAvatar(b.dataset.v);return}
   if(a==="sjOpen"){sjOpen(b.dataset.d,b.dataset.id,b.dataset.t);return}
   if(a==="sjFeuille"){openFeuille(b.dataset.id);return}
   // Prof : accueil élèves et séance du jour
-  if(a==="paSave"||a==="paDefi"){(async()=>{if(a==="paDefi"){if(!PA.pc.defi.valeur){toast("Indiquez l'objectif du défi");return}PA.pc.defi.semaine=semaineId()}try{await fb.setProfCfg(me.uid,PA.pc);toast(a==="paDefi"?"Défi lancé pour cette semaine":"Barème enregistré");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
+  if(a==="paSave"){(async()=>{try{await fb.setProfCfg(me.uid,PA.pc);toast("Barème enregistré");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   if(a==="paDelActu"){confirmBox("Supprimer cette actualité ?","Elle ne sera plus affichée aux élèves.","Supprimer",async()=>{try{await fb.deleteActu(b.dataset.id);PA.actus=PA.actus.filter(x=>x.id!==b.dataset.id);closeModal();rerenderKeep()}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="sjSave"){(async()=>{const did=$("#sj-d").value,dd=(classeDossiers||[]).find(x=>x.d.id===did);if(!dd)return;const ids=[...document.querySelectorAll(".sj-it:checked")].map(x=>x.value);
       const items=dd.all.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,t:x.t,titre:x.titre,...(x.kind?{kind:x.kind}:{})}));const sj={date:today(),dossierId:did,titre:dd.d.titre,items};
@@ -1433,17 +1443,17 @@ async function iaGenerer(){const f1=$("#gen-file").files[0],f2=$("#gen-fiche").f
   if(!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.19-13");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.19-16");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-16");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.19-13");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.19-16");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-16");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1658,18 +1668,25 @@ async function itemsOf(d,profId){const out=[];
       else{const m=await fb.getModele(it.id);if(m)out.push({...it,titre:(m.modele||m.brouillon||{}).titre||m.titre,doc:m,pub:!!m.modele,statut:m.statut})}}
     else if(it.t==="outil")out.push({...it,titre:it.titre||OUTILS[it.kind].nom,pub:true});
     else{const f=await fb.getFiche(it.id);if(f)out.push({...it,titre:f.titre,f})}}catch(e){console.warn(e)}}return out}
-async function openDossier(id){go("loading",{msg:"Ouverture de l'activité…"});
+async function openDossier(id){go("loading",{msg:"Ouverture de l'activité…"});if(!dossier||dossier.id!==id)dosTab="act";
   try{const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};activite=null;
     dossierItems=await itemsOf(d,me.role==="eleve"?me.profId:me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;
     if(me.role==="eleve"&&dossierItems.some(x=>x.t==="outil")){try{[eleveSessions,eleveClasse]=await Promise.all([fb.listSessionsActives(me.classeId,me.profId),fb.getClasse(me.classeId)])}catch(e){console.warn(e);eleveSessions=[]}}
     go("dossier")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
-function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche"||x.pub);
-  return`<div class="stack"><div class="row"><button class="btn ghost small" data-nav="acts">← Mes activités</button></div>
-  <div class="class-hero"><span class="eyebrow">${esc(d.ca||"")}</span><h2>${esc(d.titre)}</h2>${d.desc?`<p style="margin:6px 0 0;color:#cfd6dc">${esc(d.desc)}</p>`:""}</div>
-  ${its.length?`<div class="docs">${its.map(x=>x.t==="outil"?(()=>{const s=(eleveSessions||[]).find(z=>z.outilId===x.id&&z.active),ok=x.kind!=="feuille"||s;return`<button class="doc-item outil" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${x.kind==="feuille"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte pour l'instant"):"Outil"}</span></span><span class="chip">${ok?"Ouvrir →":"Fermé"}</span></button>`})():x.t==="carnet"?`<button class="doc-item carnet" data-act="openAct" data-a="${x.id}"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</span></span><span class="chip">Ouvrir →</span></button>`
-    :`<div class="fiche${ficheOpen===x.id?" open":""}"><div class="fiche-h"><button class="fiche-t" data-act="showFiche" data-id="${x.id}" aria-expanded="${ficheOpen===x.id}"><span class="fi-ic">${ficheIcon(x.f)}</span><span><strong>${esc(x.titre)}</strong></span><span class="spacer"></span><span class="chip">${ficheOpen===x.id?"Fermer":"Voir"}</span></button></div>${ficheOpen===x.id?`<div class="fiche-b">${vFicheViewer(x.f)}</div>`:""}</div>`).join("")}</div>`
-    :`<div class="card"><p style="margin:0">Ton enseignant n'a encore rien déposé dans cette activité.</p></div>`}</div>`}
+let dosTab="act";
+function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche"||x.pub),carnets=its.filter(x=>x.t==="carnet"),k=CA_FR[d.ca]?d.ca:"";
+  const item=x=>{if(x.t==="outil"){const s=(eleveSessions||[]).find(z=>z.outilId===x.id&&z.active),ok=x.kind!=="feuille"||s;
+      return`<div class="dl-it outil"><span class="dl-ic">${IC.tool}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.kind==="feuille"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte"):"Outil"}</small></div><button class="dl-go" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}>${ok?`Ouvrir ${IC.arrow}`:"Fermé"}</button></div>`}
+    if(x.t==="carnet")return`<div class="dl-it carnet"><span class="dl-ic">${IC.kettle}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</small></div><button class="dl-go" data-act="openAct" data-a="${x.id}">Ouvrir ${IC.arrow}</button></div>`;
+    const o=ficheOpen===x.id;return`<div class="dl-it fiche${o?" open":""}"><span class="dl-ic">${IC.certif}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}Fiche</small></div><button class="dl-go" data-act="showFiche" data-id="${x.id}" aria-expanded="${o}">${o?"Fermer":`Voir ${IC.arrow}`}</button>${o?`<div class="dl-fb">${vFicheViewer(x.f)}</div>`:""}</div>`};
+  return`<div class="shell-home dos">
+  <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
+  ${vVueBanner(true)}
+  <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.19-16" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  ${dosTab==="res"?(carnets.length?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
+    :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
 async function migrerDossiers(){try{const pr=await fb.getPrefs(me.uid).catch(()=>null);if(pr&&pr.dossiersOk)return;
     const ex=await fb.listDossiers(me.uid);if(ex.length){await fb.setPrefs(me.uid,{dossiersOk:true});return}
@@ -1855,7 +1872,7 @@ function scSide(k){const T=SC[k],c=k==="A"?"blue":"orange";
     ${SC.libre?`<input class="sc-name" data-scn="${k}" value="${esc(T.nom)}" maxlength="20" aria-label="Nom ${k==="A"?"de la première équipe":"de la deuxième équipe"}">`:`<div class="sc-name">${esc(T.nom)}</div>`}
     <div class="sc-score" aria-live="polite">${T.pts}</div>
     ${SC.cfg.bonusMode==="eval"&&SC.cfg.bonus.length?`<div class="sc-bcount">${SC.cfg.bonus.map(b=>`<span>${esc(b.label)} ×${T.b[b.label]||0}</span>`).join("")}</div>`:""}
-    <div class="sc-btns"><button data-sc="${k}" data-v="1"><b>+1</b><small>Point</small></button>${SC.cfg.bonus.map(b=>`<button data-sc="${k}" data-v="${b.val}" data-l="${esc(b.label)}" data-bonus="1"><b>${SC.cfg.bonusMode==="eval"?"+1":"+"+b.val}</b><small>${esc(b.label)}</small></button>`).join("")}</div>
+    <div class="sc-btns"><button class="sc-pt" data-sc="${k}" data-v="1"><b>+1</b><small>Point</small></button>${SC.cfg.bonus.map(b=>`<button data-sc="${k}" data-v="${b.val}" data-l="${esc(b.label)}" data-bonus="1"><b>+${b.val}</b><small>${esc(b.label)}</small></button>`).join("")}</div>
     <button class="sc-undo" data-scu="${k}" ${T.h.length?"":"disabled"}>↶ Annuler (${T.h.length?(T.h[T.h.length-1].bonus?T.h[T.h.length-1].l:"+"+T.h[T.h.length-1].v):"–"})</button></div>`}
 function scRender(){const el=$("#scoreur");if(!el||!SC)return;
   if(SC.cfgOpen){el.innerHTML=`<div class="sc-top"><button class="sc-round" data-scx="cfgDone" aria-label="Retour au scoreur">‹</button><h2>Scoreur</h2><span style="width:44px"></span></div>${scCfgPanel()}`;return}
@@ -1976,14 +1993,17 @@ function scCfgPanel(){return`<div class="sc-cfg"><h3>Réglages du scoreur</h3>${
    Espace élève : Accueil · En classe · Profil (barre d'onglets en bas)
    ==================================================================== */
 const PC_DEF={act:{cible:420,pts:40},jours:{cible:5,pts:30},sed:{pts:15,seuils:[4,6]},ecran:{pts:15,seuils:[2,4]},
-  couleurs:["#22c55e","#f59e0b","#ef4444"],niveaux:[75,50],objectifJours:5,defi:{valeur:"",texte:"",semaine:""}};
+  couleurs:["#22c55e","#f59e0b","#ef4444"],niveaux:[75,50],objectifJours:5,defis:[]};
 const normPC=p=>{p=p||{};const n=(v,d,a,b)=>{v=parseFloat(String(v??"").replace(",","."));return isFinite(v)?Math.max(a,Math.min(b,v)):d};
   const pair=(s,d)=>{const a=n(s&&s[0],d[0],0,24),b=n(s&&s[1],d[1],0,24);return[Math.min(a,b),Math.max(a,b)]};
   const col=(c,i)=>/^#[0-9a-f]{6}$/i.test(String(c||""))?c:PC_DEF.couleurs[i];
   return{act:{cible:n(p.act&&p.act.cible,420,30,3000),pts:n(p.act&&p.act.pts,40,0,100)},jours:{cible:n(p.jours&&p.jours.cible,5,1,7),pts:n(p.jours&&p.jours.pts,30,0,100)},
     sed:{pts:n(p.sed&&p.sed.pts,15,0,100),seuils:pair(p.sed&&p.sed.seuils,[4,6])},ecran:{pts:n(p.ecran&&p.ecran.pts,15,0,100),seuils:pair(p.ecran&&p.ecran.seuils,[2,4])},
     couleurs:[0,1,2].map(i=>col((p.couleurs||[])[i],i)),niveaux:[n((p.niveaux||[])[0],75,1,100),n((p.niveaux||[])[1],50,0,99)],objectifJours:n(p.objectifJours,5,1,7),
-    defi:{valeur:String(p.defi&&p.defi.valeur||"").slice(0,20),texte:String(p.defi&&p.defi.texte||"").slice(0,60),semaine:String(p.defi&&p.defi.semaine||"")}}};
+    defis:(Array.isArray(p.defis)?p.defis:(p.defi&&p.defi.valeur?[{id:"d0",...p.defi}]:[])).slice(0,30).map((d,i)=>({id:String(d&&d.id||"d"+i).slice(0,20),valeur:String(d&&d.valeur||"").slice(0,20),texte:String(d&&d.texte||"").slice(0,60),semaine:String(d&&d.semaine||"")})).filter(d=>d.valeur||d.texte)}};
+const defisSem=P=>(P.defis||[]).filter(d=>!d.semaine||d.semaine===semaineId());
+const defiFait=(a,d)=>{const s=semaineId(),m=a&&a.defis||{};return!!(m[s+":"+d.id]||(d.id==="d0"&&m[s]===true))};
+let DI=0;
 function semaineId(d=new Date()){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=t.getUTCFullYear(),w=Math.ceil(((t-Date.UTC(y,0,1))/864e5+1)/7);return`${y}-S${String(w).padStart(2,"0")}`}
 let H={pc:normPC(),ac:null,actus:[],cls:null,sessions:[]};
 const lvl3=(v,s)=>v<=s[0]?0:v<=s[1]?1:2;
@@ -2012,35 +2032,6 @@ function avatarHTML(cls=""){return`<div class="h-av ${cls}" aria-hidden="true">$
 const dLong=d=>{const x=new Date(String(d)+"T12:00:00");return isNaN(x)?"":x.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})};
 const dansJours=d=>{const n=Math.round((new Date(String(d)+"T12:00:00")-new Date(today()+"T12:00:00"))/864e5);return n<=0?"Aujourd'hui":n===1?"Demain":n<7?`Dans ${n} jours`:n<14?"Dans 1 semaine":`Dans ${Math.floor(n/7)} semaines`};
 const ACTU_T={competition:{lab:"Compétition à venir",ic:"🏆"},as:{lab:"Activité AS",ic:"🏅"},info:{lab:"Info EPS",ic:"📣"}};
-function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
-  const ring=(v,max,c,big)=>{const R=big?52:40,C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max));return`<svg viewBox="0 0 ${2*R+16} ${2*R+16}" class="ring-svg" aria-hidden="true"><circle cx="${R+8}" cy="${R+8}" r="${R}" class="rg-bg"/><circle cx="${R+8}" cy="${R+8}" r="${R}" class="rg-fg" stroke="${c}" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${R+8} ${R+8})"/></svg>`};
-  const jours=a&&a.semaine===semaineId()?+a.jours||0:0,sem=semaineId(),defiOn=P.defi.valeur&&(!P.defi.semaine||P.defi.semaine===sem),defiOk=a&&a.defis&&a.defis[sem];
-  const [a0,...aRest]=H.actus;
-  return`<div class="shell-home">
-  <section class="h-hero"><div class="h-stripes" aria-hidden="true"></div><div><div class="h-date">${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</div>
-    <h1>Salut <span>${esc(me.pseudo||"toi")}</span> ! 👋</h1><p>Prêt à bouger aujourd'hui ?</p></div><button class="h-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${avatarHTML()}</button></section>
-  <section class="h-card h-act"><div class="h-cardh"><span class="h-ic">〰️</span><h2>Mon activité physique</h2><span class="spacer"></span>${nv?`<span class="h-chip" style="--c:${nv.c}"><i></i>${nv.lab}</span>`:""}</div>
-    ${r?`<div class="h-score"><div class="h-ring">${ring(r.score,100,nv.c,true)}<div class="h-ringv"><b>${r.score}</b><small>/100</small></div></div>
-      <div class="h-msg"><div class="h-t" style="color:${nv.c}">${nv.t}</div><p>${nv.m}</p></div></div>
-      <div class="h-stats">
-        <div><span class="st-ic">👟</span><b style="color:${P.couleurs[r.d.act>=1?0:r.d.act>=.5?1:2]}">${fmtHM(a.min)}</b><small>d'activité <em>/ ${fmtHM(P.act.cible)}</em></small></div>
-        <div><span class="st-ic">📅</span><b style="color:${P.couleurs[r.d.jours>=1?0:r.d.jours>=.5?1:2]}">${jours} / 7</b><small>jours actifs</small></div>
-        <div><span class="st-ic">🪑</span><b style="color:${col(a.sed,P.sed.seuils)}">${fmtH(a.sed)}</b><small>assis / jour</small></div>
-        <div><span class="st-ic">📱</span><b style="color:${col(a.ecran,P.ecran.seuils)}">${fmtH(a.ecran)}</b><small>d'écran / jour</small></div></div>
-      <button class="h-link" data-act="shConseils">Voir mes conseils →</button>`
-    :`<p class="h-empty">Saisis ton activité de la semaine pour voir ton score et des conseils adaptés.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button>`}</section>
-  <div class="h-sech"><span class="h-ic">📢</span><h2>Actualités</h2><span class="spacer"></span>${H.actus.length>2?`<button class="h-link" data-act="shActus">Tout voir →</button>`:""}</div>
-  ${a0?`<section class="h-news"><div class="hn-trophy" aria-hidden="true">${(ACTU_T[a0.type]||ACTU_T.info).ic}</div><div class="hn-b"><span class="hn-tag">${(ACTU_T[a0.type]||ACTU_T.info).lab}</span><h3>${esc(a0.titre)}</h3><p>📅 ${esc(dLong(a0.date))} · ${dansJours(a0.date)}${a0.lieu?` · ${esc(a0.lieu)}`:""}</p></div>${a0.lien?`<a class="hn-go" href="${esc(a0.lien)}" target="_blank" rel="noopener">S'inscrire →</a>`:""}</section>
-    ${aRest.slice(0,2).map(x=>`<div class="h-row"><span class="hr-ic">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date))}${x.lieu?` · ${esc(x.lieu)}`:""}</small></div><span class="spacer"></span>${x.lien?`<a href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="Ouvrir le lien">›</a>`:""}</div>`).join("")}`
-    :`<div class="h-row"><span class="hr-ic">📣</span><div><b>Pas d'actualité pour l'instant</b><small>Les compétitions et l'AS apparaîtront ici.</small></div></div>`}
-  <div class="h-sech"><span class="h-ic">🎯</span><h2>Mes objectifs</h2></div>
-  <div class="h-obj"><section class="h-card h-goal"><div class="h-ring sm">${ring(Math.min(jours,P.objectifJours),P.objectifJours,"#8b5cf6")}<div class="h-ringv"><b>${jours} / ${P.objectifJours}</b></div></div>
-      <div><b>Bouger ${P.objectifJours} jours cette semaine</b><small>${jours>=P.objectifJours?"Objectif atteint, bravo !":`Encore ${P.objectifJours-jours} jour${P.objectifJours-jours>1?"s":""} pour atteindre ton objectif !`}</small><div class="h-bar"><i style="width:${Math.min(100,jours/P.objectifJours*100)}%"></i></div></div></section>
-    <section class="h-card h-defi"><div class="hd-h">🔥 Défi de la semaine</div>${defiOn?`<b>${esc(P.defi.valeur)}</b><small>${esc(P.defi.texte)}</small>
-      <button class="hd-btn${defiOk?" ok":""}" data-act="shDefi">${defiOk?"✅ Défi relevé !":"💪 Je relève le défi !"}</button>`:`<small>Ton enseignant n'a pas encore lancé de défi cette semaine.</small>`}</section></div>
-  <div class="h-sech"><span class="h-ic">▦</span><h2>Ton espace EPS</h2></div>
-  <div class="h-tiles"><button data-act="shTab" data-t="enclasse" style="--c:#38bdf8"><span>🗓️</span>Séance du jour</button><button data-act="shTab" data-t="enclasse" style="--c:#22c55e"><span>📚</span>Mes activités</button>
-    <button data-act="toolScoreur" style="--c:#a78bfa"><span>⏱️</span>Outils</button><button data-act="shConseils" style="--c:#fb923c"><span>💡</span>Conseils</button></div></div>`}
 function vConseilsPage(){const P=H.pc,a=H.ac,L=conseils(a,P);
   return`<div class="shell-home"><div class="row"><button class="h-link" data-act="shTab" data-t="home">← Accueil</button></div><div class="h-sech"><span class="h-ic">💡</span><h2>Mes conseils</h2></div>
   ${L.length?L.map(c=>`<section class="h-card h-tip"><span>${c.ic}</span><div><b>${esc(c.t)}</b><p>${esc(c.d)}</p></div></section>`).join(""):`<section class="h-card"><p class="h-empty">Saisis tes données de la semaine dans ton profil pour recevoir des conseils.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button></section>`}
@@ -2052,21 +2043,27 @@ function vActusPage(){return`<div class="shell-home"><div class="row"><button cl
 /* --- En classe --- */
 const CA_FR={CA1:"Réaliser une performance motrice maximale",CA2:"Adapter ses déplacements à des environnements variés",CA3:"Réaliser une prestation corporelle à voir et à apprécier",CA4:"Conduire et maîtriser un affrontement pour gagner",CA5:"Réaliser et orienter son activité physique pour s'entretenir"};
 const CA_COL={CA1:"#ef4444",CA2:"#22c55e",CA3:"#a855f7",CA4:"#f97316",CA5:"#0ea5e9","":"#64748b"};
+const CA_TAG={CA1:"Repousse tes records !",CA2:"Pars à l'aventure !",CA3:"Exprime-toi et brille !",CA4:"Joue, coopère, gagne !",CA5:"Défie-toi et dépasse tes limites !"};
+let ecFold={};
 function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj.date===today(),sess=(eleveSessions||[]).filter(s=>s.active);
   const ds=actsDossiers||[],groups={};ds.forEach(d=>{const k=CA_FR[d.ca]?d.ca:"";(groups[k]=groups[k]||[]).push(d)});
   const cl=(coachings||[]).slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
-  return`<div class="shell-home"><div class="h-sech" style="margin-top:6px"><span class="h-ic">🏫</span><h2>En classe</h2></div>
-  ${isToday||sess.length?`<section class="h-today"><div class="ht-h"><span class="hn-tag">Séance d'aujourd'hui</span>${sj&&isToday?`<h3>${esc(sj.titre||"")}</h3>`:""}</div>
-    <div class="ht-docs">${isToday?(sj.items||[]).map(it=>`<button data-act="sjOpen" data-d="${sj.dossierId}" data-id="${it.id}" data-t="${it.t}"><span>${it.t==="carnet"?"📒":it.t==="outil"?(OUTILS[it.kind]||{}).ic||"🧰":"📄"}</span>${esc(it.titre||"Document")}</button>`).join(""):""}
-    ${sess.filter(s=>s.kind==="feuille"&&!(isToday&&(sj.items||[]).some(i=>i.id===s.outilId))).map(s=>`<button data-act="sjFeuille" data-id="${s.id}"><span>🏆</span>${esc(s.titre||"Feuille de match")}</button>`).join("")}</div>
-    ${isToday&&!(sj.items||[]).length&&!sess.length?`<p class="h-empty" style="margin:0">Ton enseignant n'a pas encore déposé de document pour cette séance.</p>`:""}</section>`
-    :`<section class="h-today off"><span class="hn-tag">Séance d'aujourd'hui</span><p class="h-empty" style="margin:6px 0 0">Pas de séance programmée aujourd'hui.</p></section>`}
-  ${cl.length?`<div class="h-sech"><span class="h-ic">📣</span><h2>Séances à coacher</h2><span class="spacer"></span><button class="h-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="h-row btn-row" data-act="openCoach" data-id="${c.id}"><span class="hr-ic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span>›</button>`).join("")}`:""}
-  ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<div class="ca-h" style="--c:${CA_COL[k]}"><span class="ca-b">${k||"Autres"}</span><small>${esc(CA_FR[k]||"Autres activités")}</small></div>
-    <div class="ca-list">${groups[k].map(d=>`<button class="ca-card" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><b>${esc(d.titre)}</b>${d.desc?`<small>${esc(d.desc)}</small>`:""}<span>Ouvrir ›</span></button>`).join("")}</div>`).join("")}
-  ${ds.length?"":`<p class="h-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</p>`}
-  <div class="h-sech"><span class="h-ic">🧰</span><h2>Outils</h2><span class="hint" style="color:#94a3b8">pour toutes tes activités</span></div>
-  <div class="h-tiles two"><button data-act="toolScoreur" style="--c:#a78bfa"><span>⏱️</span>Scoreur</button><button data-act="toolFeuille" style="--c:#f59e0b"><span>🏆</span>Feuille de match</button></div></div>`}
+  const docs=isToday?(sj.items||[]):[],feuilles=sess.filter(s=>s.kind==="feuille"&&!(isToday&&(sj.items||[]).some(i=>i.id===s.outilId)));
+  return`<div class="shell-home ec">${vVueBanner()}
+  <div class="ec-h"><span class="ec-hic">${IC.people}</span><div><h1>En classe</h1><p>Ta classe, tes défis, vos activités !</p></div><span class="ec-crown" aria-hidden="true">${IC.crown}</span><i class="ec-sw" aria-hidden="true"></i></div>
+  <section class="ec-today"><div class="ec-tag"><span class="ec-tagic">${IC.cal}</span>Séance d'aujourd'hui</div>
+    <div class="ec-tbody"><span class="ec-run" aria-hidden="true">${IC.runner}</span><span class="ec-chev" aria-hidden="true">›</span><div>
+    ${isToday||feuilles.length?`${isToday?`<b>${esc(sj.titre||"Séance du jour")}</b>`:`<b>Feuille de match ouverte</b>`}
+      <div class="ec-docs">${docs.map(it=>`<button data-act="sjOpen" data-d="${sj.dossierId}" data-id="${it.id}" data-t="${it.t}"><span>${it.t==="carnet"?IC.kettle:it.t==="outil"?IC.tool:IC.certif}</span>${esc(it.titre||"Document")}</button>`).join("")}${feuilles.map(s=>`<button data-act="sjFeuille" data-id="${s.id}"><span>${IC.trophy}</span>${esc(s.titre||"Feuille de match")}</button>`).join("")}</div>
+      ${isToday&&!docs.length&&!feuilles.length?`<small>Ton enseignant n'a pas encore déposé de document pour cette séance.</small>`:""}`
+    :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
+  ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
+  ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.19-16" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+  ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
+  <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
+  <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
+    <button data-act="toolFeuille" class="fm"><span class="ec-tic">🏆</span><b>Feuille de match</b><small>Organise tes matchs et compétitions</small><span class="ec-tch">${IC.chev}</span></button></div></div>`}
 async function sjOpen(did,id,t){await openDossier(did);if(route.name!=="dossier")return;const x=dossierItems.find(y=>y.id===id);if(!x){toast("Document introuvable");return}
   if(t==="carnet"){openCarnetEleve(id);return}if(t==="fiche"){showFiche(id);return}ouvrirOutilEleve(x)}
 /* --- Profil élève --- */
@@ -2085,17 +2082,17 @@ async function saveActivite(){if(apercuBloque())return;const err=$("#ac-err");er
   if(j<0||j>7||sed>24*60||ecr>24*60){err.textContent="Vérifie tes valeurs.";return}
   const d={profId:me.profId,classeId:me.classeId,semaine:semaineId(),min,jours:j,sed:Math.round(sed/60*100)/100,ecran:Math.round(ecr/60*100)/100,defis:(H.ac&&H.ac.defis)||{},maj:new Date().toISOString()};
   try{await fb.setActivite(me.uid,d);H.ac=d;toast("Activité enregistrée");shTab("home")}catch(e){err.textContent=authMsg(e)}}
-async function toggleDefi(){if(apercuBloque())return;const sem=semaineId(),a=H.ac||{profId:me.profId,classeId:me.classeId,semaine:"",min:0,jours:0,sed:0,ecran:0,defis:{}};a.defis={...(a.defis||{}),[sem]:!(a.defis||{})[sem]};
-  try{await fb.setActivite(me.uid,{...a,profId:me.profId,classeId:me.classeId});H.ac=a;if(a.defis[sem])toast("Bravo, défi relevé ! 💪");rerenderKeep()}catch(e){toast(authMsg(e))}}
+async function toggleDefi(id){if(apercuBloque())return;const d=(H.pc.defis||[]).find(x=>x.id===id);if(!d)return;const sem=semaineId(),k=sem+":"+id,a=H.ac||{profId:me.profId,classeId:me.classeId,semaine:"",min:0,jours:0,sed:0,ecran:0,defis:{}};
+  const was=defiFait(a,d),m={...(a.defis||{})};if(id==="d0")delete m[sem];m[k]=!was;a.defis=m;
+  try{await fb.setActivite(me.uid,{...a,profId:me.profId,classeId:me.classeId});H.ac=a;if(!was)toast("Bravo, défi relevé ! 💪");rerenderKeep()}catch(e){toast(authMsg(e))}}
 async function savePseudoAvatar(av){if(apercuBloque())return;try{await fb.updateLogin(me.login,{avatar:av});me.avatar=av;rerenderKeep()}catch(e){toast(authMsg(e))}}
 function shTab(t){if(t==="enclasse"){openActs();return}go(t)}
-function vBottomNav(){const t=route.name;return`<nav class="bnav" aria-label="Onglets">${[["home","🏠","Accueil"],["enclasse","🏫","En classe"],["profilEl","👤","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${t===k||(k==="home"&&["conseils","actus"].includes(t))}"><span>${ic}</span>${l}</button>`).join("")}</nav>`}
 /* --- Prof : réglages de l'accueil élèves --- */
 let PA=null;
 async function openProfAccueil(){go("loading");try{await loadClasses();const[pc,actus]=await Promise.all([fb.getProfCfg(me.uid).catch(()=>null),fb.listActus(me.uid).catch(()=>[])]);
   PA={pc:normPC(pc),actus:actus.sort((a,b)=>String(a.date).localeCompare(String(b.date))),edit:null};go("profAccueil")}catch(e){go("error",{msg:authMsg(e)})}}
 function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`<label class="f">${l}<input data-pa="${k}" inputmode="decimal" value="${v}" ${at}></label>`;
-  return`<div class="stack"><h2>Accueil des élèves</h2><p class="hint" style="margin:-6px 0 0">Ce que vos élèves voient en ouvrant l'appli : leur score d'activité physique, vos actualités et le défi de la semaine.</p>
+  return`<div class="stack"><h2>Accueil des élèves</h2><p class="hint" style="margin:-6px 0 0">Ce que vos élèves voient en ouvrant l'appli : leur score d'activité physique, vos actualités et les défis de la semaine.</p>
   <section class="card stack" style="gap:10px"><div class="sec-h"><h3>Barème du score d'activité (/100)</h3></div>
     <p class="hint" style="margin:0">Chaque partie rapporte ses points en entier quand l'objectif est atteint. Le total est ramené sur 100.</p>
     <div class="grid2">${num("act.cible",P.act.cible,"Activité visée (min / semaine)")}${num("act.pts",P.act.pts,"Points")}</div>
@@ -2107,17 +2104,26 @@ function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`
     ${num("objectifJours",P.objectifJours,"Objectif de la semaine : bouger … jours",'style="max-width:120px"')}
     <div class="f"><span class="mlab">Couleurs d'affichage (temps assis, écran, niveaux)</span><div class="row">${["Bien","Moyen","À améliorer"].map((l,i)=>`<label class="colp"><input type="color" data-pa="couleurs.${i}" value="${P.couleurs[i]}"> ${l}</label>`).join("")}</div></div>
     <button class="btn primary" data-act="paSave" style="justify-self:start">Enregistrer le barème</button></section>
-  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>🔥 Défi de la semaine</h3><span class="spacer"></span><span class="hint">${P.defi.valeur&&P.defi.semaine===sem?"En cours":"Aucun défi cette semaine"}</span></div>
-    <div class="grid2"><label class="f">Objectif<input data-pa="defi.valeur" maxlength="20" value="${esc(P.defi.valeur)}" placeholder="ex. 5 min"></label><label class="f">Défi<input data-pa="defi.texte" maxlength="60" value="${esc(P.defi.texte)}" placeholder="ex. de gainage cumulé"></label></div>
-    <button class="btn" data-act="paDefi" style="justify-self:start">Lancer le défi cette semaine</button></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>🔥 Défis de la semaine</h3><span class="spacer"></span><span class="hint">${(()=>{const n=defisSem(P).length;return n?`${n} en cours`:"Aucun défi cette semaine"})()}</span></div>
+    <p class="hint" style="margin:0">Ajoutez autant de défis que vous voulez : les élèves les font défiler sur leur accueil et les cochent un par un.</p>
+    ${P.defis.length?`<div class="list-s">${P.defis.slice().sort((x,y)=>(y.semaine===sem)-(x.semaine===sem)).map(d=>`<div class="s-item" style="cursor:default"><div><strong>🔥 ${esc(d.valeur)}</strong> ${esc(d.texte)}<div class="hint">${!d.semaine||d.semaine===sem?"Cette semaine":`Semaine ${esc(d.semaine.split("-S")[1]||d.semaine)} · terminé`}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap">${d.semaine&&d.semaine!==sem?`<button class="btn ghost small" data-act="paDefiRel" data-id="${d.id}">Relancer</button>`:""}<button class="btn ghost small danger" data-act="paDefiDel" data-id="${d.id}" aria-label="Supprimer">✕</button></div></div>`).join("")}</div>`:""}
+    <div class="grid2" style="border-top:1px solid var(--line);padding-top:10px"><label class="f">Objectif<input id="df-v" maxlength="20" placeholder="ex. 5 min"></label><label class="f">Défi<input id="df-t" maxlength="60" placeholder="ex. de gainage cumulé"></label></div>
+    <button class="btn primary" data-act="paDefiAdd" style="justify-self:start">＋ Ajouter ce défi cette semaine</button></section>
   <section class="card stack" style="gap:10px"><div class="sec-h"><h3>📢 Actualités</h3><span class="hint">Compétitions, AS, informations</span></div>
-    ${PA.actus.length?`<div class="list-s">${PA.actus.map(x=>`<div class="s-item" style="cursor:default"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${(x.classes||[]).length?esc(classes.filter(c=>x.classes.includes(c.id)).map(c=>c.nom).join(", ")):"toutes mes classes"}${String(x.date)<today()?" · passée":""}</div></div><button class="btn ghost small danger" data-act="paDelActu" data-id="${x.id}" aria-label="Supprimer">✕</button></div>`).join("")}</div>`:'<p class="hint" style="margin:0">Aucune actualité.</p>'}
-    <form class="stack" id="actu-form" style="gap:8px;border-top:1px solid var(--line);padding-top:10px">
-      <div class="grid2"><label class="f">Type<select id="au-type"><option value="competition">🏆 Compétition</option><option value="as">🏅 Activité AS</option><option value="info">📣 Information</option></select></label><label class="f">Date<input type="date" id="au-date" value="${today()}" required></label></div>
-      <label class="f">Titre<input id="au-t" maxlength="60" required placeholder="ex. Cross académique UNSS"></label>
-      <div class="grid2"><label class="f">Lieu (facultatif)<input id="au-lieu" maxlength="60"></label><label class="f">Lien d'inscription (facultatif)<input id="au-lien" type="url" placeholder="https://…"></label></div>
-      <div class="f"><span class="mlab">Classes</span><div class="mchecks">${classes.map(c=>`<label><input type="checkbox" class="au-cls" value="${c.id}"> ${esc(c.nom)}</label>`).join("")}</div><span class="hint">Aucune cochée = toutes vos classes.</span></div>
-      <button class="btn primary" type="submit" style="justify-self:start">Publier l'actualité</button></form></section></div>`}
+    ${PA.actus.length?`<div class="list-s">${PA.actus.map(x=>`<div class="s-item" style="cursor:default${PA.edit===x.id?";outline:2px solid var(--accent)":""}"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${(x.classes||[]).length?esc(classes.filter(c=>x.classes.includes(c.id)).map(c=>c.nom).join(", ")):"toutes mes classes"}${String(x.date)<today()?" · passée":""}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn ghost small" data-act="paEditActu" data-id="${x.id}" aria-label="Modifier">✎</button><button class="btn ghost small danger" data-act="paDelActu" data-id="${x.id}" aria-label="Supprimer">✕</button></div></div>`).join("")}</div>`:'<p class="hint" style="margin:0">Aucune actualité.</p>'}
+    ${(()=>{const E=PA.edit&&PA.actus.find(x=>x.id===PA.edit)||null,v=k=>esc(E&&E[k]||"");return`<form class="stack" id="actu-form" style="gap:8px;border-top:1px solid var(--line);padding-top:10px">
+      <strong>${E?"Modifier l'actualité":PA.actus.length?"Ajouter une autre actualité":"Nouvelle actualité"}</strong>
+      <div class="grid2"><label class="f">Type<select id="au-type">${[["competition","🏆 Compétition"],["as","🏅 Activité AS"],["info","📣 Information"]].map(([k,l])=>`<option value="${k}" ${E&&E.type===k?"selected":""}>${l}</option>`).join("")}</select></label><label class="f">Date<input type="date" id="au-date" value="${E?v("date"):today()}" required></label></div>
+      <label class="f">Titre<input id="au-t" maxlength="60" required placeholder="ex. Cross académique UNSS" value="${v("titre")}"></label>
+      <div class="grid2"><label class="f">Lieu (facultatif)<input id="au-lieu" maxlength="60" value="${v("lieu")}"></label><label class="f">Lien d'inscription (facultatif)<input id="au-lien" type="url" placeholder="https://…" value="${v("lien")}"></label></div>
+      <div class="f"><span class="mlab">Classes</span><div class="mchecks">${classes.map(c=>`<label><input type="checkbox" class="au-cls" value="${c.id}" ${E&&(E.classes||[]).includes(c.id)?"checked":""}> ${esc(c.nom)}</label>`).join("")}</div><span class="hint">Aucune cochée = toutes vos classes.</span></div>
+      <div class="row"><button class="btn primary" type="submit">${E?"Enregistrer les modifications":"＋ Publier l'actualité"}</button>${E?`<button class="btn ghost" type="button" data-act="paCancelActu">Annuler</button>`:""}</div></form>`})()}</section></div>`}
+async function paDefi(a,id){const P=PA.pc,sem=semaineId();let L=P.defis.slice();
+  if(a==="paDefiAdd"){const v=($("#df-v")||{}).value||"",t=($("#df-t")||{}).value||"";if(!v.trim()&&!t.trim()){toast("Indiquez l'objectif du défi");return}
+    L.push({id:Date.now().toString(36),valeur:v.trim().slice(0,20),texte:t.trim().slice(0,60),semaine:sem})}
+  else if(a==="paDefiDel")L=L.filter(d=>d.id!==id);
+  else L=L.map(d=>d.id===id?{...d,semaine:sem}:d);
+  const pc={...P,defis:L};try{await fb.setProfCfg(me.uid,pc);PA.pc=normPC(pc);toast(a==="paDefiAdd"?"Défi ajouté — vous pouvez en ajouter un autre":a==="paDefiDel"?"Défi supprimé":"Défi relancé cette semaine");rerenderKeep()}catch(x){toast(authMsg(x))}}
 function paField(k,v){const o=clone(PA.pc);setPath(o,k,v);PA.pc=normPC(o)}
 /* --- Prof : séance du jour d'une classe --- */
 function vSeanceJourProf(){const sj=classe.seanceJour||{},isT=sj.date===today(),ds=classeDossiers||[],dsel=ds.find(x=>x.d.id===(SJ.d||sj.dossierId))||ds[0];
@@ -2146,7 +2152,88 @@ function apercuBloque(){if(!VUE)return false;toast("Vue élève : rien n'est enr
 async function entrerVueEleve(){if(!classe)return;VUE={prof:me,classeId:classe.id,nom:classe.nom};
   me={uid:"apercu-"+me.uid,role:"eleve",login:"apercu",pseudo:"Élève",avatar:"🙂",profId:VUE.prof.uid,classeId:classe.id,apercu:true};ROSTER=null;openHome()}
 function quitterVueEleve(){if(!VUE)return;const c=VUE.classeId;me=VUE.prof;VUE=null;ROSTER=null;COACH=false;RO=false;MOD=null;carnetId=null;data=null;dossierCtx=null;FE=null;if(matchUnsub){matchUnsub();matchUnsub=null}openClasse(c,"activites")}
-function vVueBanner(){return VUE?`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`:""}
+const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progres"];
+function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
+function vVueBanner(alt){if(!VUE)return"";
+  if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.19-16" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+
+
+/* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
+const IC={
+  pulse:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2.5-6 4 13 3-9 1.5 2H22"/></svg>',
+  shoe:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 15.5c0-1 .4-2 1-2.8l1.6-2.1c.3-.4.9-.5 1.3-.2l2 1.4 1.4-1.8 1.4 1.1 1.3-1.5c1 .9 2.1 1.6 3.4 2.1l3 1.1c1.4.5 2.4 1.8 2.4 3.3v.4H3z"/><rect x="3" y="18" width="18.8" height="2" rx="1"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4" stroke-linecap="round"/><g fill="currentColor" stroke="none"><rect x="7" y="13" width="2.4" height="2.4" rx=".5"/><rect x="10.8" y="13" width="2.4" height="2.4" rx=".5"/><rect x="14.6" y="13" width="2.4" height="2.4" rx=".5"/><rect x="7" y="16.6" width="2.4" height="2.4" rx=".5"/><rect x="10.8" y="16.6" width="2.4" height="2.4" rx=".5"/></g></svg>',
+  sit:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="3.6" r="2.2"/><path d="M10.2 7h2.6c.9 0 1.6.7 1.6 1.6V13h3.2c.8 0 1.4.6 1.4 1.4V21h-2.4v-5.4h-5c-.8 0-1.4-.6-1.4-1.4z"/><path d="M5 9h2v8h6v2H6.4c-.8 0-1.4-.6-1.4-1.4zM5 21h2v-2H5z"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3" stroke-linecap="round"/></svg>',
+  trend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+  mega:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9.5v5c0 .8.7 1.5 1.5 1.5H6l1.4 4.3c.2.4.6.7 1 .7h1.4c.6 0 1-.6.8-1.2L9.4 16H10l7 4V4l-7 4H4.5C3.7 8 3 8.7 3 9.5z"/><path d="M19.5 9.5a3 3 0 010 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 4l1.6-1.4M20.4 12h2M20 20l1.6 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  target:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="13" r="8.5"/><circle cx="11" cy="13" r="4.5"/><circle cx="11" cy="13" r="1" fill="currentColor"/><path d="M11 13l9-9M17 4h3v3"/></svg>',
+  grid:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>',
+  bars:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="13" width="5" height="8" rx="1.2"/><rect x="9.5" y="8" width="5" height="13" rx="1.2"/><rect x="16" y="3" width="5" height="18" rx="1.2"/></svg>',
+  people:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="3.2"/><circle cx="5" cy="9" r="2.4"/><circle cx="19" cy="9" r="2.4"/><path d="M6 20c0-3.6 2.7-6.4 6-6.4s6 2.8 6 6.4z"/><path d="M1 19c0-2.6 1.8-4.6 4-4.6 1 0 1.8.3 2.5.9A8 8 0 005.2 19zM23 19c0-2.6-1.8-4.6-4-4.6-1 0-1.8.3-2.5.9a8 8 0 012.3 3.7z"/></svg>',
+  book:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 5.2C2 4.5 2.6 4 3.3 4.1 6 4.3 8.6 5 11 6.4V20c-2.4-1.3-5-2-7.7-2.2-.7 0-1.3-.6-1.3-1.3zM22 5.2c0-.7-.6-1.2-1.3-1.1-2.7.2-5.3.9-7.7 2.3V20c2.4-1.3 5-2 7.7-2.2.7 0 1.3-.6 1.3-1.3z"/></svg>',
+  house:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9.5 8.2c.5.4.2 1.3-.5 1.3H19V20c0 .6-.4 1-1 1h-4v-5.5h-4V21H6c-.6 0-1-.4-1-1v-7.5H3c-.7 0-1-.9-.5-1.3z"/></svg>',
+  school:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l10 5.2v1.6H2V7.2z"/><rect x="3.5" y="10" width="17" height="10" rx="1"/><rect x="2" y="20" width="20" height="2" rx="1"/><rect x="10" y="14" width="4" height="6" fill="#0f1420"/><rect x="5.5" y="12" width="2.5" height="2.5" fill="#0f1420"/><rect x="16" y="12" width="2.5" height="2.5" fill="#0f1420"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 21c0-4.4 4-7.5 9-7.5s9 3.1 9 7.5z"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+  dumbbell:'<svg viewBox="0 0 24 24" fill="currentColor" transform="rotate(-35)"><rect x="1" y="9" width="3" height="6" rx="1"/><rect x="4" y="7" width="3" height="10" rx="1"/><rect x="7" y="11" width="10" height="2"/><rect x="17" y="7" width="3" height="10" rx="1"/><rect x="20" y="9" width="3" height="6" rx="1"/></svg>'};
+Object.assign(IC,{
+  exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4"/><path d="M14 8l4 4-4 4M18 12H9"/></svg>',
+  kettle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.2 9.2A3.8 3.8 0 0112 4a3.8 3.8 0 013.8 5.2"/><path d="M8.5 7.5h7"/><circle cx="12" cy="15" r="6.2"/></svg>',
+  certif:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 21H6.5A1.5 1.5 0 015 19.5v-15A1.5 1.5 0 016.5 3H14l5 5v4"/><path d="M14 3v5h5M8 9h4M8 12.5h7M8 16h3"/><circle cx="17" cy="16.5" r="2.6"/><path d="M15.6 18.8l-.8 3.2 2.2-1.1 2.2 1.1-.8-3.2"/></svg>',
+  tool:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2M10 2.5h4M12 2.5v3"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 014.5 6h4.2l2 2h8.8A1.5 1.5 0 0121 9.5v8A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  runner:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="15.5" cy="3.8" r="2.3"/><path d="M11.3 7.2l3.4.6c.6.1 1 .4 1.3.9l1.4 2.4 2.5.8c.6.2.9.8.7 1.4-.2.6-.8.9-1.4.7l-2.9-.9c-.3-.1-.6-.3-.7-.6l-.6-1-1.2 3.2 2.4 2c.3.2.4.5.4.9l-.2 4.4c0 .6-.5 1.1-1.2 1.1-.6 0-1.1-.5-1.1-1.2l.2-3.8-2.9-2.3-1.4 3.2c-.2.4-.6.7-1 .7H4.6c-.6 0-1.1-.5-1.1-1.1s.5-1.1 1.1-1.1h3.6l2.6-6.2-1.5.4-1.4 2.3c-.3.5-1 .7-1.5.4-.5-.3-.7-1-.4-1.5l1.6-2.8c.2-.3.5-.5.8-.6z"/></svg>',
+  trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
+  dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
+  crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.19-16" alt=""></div>`}
+function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
+  const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
+  const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
+  const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
+  const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
+  return`<div class="shell-home home2">
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.19-16" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+    <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
+      <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
+  <section class="h2-card act"><div class="h2-ch"><span class="h2-ic teal">${IC.pulse}</span><h2>Mon activité physique</h2><span class="spacer"></span>${nv?`<span class="h2-chip" style="--c:${nvC}"><i></i>${nv.lab}</span>`:""}</div>
+    ${r?`<div class="h2-main"><div class="h2-ring">${ring(r.score,100,"gsc","#22d3ee","#22c55e",80,14)}<div class="h2-ringv"><b>${r.score}</b><small>/100</small></div></div>
+      <div class="h2-msg"><div class="h2-t" style="color:${nvC}">${nv.t}</div><div class="h2-m"><span class="h2-tr" style="color:${nvC}">${IC.trend}</span><p>${nv.m}</p></div></div>
+      <div class="h2-deco" aria-hidden="true"><i style="height:38%"></i><i style="height:58%"></i><i style="height:82%"></i></div></div>
+      <div class="h2-stats">${stat("shoe",fmtHM(a.min),"d'activité")}${stat("cal",`${jours} / 7`,"jours actifs")}${stat("sit",fmtH(a.sed),"de sédentarité/jour",col(a.sed,P.sed.seuils))}${stat("phone",fmtH(a.ecran),"d'écran/jour",col(a.ecran,P.ecran.seuils))}</div>
+      <button class="h2-link" data-act="shConseils">Voir mes conseils <span>→</span></button>`
+    :`<p class="h-empty">Saisis ton activité de la semaine pour voir ton score et des conseils adaptés.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button>`}</section>
+  <div class="h2-sh"><span class="h2-ic blue">${IC.mega}</span><h2>Actualités</h2><span class="spacer"></span><button class="h2-link" data-act="shActus">Tout voir <span>→</span></button></div>
+  ${a0?`<section class="h2-news"><div class="hn2-tro" aria-hidden="true">${(ACTU_T[a0.type]||ACTU_T.info).ic}</div><div class="hn2-b"><span class="hn2-tag">${(ACTU_T[a0.type]||ACTU_T.info).lab}</span><h3>${esc(a0.titre)}</h3><p><span class="hn2-cal">${IC.cal}</span>${esc(dLong(a0.date).replace(/^./,m=>m.toUpperCase()))} · ${dansJours(a0.date)}</p></div>${a0.lien?`<a class="hn2-go" href="${esc(a0.lien)}" target="_blank" rel="noopener">S'inscrire <span>→</span></a>`:""}</section>
+    ${aRest.slice(0,4).map(x=>`<a class="h2-row" ${x.lien?`href="${esc(x.lien)}" target="_blank" rel="noopener"`:""}><span class="h2-medal" aria-hidden="true">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date).replace(/^./,m=>m.toUpperCase()))}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></a>`).join("")}`
+    :`<div class="h2-row"><span class="h2-medal" aria-hidden="true">📣</span><div><b>Pas d'actualité pour l'instant</b><small>Les compétitions et l'AS apparaîtront ici.</small></div></div>`}
+  <div class="h2-sh"><span class="h2-ic blue">${IC.target}</span><h2>Mes objectifs</h2><span class="spacer"></span><button class="h2-link" data-act="shTab" data-t="progres">Voir mes progrès <span>→</span></button></div>
+  <div class="h2-obj"><section class="h2-card goal"><div class="h2-ring sm">${ring(Math.min(jours,P.objectifJours),P.objectifJours,"ggo","#a855f7","#3b82f6",40,9)}<div class="h2-ringv"><b>${jours} / ${P.objectifJours}</b></div></div>
+      <div class="g-txt"><b>Bouger ${P.objectifJours} jours cette semaine</b><small>${jours>=P.objectifJours?"Objectif atteint, bravo !":`Encore ${P.objectifJours-jours} jour${P.objectifJours-jours>1?"s":""} pour atteindre ton objectif !`}</small><div class="h2-bar"><i style="width:${Math.min(100,jours/P.objectifJours*100)}%"></i></div></div></section>
+    <section class="h2-card defi"><div class="d-h"><span aria-hidden="true">🔥</span> ${DS.length>1?"Défis":"Défi"} de la semaine</div>${dfi?`<b>${esc(dfi.valeur)}</b><small>${esc(dfi.texte)}</small>
+      <button class="d-btn${defiOk?" ok":""}" data-act="shDefi" data-id="${dfi.id}"><span class="d-ic">${defiOk?"✅":IC.dumbbell}</span>${defiOk?"Défi relevé !":"Je relève le défi !"}</button>
+      ${DS.length>1?`<div class="d-nav"><button data-act="shDefiNav" data-d="-1" aria-label="Défi précédent">‹</button>${DS.map((x,i)=>`<i class="${i===DI?"on":""}${defiFait(a,x)?" ok":""}"></i>`).join("")}<button data-act="shDefiNav" data-d="1" aria-label="Défi suivant">›</button></div>`:""}`:`<small>Pas de défi cette semaine.</small>`}</section></div>
+  <div class="h2-sh"><span class="h2-ic blue">${IC.grid}</span><h2>Ton espace EPS</h2></div>
+  <div class="h2-tiles"><button data-act="shTab" data-t="enclasse" class="t-blue"><span>${IC.cal}</span>Séance du jour</button><button data-act="shTab" data-t="progres" class="t-green"><span>${IC.bars}</span>Mes progrès</button>
+    <button data-act="shTab" data-t="enclasse" class="t-purple"><span>${IC.people}</span>Ma classe</button><button data-act="shConseils" class="t-orange"><span>${IC.book}</span>Ressources &amp; conseils</button></div></div>`}
+function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P),ok=DS.filter(d=>defiFait(a,d)).length,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
+  const bar=(l,v,max,txt,c)=>`<div class="pg-b"><div class="pg-bl"><span>${l}</span><b style="${c?`color:${c}`:""}">${txt}</b></div><div class="h2-bar"><i style="width:${Math.max(0,Math.min(100,v/max*100))}%;${c?`background:${c}`:""}"></i></div></div>`;
+  return`<div class="shell-home ec">${vVueBanner()}
+  <div class="ec-h"><span class="ec-hic green">${IC.bars}</span><div><h1>Progrès</h1><p>Ton activité, tes objectifs, tes défis !</p></div><i class="ec-sw" aria-hidden="true"></i></div>
+  <section class="h2-card act"><div class="h2-ch"><span class="h2-ic teal">${IC.pulse}</span><h2>Ma semaine</h2><span class="spacer"></span>${nv?`<span class="h2-chip" style="--c:${nv.c}"><i></i>${nv.lab}</span>`:""}</div>
+    ${r?`<div class="pg-sc"><b style="color:${nv.c}">${r.score}</b><small>/100</small><span>${nv.t}</span></div>
+      ${bar("Activité",+a.min||0,P.act.cible,`${fmtHM(a.min)} / ${fmtHM(P.act.cible)}`)}${bar("Jours actifs",jours,P.jours.cible,`${jours} / ${P.jours.cible}`)}
+      ${bar("Temps assis / jour",+a.sed||0,Math.max(P.sed.seuils[1]*1.5,1),fmtH(a.sed),col(a.sed,P.sed.seuils))}${bar("Écran / jour",+a.ecran||0,Math.max(P.ecran.seuils[1]*1.5,1),fmtH(a.ecran),col(a.ecran,P.ecran.seuils))}
+      <button class="h2-link" data-act="shConseils">Voir mes conseils <span>→</span></button>`
+    :`<p class="h-empty">Saisis ton activité de la semaine pour suivre tes progrès.</p>`}<button class="h-btn" data-act="shTab" data-t="profilEl">${r?"Mettre à jour mes données":"Saisir mes données"}</button></section>
+  <section class="h2-card"><div class="h2-ch"><span class="h2-ic blue">${IC.target}</span><h2>Objectif de la semaine</h2></div>${bar(`Bouger ${P.objectifJours} jours`,jours,P.objectifJours,`${jours} / ${P.objectifJours}`)}</section>
+  <section class="h2-card"><div class="h2-ch"><span aria-hidden="true">🔥</span><h2>Défis de la semaine</h2><span class="spacer"></span>${DS.length?`<span class="h2-chip" style="--c:#f472b6"><i></i>${ok} / ${DS.length} relevé${ok>1?"s":""}</span>`:""}</div>
+    ${DS.length?DS.map(d=>{const f=defiFait(a,d);return`<div class="pg-d"><div><b>${esc(d.valeur)}</b><small>${esc(d.texte)}</small></div><button class="d-btn${f?" ok":""}" data-act="shDefi" data-id="${d.id}">${f?"✅ Relevé":"Je relève !"}</button></div>`}).join(""):`<p class="h-empty" style="margin:8px 0 0">Pas de défi cette semaine.</p>`}</section></div>`}
+function vBottomNav(){const t=route.name,on=k=>t===k||(k==="home"&&["conseils","actus"].includes(t))||(k==="enclasse"&&t==="dossier");
+  return`<nav class="bnav four" aria-label="Onglets">${[["home","house","Accueil"],["enclasse",t==="dossier"?"dbh":"people","En classe"],["progres","bars","Progrès"],["profilEl","user","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${on(k)}"><span class="${ic==="dbh"?"dbh":""}">${ic==="dbh"?IC.dumbbellH:IC[ic]}</span>${l}</button>`).join("")}</nav>`}
 
 /* ---------- Mises à jour de l'appli ---------- */
 let majVersion=null;

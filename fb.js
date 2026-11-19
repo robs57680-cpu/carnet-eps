@@ -9,7 +9,7 @@ import {
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-13";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-16";
 
 // Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
 export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);
@@ -115,6 +115,7 @@ export const setActivite = (uid, data) => setDoc(doc(db, "activite", uid), clean
 export const listActus = async profId => list(await getDocs(query(collection(db, "actus"), where("profId", "==", profId))));
 export const createActu = async data => (await addDoc(collection(db, "actus"), { ...clean(data), createdAt: serverTimestamp() })).id;
 export const deleteActu = id => deleteDoc(doc(db, "actus", id));
+export const updateActu = (id, data) => updateDoc(doc(db, "actus", id), clean(data));
 // Stock : activités partagées entre profs
 export const listStock = async () => list(await getDocs(collection(db, "stock")));
 export const getStock = async id => snap(await getDoc(doc(db, "stock", id)));
