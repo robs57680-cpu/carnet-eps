@@ -120,6 +120,27 @@ service cloud.firestore {
         allow write: if signedIn() && (sess().profId == request.auth.uid
           || (isEleve() && sess().classeId == me().classeId && sess().active == true));
       }
+      // Course d'orientation : correction d'un carton, lisible par l'élève seulement après avoir validé ce carton
+      match /corr/{cid} {
+        function sess() { return get(/databases/$(database)/documents/sessions/$(id)).data; }
+        allow read: if signedIn() && (sess().profId == request.auth.uid
+          || (isEleve() && get(/databases/$(database)/documents/sessions/$(id)/courses/$(request.auth.uid + '_' + cid)).data.fini == true));
+        allow write: if signedIn() && sess().profId == request.auth.uid;
+      }
+      // Course d'orientation : réponses et chrono de l'élève (verrouillés une fois le carton validé)
+      match /courses/{rid} {
+        function sess() { return get(/databases/$(database)/documents/sessions/$(id)).data; }
+        allow read: if signedIn() && (resource.data.eleveUid == request.auth.uid || sess().profId == request.auth.uid);
+        allow create: if isEleve() && request.resource.data.eleveUid == request.auth.uid
+          && rid == request.auth.uid + '_' + request.resource.data.cartonId
+          && sess().classeId == me().classeId && sess().active == true;
+        allow update: if isEleve() && resource.data.eleveUid == request.auth.uid && resource.data.fini != true
+          && request.resource.data.eleveUid == request.auth.uid
+          && request.resource.data.cartonId == resource.data.cartonId
+          && request.resource.data.debut == resource.data.debut;
+        // Le prof peut supprimer une course pour que l'élève recommence
+        allow delete: if signedIn() && sess().profId == request.auth.uid;
+      }
     }
 
     // ---------- Accueil élève ----------
@@ -190,6 +211,27 @@ service cloud.firestore {
       allow update: if isProf() && resource.data.profId == request.auth.uid
         && request.resource.data.profId == request.auth.uid;
       allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+
+    // ---------- Course d'orientation : cartons et correction du prof (jamais lus par les élèves) ----------
+    match /orient/{id} {
+      allow read, delete: if signedIn() && resource.data.profId == request.auth.uid;
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+    }
+
+    // ---------- Sorties de l'appli pendant les créneaux d'EPS ----------
+    // L'élève enregistre ses sorties ; son prof les lit et peut lui envoyer un avertissement (champ avert).
+    match /vigie/{uid} {
+      allow read: if signedIn() && (uidIs(uid) || resource.data.profId == request.auth.uid);
+      allow create: if (uidIs(uid) && isEleve() && request.resource.data.profId == me().profId
+          && request.resource.data.classeId == me().classeId && !('avert' in request.resource.data))
+        || (isProf() && request.resource.data.profId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['profId', 'classeId', 'login', 'avert']));
+      allow update: if (uidIs(uid) && isEleve() && request.resource.data.profId == me().profId
+          && request.resource.data.get('avert', null) == resource.data.get('avert', null))
+        || (isProf() && resource.data.profId == request.auth.uid && onlyKeys(['avert']));
     }
 
     // ---------- Préférences privées du prof (clé Gemini personnelle) ----------

@@ -163,3 +163,26 @@ export const createDemande = data => addDoc(collection(db, "demandes"), { ...cle
 export const listDemandes = async () => list(await getDocs(collection(db, "demandes")));
 export const updateDemande = (id, patch) => updateDoc(doc(db, "demandes", id), patch);
 export const deleteDemande = id => deleteDoc(doc(db, "demandes", id));
+
+/* ---------- Course d'orientation ---------- */
+// Réglages du prof (formats, cartons, correction) : jamais lus par les élèves
+export const getOrient = async id => snap(await getDoc(doc(db, "orient", id)));
+export const setOrient = (id, data) => setDoc(doc(db, "orient", id), clean(data));
+// Séances : correction recopiée par carton (lisible par l'élève seulement après validation de son carton)
+export const setCorr = (sid, cid, data) => setDoc(doc(db, "sessions", sid, "corr", cid), clean(data));
+export const getCorr = async (sid, cid) => snap(await getDoc(doc(db, "sessions", sid, "corr", cid)));
+export const listCorr = async sid => list(await getDocs(collection(db, "sessions", sid, "corr")));
+export const listSessionsOutil = async (classeId, profId, outilId) => list(await getDocs(query(collection(db, "sessions"), where("classeId", "==", classeId), where("profId", "==", profId), where("outilId", "==", outilId))));
+// Courses des élèves : sessions/{sid}/courses/{uid}_{carton}
+export const setCourse = (sid, rid, data) => setDoc(doc(db, "sessions", sid, "courses", rid), clean(data));
+export const updateCourse = (sid, rid, patch) => updateDoc(doc(db, "sessions", sid, "courses", rid), clean(patch));
+export const deleteCourse = (sid, rid) => deleteDoc(doc(db, "sessions", sid, "courses", rid));
+export const listMesCourses = async (sid, uid) => list(await getDocs(query(collection(db, "sessions", sid, "courses"), where("eleveUid", "==", uid))));
+export const listCourses = async sid => list(await getDocs(collection(db, "sessions", sid, "courses")));
+export const watchCourses = (sid, cb) => onSnapshot(collection(db, "sessions", sid, "courses"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn(e));
+
+/* ---------- Sorties de l'appli pendant les créneaux d'EPS ---------- */
+export const getVigie = async uid => snap(await getDoc(doc(db, "vigie", uid)));
+export const setVigie = (uid, data) => setDoc(doc(db, "vigie", uid), clean(data), { merge: true });
+export const updateVigie = (uid, patch) => updateDoc(doc(db, "vigie", uid), clean(patch));
+export const listVigie = async (profId, classeId) => list(await getDocs(query(collection(db, "vigie"), where("profId", "==", profId), where("classeId", "==", classeId))));

@@ -174,3 +174,13 @@ MODÈLE ACTUEL :
 ${JSON.stringify(modele)}
 DEMANDE DU PROFESSEUR : ${demande}` }], cle);
 }
+
+/** Recopie le tableau de correction des cartons de course d'orientation (photo, PDF scanné). */
+export async function lireTableau({ fichiers, cle }) {
+  const parts = [{ text: `Le professeur d'EPS te donne la correction des cartons de contrôle de sa course d'orientation (photo, PDF scanné ou tableau).
+Recopie FIDÈLEMENT chaque tableau, case par case, ligne par ligne, sans rien inventer, corriger ni réordonner.
+Garde la ligne et la colonne d'en-tête (numéros des balises, noms ou numéros des cartons). Une case vide s'écrit "". Écris les flèches avec ↑ ↓ ← →.
+Réponds uniquement en JSON : {"tableaux":[{"nom":"titre du tableau ou de la page","lignes":[["case","case"],["case","case"]]}]}` }];
+  for (const f of fichiers || []) parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } });
+  return call(parts, cle);
+}

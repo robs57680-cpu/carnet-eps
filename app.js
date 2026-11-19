@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.20-2";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-2";
-const APP_VERSION="2026.11.20-2";
+import * as fb from "./fb.js?v=2026.11.20-4";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-4";
+const APP_VERSION="2026.11.20-4";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -469,6 +469,9 @@ function render(){document.body.classList.toggle("vue",!!VUE);document.body.clas
     case"feuille":h=FE?vFeuillePage():"";break;
     case"feuilleLocale":h=FL?vFeuilleLocale():"";break;
     case"outilProf":h=OP?vOutilProf():"";break;
+    case"co":h=CO?vCo():"";break;
+    case"coProf":h=CP?vCoProf():"";break;
+    case"coCfg":h=CC?vCoCfg():"";break;
     case"modele":h=vModele();break;
     case"classes":h=vClasses();break;
     case"classe":h=vClasse();break;
@@ -560,7 +563,7 @@ function vClasses(){const year=(()=>{const d=new Date(),y=d.getFullYear();return
 let classeDossiers=null;
 async function openClasse(id,tab){go("loading");try{await migrerDossiers();classe=await fb.getClasse(id)||classes.find(c=>c.id===id);classeDossiers=await loadClasseActs(classe);classeActs=classeDossiers?[]:await loadActs(classe);dossiers=(await fb.listDossiers(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));eleves=(await fb.listEleves(id)).sort((a,b)=>(a.numero||0)-(b.numero||0));classeTab=tab||classeTab||"activites";go("classe")}catch(e){go("error",{msg:authMsg(e)})}}
 function vClasse(){const c=classe,rep=getReperes(c.id);
-  const tabs=`<div class="seg2">${[["activites","Activités"],["eleves",`Élèves (${eleves.length})`]].map(([k,l])=>`<button data-act="classeTab" data-t="${k}" aria-current="${classeTab===k}">${l}</button>`).join("")}</div>`;
+  const tabs=`<div class="seg2">${[["activites","Activités"],["eleves",`Élèves (${eleves.length})`],["vigie","📵 Téléphone"]].map(([k,l])=>`<button data-act="classeTab" data-t="${k}" aria-current="${classeTab===k}">${l}</button>`).join("")}</div>`;
   let body="";
   if(classeTab==="activites"&&classeDossiers)body=vSeanceJourProf()+(classeDossiers.length?classeDossiers.map(({d,carnets,outils})=>`<section class="card"><div class="sec-h"><span class="act-ca">${esc(d.ca||"")}</span><h3>${esc(d.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="openDossierEd" data-id="${d.id}">Modifier</button></div>
       ${carnets.length?`<div class="list-s">${carnets.map(x=>`<button class="s-item" data-act="openSuivi" data-a="${x.id}" style="border-left-color:var(--accent)"><div><strong>📒 ${esc(x.titre)}</strong><div class="hint">${x.pub?"Carnets des élèves et notes":"Pas encore publié"}</div></div><span class="chip">Voir →</span></button>`).join("")}</div>`:""}${(outils||[]).length?`<div class="list-s" style="margin-top:8px">${outils.map(x=>`<button class="s-item" data-act="openOutilProf" data-d="${d.id}" data-o="${x.id}" style="border-left-color:var(--d2)"><div><strong>${OUTILS[x.kind].ic} ${esc(x.titre)}</strong><div class="hint">Réglages, ${x.kind==="feuille"?"poules et séances":"séances"}</div></div><span class="chip">Ouvrir →</span></button>`).join("")}</div>`:""}${!carnets.length&&!(outils||[]).length?'<p class="hint" style="margin:0">Rien dans cette activité.</p>':""}</section>`).join(""):`<div class="card"><p style="margin:0">Aucune activité ouverte pour cette classe.</p></div>`)
@@ -568,6 +571,7 @@ function vClasse(){const c=classe,rep=getReperes(c.id);
       <div class="row" style="margin-top:8px"><button class="btn small" data-nav="modeles">Gérer mes activités</button></div></section>`;
   else if(classeTab==="activites")body=`<div class="acts">${[...Object.entries(ACTIVITES).map(([k,a])=>({id:k,...a})),...classeActs].map(a=>`<button class="act-card" data-act="openSuivi" data-a="${a.id}"><span class="act-ca">${esc(a.ca||"")}</span><span class="act-t">${esc(a.titre)}</span><span class="act-d">Carnets d'entraînement des élèves et notes.</span><span class="act-go">Voir les carnets →</span></button>`).join("")}</div>
     <section class="card"><div class="row"><div><strong>Une autre activité ?</strong><div class="hint">Créez un carnet avec l'IA à partir de son référentiel, puis activez-le pour cette classe.</div></div><span class="spacer"></span><button class="btn" data-nav="modeles">Mes carnets</button></div></section>`;
+  else if(classeTab==="vigie")body=vVgProf();
   else body=`<section class="card"><div class="sec-h"><h3>Comptes élèves</h3><span class="spacer"></span>${eleves.length?`<button class="btn small" data-act="copyIds">Copier</button><button class="btn small" data-act="printIds">Imprimer les fiches</button>`:""}</div>
     <p class="hint" style="margin:-4px 0 10px">Distribuez les identifiants aux élèves. La colonne « Repère » (initiales, prénom…) reste uniquement sur cet appareil : elle n'est jamais envoyée en ligne.</p>
     ${eleves.length?`<div class="scroll"><table class="ids"><thead><tr><th>N°</th><th>Identifiant</th><th>Mot de passe</th><th>Repère (cet appareil)</th><th></th></tr></thead><tbody>${eleves.map(e=>`<tr><td>${e.numero}</td><td><code>${esc(e.login)}</code></td><td><code>${esc(e.password)}</code></td><td><input id="rep-${e.id}" data-repere="${e.id}" value="${esc(rep[e.id]||"")}" maxlength="30" style="min-width:110px"></td><td><button class="btn ghost small" data-act="delEleve" data-id="${e.id}" aria-label="Supprimer le compte">✕</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
@@ -673,6 +677,7 @@ function vCompte(){return`<div class="stack"><h2>Mon compte</h2>
 $("#modal").addEventListener("click",async e=>{if(e.target.id==="modal"){closeModal();return}
   const b=e.target.closest("[data-mact]");if(!b)return;const a=b.dataset.mact,c=modalCtx;
   if(a==="close"){closeModal();return}
+  if(a==="vgVu"){closeModal();vgVu(b.dataset.id);return}
   if(a==="copyMsg"){try{await navigator.clipboard.writeText($("#m-msg").value);toast("Message copié")}catch(err){$("#m-msg").select()}return}
   if(a==="sendDem"){const email=$("#d-email").value.trim(),eta=$("#d-eta").value.trim(),msg=$("#d-msg").value.trim();
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||!eta){$("#m-err").textContent="Indiquez votre e-mail et votre établissement.";return}
@@ -714,6 +719,8 @@ document.addEventListener("click",async e=>{const n=e.target.closest("[data-nav]
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-view]");if(!b)return;if(b.dataset.view==="fiches")openFiches();else setView(b.dataset.view)});
 const main=$("#main");
 function onField(e){const el=e.target;
+  if(el.dataset.co!==undefined||el.dataset.cc!==undefined){coField(el,e);return}
+  if(el.dataset.vg!==undefined){vgField(el,e);return}
   if(el.dataset.repere!==undefined){const r=getReperes(classe.id);r[el.dataset.repere]=el.value.slice(0,30);store(reperesKey(classe.id),r);return}
   if(el.dataset.a3!==undefined){if(e.type==="change")setAfl3(el.value?+el.value:null,+el.dataset.a3);return}
   if(el.dataset.set){if(route.name!=="suivi")return;const st=settings;if(el.dataset.set==="tol")st.tol=num(el.value)||5;else{const[t,p,i]=el.dataset.set.split(".");const v=num(el.value);if(!isNaN(v))st.themes[t][p][+i]=v}
@@ -758,7 +765,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.20-2");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.20-4");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -767,6 +774,9 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   const b=e.target.closest("[data-act]");if(!b)return;if(b.dataset.act==="openEleve"&&e.target.closest(".noclk"))return;
   const a=b.dataset.act,i=+b.dataset.i;
   if(/^(cr|mAddBloc|mPaste)/.test(a)&&crClick(a,b))return;
+  if(/^(co|cc)[A-Z]/.test(a)&&coClick(a,b))return;
+  if(/^cp[A-Z]/.test(a)&&cpClick(a,b))return;
+  if(/^vg[A-Z]/.test(a)&&vgClick(a,b))return;
   // Connexion
   if(a==="askAccess"){openModal(`<h3>Demander un accès prof</h3><label class="f">E-mail professionnel<input id="d-email" type="email" autocomplete="email"></label><label class="f">Établissement<input id="d-eta" maxlength="190"></label><label class="f">Message (facultatif)<textarea id="d-msg" maxlength="990"></textarea></label><div class="err" id="m-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-mact="sendDem">Envoyer</button></div>`);return}
   if(a==="forgot"){openModal(`<h3>Mot de passe oublié</h3><p class="hint" style="margin:0">Réservé aux professeurs. Élèves : demandez votre mot de passe à votre enseignant.</p><label class="f">E-mail<input id="r-email" type="email" value="${esc(($("#l-id")||{}).value||"")}"></label><div class="err" id="m-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-mact="sendReset">Envoyer le lien</button></div>`);return}
@@ -870,7 +880,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="opClose"){confirmBox("Clôturer la séance ?","Les élèves ne pourront plus modifier les scores. Vous pourrez la rouvrir.","Clôturer",async()=>{try{await fb.updateSession(FE.S.id,{active:false});FE.S.active=false;closeModal();toast("Séance clôturée");render()}catch(x){closeModal();toast(authMsg(x))}});return}
   if(a==="opReopen"){(async()=>{try{for(const s of OP.sessions.filter(z=>z.active&&z.id!==FE.S.id)){await fb.updateSession(s.id,{active:false});s.active=false}await fb.updateSession(FE.S.id,{active:true});FE.S.active=true;toast("Séance rouverte");render()}catch(x){toast(authMsg(x))}})();return}
   if(a==="opSaveCls"){(async()=>{try{const m={...(OP.cls.outilsCfg||{}),[OP.item.id]:OP.cfgCls};await fb.updateClasse(OP.cls.id,{outilsCfg:m});OP.cls.outilsCfg=m;toast("Réglages enregistrés pour la classe")}catch(x){toast(authMsg(x))}})();return}
-  if(a==="dosAddOutil"){const k=b.dataset.k;(async()=>{await dosItems([...(dossier.items||[]),{t:"outil",id:"o_"+Math.random().toString(36).slice(2,9),kind:k,titre:OUTILS[k].nom,cfg:CFG_DEF}]);openDossierEd(dossier.id)})();return}
+  if(a==="dosAddOutil"){const k=b.dataset.k;(async()=>{const id="o_"+Math.random().toString(36).slice(2,9);try{if(k==="co")await fb.setOrient(id,{profId:me.uid,...normCo(CO_DEF)});await dosItems([...(dossier.items||[]),{t:"outil",id,kind:k,titre:OUTILS[k].nom,...(k==="co"?{}:{cfg:CFG_DEF})}]);if(k==="co"){await openDossierEd(dossier.id);openCoCfg(id)}else openDossierEd(dossier.id)}catch(x){toast(authMsg(x))}})();return}
   // Stock
   if(a==="stockDos"){stockDos=b.dataset.k;stockOpen=null;ficheOpen=null;render();window.scrollTo(0,0);return}
   if(a==="stockBack"){stockDos=null;render();return}
@@ -1450,17 +1460,17 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.20-2");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.20-4");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.20-2");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.20-4");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1684,15 +1694,15 @@ async function openDossier(id){go("loading",{msg:"Ouverture de l'activité…"})
 let dosTab="act";
 function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche"||x.pub),carnets=its.filter(x=>x.t==="carnet"),k=CA_FR[d.ca]?d.ca:"";
   const item=x=>{if(x.t==="outil"){const s=(eleveSessions||[]).find(z=>z.outilId===x.id&&z.active),ok=x.kind!=="feuille"||s;
-      return`<div class="dl-it outil"><span class="dl-ic">${IC.tool}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.kind==="feuille"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte"):"Outil"}</small></div><button class="dl-go" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}>${ok?`Ouvrir ${IC.arrow}`:"Fermé"}</button></div>`}
+      return`<div class="dl-it outil"><span class="dl-ic">${IC.tool}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.kind==="feuille"||x.kind==="co"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte"):"Outil"}</small></div><button class="dl-go" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}>${ok?`Ouvrir ${IC.arrow}`:"Fermé"}</button></div>`}
     if(x.t==="carnet")return`<div class="dl-it carnet"><span class="dl-ic">${IC.kettle}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</small></div><button class="dl-go" data-act="openAct" data-a="${x.id}">Ouvrir ${IC.arrow}</button></div>`;
     const o=ficheOpen===x.id;return`<div class="dl-it fiche${o?" open":""}"><span class="dl-ic">${IC.certif}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}Fiche</small></div><button class="dl-go" data-act="showFiche" data-id="${x.id}" aria-expanded="${o}">${o?"Fermer":`Voir ${IC.arrow}`}</button>${o?`<div class="dl-fb">${vFicheViewer(x.f)}</div>`:""}</div>`};
   return`<div class="shell-home dos">
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-2" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
-  ${dosTab==="res"?(carnets.length?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-4" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  ${dosTab==="res"?coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
 async function migrerDossiers(){try{const pr=await fb.getPrefs(me.uid).catch(()=>null);if(pr&&pr.dossiersOk)return;
@@ -1714,7 +1724,7 @@ async function openDossierEd(id){shareOpen=false;go("loading");try{await loadCla
 function vDossierEd(){const d=dossier,its=dossierItems;
   const st=x=>x.id===CA5_ID?(x.doc?(x.doc.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié · votre version"):"Publié · version d'origine"):x.pub?(x.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié"):"Bac à sable · pas encore visible";
   const rows=its.map((x,i)=>`<div class="doc-row${x.t==="fiche"&&ficheOpen===x.id?" open":""}"><div class="row" style="gap:6px;flex-wrap:nowrap">
-    ${x.t==="outil"?`<div class="doc-item outil" style="flex:1;cursor:default"><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><input data-outil-titre="${x.id}" value="${esc(x.titre)}" maxlength="40" aria-label="Nom de l'outil"><span class="hint">${OUTILS[x.kind].nom} · séances et réglages : Classes › la classe › Activités</span></span></div>`:x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
+    ${x.t==="outil"?`<div class="doc-item outil" style="flex:1;cursor:default"><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><input data-outil-titre="${x.id}" value="${esc(x.titre)}" maxlength="40" aria-label="Nom de l'outil"><span class="hint">${OUTILS[x.kind].nom} · séances${x.kind==="co"?"":" et réglages"} : Classes › la classe › Activités</span></span>${x.kind==="co"?`<button class="chip cc-go" data-act="ccOpen" data-id="${x.id}">Cartons et correction →</button>`:""}</div>`:x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
       :`<button class="doc-item" data-act="showFiche" data-id="${x.id}" style="flex:1"><span class="di-ic">${ficheIcon(x.f)}</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">Fiche${x.f.type==="pdf"?" PDF":x.f.type==="texte"?" texte":` · ${x.f.nb} page${x.f.nb>1?"s":""}`}</span></span><span class="chip">${ficheOpen===x.id?"Fermer":"Voir"}</span></button>`}
     <div class="stack" style="gap:2px"><button class="btn ghost small" data-act="dosUp" data-i="${i}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="dosDown" data-i="${i}" aria-label="Descendre">↓</button></div><button class="btn ghost small danger" data-act="dosDel" data-i="${i}" aria-label="Retirer">✕</button></div>
     ${x.t==="fiche"&&ficheOpen===x.id?`<div class="fiche-b"><label class="f">Titre<input data-fiche-titre="${x.id}" value="${esc(x.titre)}" maxlength="80"></label>${vFicheViewer(x.f)}</div>`:""}</div>`).join("");
@@ -1726,8 +1736,8 @@ function vDossierEd(){const d=dossier,its=dossierItems;
   <section class="card"><div class="sec-h"><h3>Documents de l'activité</h3><span class="hint">Ce que l'élève trouve dans le dossier</span></div>
     ${rows?`<div class="docs">${rows}</div>`:'<p class="hint" style="margin:0">Le dossier est vide : ajoutez un carnet ou une fiche ci-dessous.</p>'}</section>
   ${vCreer(hasCa5)}
-  <section class="card stack" style="gap:8px"><h3>Ajouter un outil</h3><p class="hint" style="margin:0">Feuille de match : poules de 3 à 8 joueurs sur 1 à 4 terrains, scores reportés par les élèves arbitres. Scoreur : compteur de points avec bonus et chrono.</p>
-    <div class="row"><button class="btn" data-act="dosAddOutil" data-k="feuille">🏆 Feuille de match</button><button class="btn" data-act="dosAddOutil" data-k="scoreur">⏱️ Scoreur</button></div></section>
+  <section class="card stack" style="gap:8px"><h3>Ajouter un outil</h3><p class="hint" style="margin:0">Feuille de match : poules de 3 à 8 joueurs sur 1 à 4 terrains, scores reportés par les élèves arbitres. Scoreur : compteur de points avec bonus et chrono. Course d'orientation : formats de course, cartons de contrôle corrigés automatiquement, chrono.</p>
+    <div class="row"><button class="btn" data-act="dosAddOutil" data-k="feuille">🏆 Feuille de match</button><button class="btn" data-act="dosAddOutil" data-k="scoreur">⏱️ Scoreur</button><button class="btn" data-act="dosAddOutil" data-k="co">🧭 Course d'orientation</button></div></section>
   <form class="card stack" id="fiche-form" style="gap:10px"><h3>Ajouter une fiche</h3>
     <label class="f">Fichier (PDF ou photo : consignes, fiche technique, référentiel…)<input type="file" id="fi-file" accept="application/pdf,image/*" multiple></label>
     <details><summary class="hint">Ou écrire une fiche texte</summary><textarea id="fi-texte" placeholder="Contenu de la fiche"></textarea></details>
@@ -1765,13 +1775,14 @@ async function loadClasseActs(cl){const ds=await loadClasseDossiers(cl);if(!ds)r
    ==================================================================== */
 let stockList=[],stockDos=null,stockOpen=null,stockBusy="",shareOpen=false;
 const actKeyOf=t=>norm(String(t||"")).replace(/[^a-z0-9]+/g," ").trim()||"activite";
-async function openStock(){go("loading",{msg:"Ouverture du stock…"});try{stockList=await fb.listStock();stockDos=null;stockOpen=null;go("stock")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openStock(){go("loading",{msg:"Ouverture du stock…"});try{stockList=[...STOCK_INT,...await fb.listStock()];stockDos=null;stockOpen=null;go("stock")}catch(e){go("error",{msg:authMsg(e)})}}
 function stockFolders(){const m=new Map();stockList.forEach(e=>{const k=e.cle||actKeyOf(e.titre);if(!m.has(k))m.set(k,{cle:k,titre:e.titre,ca:e.ca,items:[]});m.get(k).items.push(e)});
   return[...m.values()].sort((a,b)=>a.titre.localeCompare(b.titre,"fr"))}
 function vStockEntry(e){const open=stockOpen===e.id;
-  return`<section class="card stack" style="gap:8px"><div class="sec-h"><span class="di-ic">📁</span><h3 style="flex:1;min-width:0">${esc(e.signature||"Collègue")}</h3>${e.auteurId===me.uid?'<span class="chip">Vous</span>':""}<span class="chip">${esc(e.ca||"")}</span></div>
+  return`<section class="card stack" style="gap:8px"><div class="sec-h"><span class="di-ic">📁</span><h3 style="flex:1;min-width:0">${esc(e.signature||"Collègue")}</h3>${e.auteurId===me.uid?'<span class="chip">Vous</span>':""}${e.integre?'<span class="chip">Prêt à l\'emploi</span>':""}<span class="chip">${esc(e.ca||"")}</span></div>
     <div class="principe"><strong>Principe d'évaluation</strong><p style="margin:4px 0 0;white-space:pre-wrap">${esc(e.principe)}</p></div>
     <div class="docs">${(e.carnets||[]).map(c=>`<div class="doc-item carnet" style="cursor:default"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(c.titre)}</strong><span class="hint">${(c.modele.sections||[]).length} parties · ${(c.modele.criteres||[]).length} critères · ${esc(PAGES_FR[c.modele.pages]||"")}${c.modele.partage&&c.modele.partage!=="aucun"?" · "+esc(c.modele.partage==="groupe"?"en groupe":"avec un coach"):""}</span></span></div>`).join("")}
+      ${(e.outils||[]).map(o=>`<div class="doc-item outil" style="cursor:default"><span class="di-ic">${(OUTILS[o.kind]||{}).ic||"🧰"}</span><span class="di-t"><strong>${esc(o.titre)}</strong><span class="hint">${o.kind==="co"?`Outil · formats : ${esc(((o.cfg&&o.cfg.formats)||[]).map(f=>f.nom).join(", "))} · réponses : ${esc(((o.cfg&&o.cfg.reponses)||[]).join(" / ")||"code libre")}`:"Outil"}</span></span></div>`).join("")}
       ${(e.fiches||[]).map(f=>`<div class="fiche${open&&ficheOpen===f.id?" open":""}"><div class="fiche-h"><button class="fiche-t" data-act="stockFiche" data-e="${e.id}" data-id="${f.id}"><span class="fi-ic">${ficheIcon(f)}</span><span><strong>${esc(f.titre)}</strong></span><span class="spacer"></span><span class="chip">${open&&ficheOpen===f.id?"Fermer":"Voir"}</span></button></div>${open&&ficheOpen===f.id?`<div class="fiche-b">${vFicheViewer(f)}</div>`:""}</div>`).join("")}</div>
     <div class="row"><button class="btn primary" data-act="stockImport" data-id="${e.id}" ${stockBusy?"disabled":""}>${stockBusy===e.id?"Import en cours…":"⬇️ Importer dans mes activités"}</button>${e.auteurId===me.uid?`<button class="btn ghost small danger" data-act="stockDel" data-id="${e.id}">Retirer du stock</button>`:""}</div></section>`}
 function vStock(){const F=stockFolders();
@@ -1786,7 +1797,7 @@ function vShareBox(){const d=dossier,its=dossierItems,sh=d.stockId;
   if(!shareOpen)return`<section class="card"><div class="row"><div style="flex:1;min-width:200px"><strong>${sh?"✅ Activité partagée dans le stock":"Partager dans le stock"}</strong><div class="hint">${sh?"Vos collègues peuvent l'importer. Vous pouvez mettre le partage à jour ou le retirer.":"Proposez vos carnets et votre référentiel aux autres profs de l'appli. Vous choisissez ce que vous partagez."}</div></div><button class="btn" data-act="shareToggle">${sh?"Gérer le partage":"Partager…"}</button></div></section>`;
   return`<section class="card stack" style="gap:10px" id="share-box"><h3>Partager dans le stock</h3>
     <p class="hint" style="margin:0">Le partage sera rangé dans le dossier « ${esc(d.titre)} » du stock (sous-dossier à votre nom s'il y a déjà d'autres partages). Aucune donnée d'élève n'est partagée.</p>
-    <div class="f"><span class="mlab">Ce que vous acceptez de partager</span><div class="mchecks">${its.map(x=>`<label><input type="checkbox" class="sh-it" value="${x.id}" ${x.t==="carnet"&&!(x.pub||x.id===CA5_ID)?"disabled":"checked"}> ${x.t==="carnet"?"📒":ficheIcon(x.f)} ${esc(x.titre)}${x.t==="carnet"&&!(x.pub||x.id===CA5_ID)?' <span class="hint">(pas encore publié)</span>':""}</label>`).join("")||'<span class="hint">Le dossier est vide.</span>'}</div></div>
+    <div class="f"><span class="mlab">Ce que vous acceptez de partager</span><div class="mchecks">${its.map(x=>`<label><input type="checkbox" class="sh-it" value="${x.id}" ${x.t==="carnet"&&!(x.pub||x.id===CA5_ID)?"disabled":"checked"}> ${x.t==="carnet"?"📒":x.t==="outil"?(OUTILS[x.kind]||{}).ic||"🧰":ficheIcon(x.f)} ${esc(x.titre)}${x.t==="carnet"&&!(x.pub||x.id===CA5_ID)?' <span class="hint">(pas encore publié)</span>':""}</label>`).join("")||'<span class="hint">Le dossier est vide.</span>'}</div></div>
     <label class="f">Votre principe d'évaluation (obligatoire, quelques lignes)<textarea id="sh-principe" rows="4" placeholder="ex. AFL1 noté sur l'enchaînement final (difficulté des figures et exécution), AFL2 sur la construction de la séquence dans le carnet de groupe, AFL3 sur les rôles de juge et de pareur.">${esc(d.principe||"")}</textarea></label>
     <label class="f">Signature (facultatif)<input id="sh-sign" maxlength="60" value="${esc(d.signature||"")}" placeholder="ex. Robin, lycée de Verdun"></label>
     <div class="err" id="sh-err"></div>
@@ -1800,7 +1811,8 @@ async function partager(){const err=$("#sh-err"),principe=$("#sh-principe").valu
   stockBusy="share";rerenderKeep();
   try{const carnets=sel.filter(x=>x.t==="carnet").map(x=>({titre:x.titre,modele:normModele(x.id===CA5_ID?x.M:(x.doc.modele||x.doc.brouillon))}));
     const fiches=[];for(const x of sel.filter(x=>x.t==="fiche")){const id=await copyFiche(x.f,{activite:"stock"});fiches.push({id,titre:x.f.titre,type:x.f.type,nb:x.f.nb||0,texte:x.f.texte||""})}
-    const doc={auteurId:me.uid,titre:dossier.titre,cle:actKeyOf(dossier.titre),ca:dossier.ca||"",principe:principe.slice(0,1500),signature,carnets,fiches,maj:new Date().toISOString()};
+    const outils=[];for(const x of sel.filter(x=>x.t==="outil")){let cfg=x.cfg||null;if(x.kind==="co"){const n=normCo(await fb.getOrient(x.id).catch(()=>null)||CO_DEF);cfg={reponses:n.reponses,formats:n.formats}}outils.push({kind:x.kind,titre:x.titre,cfg})}
+    const doc={auteurId:me.uid,titre:dossier.titre,cle:actKeyOf(dossier.titre),ca:dossier.ca||"",principe:principe.slice(0,1500),signature,carnets,fiches,outils,maj:new Date().toISOString()};
     let sid=dossier.stockId;if(sid){const old=await fb.getStock(sid).catch(()=>null);if(old&&old.auteurId===me.uid){for(const f of old.fiches||[])await fb.deleteFiche(f.id,f.nb).catch(()=>{});await fb.setStock(sid,doc)}else sid=null}
     if(!sid)sid=await fb.createStock(doc);
     await saveDossier({stockId:sid,principe,signature});stockBusy="";shareOpen=false;toast("Activité partagée dans le stock");rerenderKeep()}
@@ -1809,6 +1821,7 @@ async function importer(e){stockBusy=e.id;rerenderKeep();
   try{const id=await fb.createDossier({profId:me.uid,titre:e.titre,ca:e.ca||"",desc:"",items:[],principe:e.principe});const items=[];
     for(const c of e.carnets||[]){const M=normModele(c.modele);const mid=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:null,statut:"brouillon"});items.push({t:"carnet",id:mid})}
     for(const f of e.fiches||[]){const fid=await copyFiche(f,{activite:id});items.push({t:"fiche",id:fid})}
+    for(const o of e.outils||[]){if(!OUTILS[o.kind])continue;const oid="o_"+Math.random().toString(36).slice(2,9);if(o.kind==="co")await fb.setOrient(oid,{profId:me.uid,...normCo({...(o.cfg||{}),cartons:[],corr:{}})});items.push({t:"outil",id:oid,kind:o.kind,titre:o.titre||OUTILS[o.kind].nom,...(o.kind==="co"?{}:{cfg:o.cfg||CFG_DEF})})}
     await fb.updateDossier(id,{items});stockBusy="";toast("Activité importée : adaptez les carnets puis publiez-les");openDossierEd(id)}
   catch(x){console.error(x);stockBusy="";rerenderKeep();toast(authMsg(x))}}
 
@@ -1909,6 +1922,7 @@ document.addEventListener("input",e=>{const i=e.target.closest("[data-scn]");if(
 /* --- Prof : réglages et séances d'un outil pour une classe --- */
 async function openOutilProf(cid,did,oid){go("loading",{msg:"Chargement…"});
   try{const cls=await fb.getClasse(cid),d=await fb.getDossier(did),item=(d.items||[]).find(x=>x.id===oid);if(!item)throw{code:"not-found"};
+    if(item.kind==="co"){await openCoProf(cls,d,item);return}
     const [sessions,eleves]=await Promise.all([fb.listSessions(me.uid,cid,oid),fb.listEleves(cid)]);eleves.sort((a,b)=>a.numero-b.numero);
     await Promise.all(eleves.map(async e=>{try{const l=await fb.getLogin(e.login);if(l&&l.pseudo)pseudoCache[e.id]=l.pseudo}catch(x){}}));
     sessions.sort((a,b)=>String(b.date).localeCompare(String(a.date)));const act=sessions.find(s=>s.active);
@@ -1959,7 +1973,8 @@ async function opOpen(){const it=OP.item,dr=OP.draft;dr.date=($("#op-date")||{va
 function feuilleCfgChange(pre,k,v){if(pre==="draft"){OP.draft.reglages=editCfg(OP.draft.reglages,k,v);rerenderKeep();return}
   if(pre==="cls"){OP.cfgCls=editCfg(OP.cfgCls,k,v);rerenderKeep();return}
   if(pre==="sess"&&FE){const c=editCfg(cfgFor(OP.item,null,FE.S),k,v);FE.S.reglages=c;fb.updateSession(FE.S.id,{reglages:c}).then(()=>toast("Réglage appliqué à la séance")).catch(x=>toast(authMsg(x)));rerenderKeep()}}
-async function ouvrirOutilEleve(x){const sess=(eleveSessions||[]).find(s=>s.outilId===x.id&&s.active);
+async function ouvrirOutilEleve(x){if(x.kind==="co"){openCo(x);return}
+  const sess=(eleveSessions||[]).find(s=>s.outilId===x.id&&s.active);
   if(x.kind==="feuille"){if(!sess){toast("Pas de séance ouverte pour la feuille de match");return}openFeuille(sess.id);return}
   openScoreur({cfg:cfgFor(x,eleveClasse,sess)})}
 let eleveSessions=[],eleveClasse=null;
@@ -2036,7 +2051,7 @@ function conseils(a,P){if(!a)return[];const out=[],r=scoreAct(a,P);if(!r)return[
 async function openHome(){go("loading",{msg:"Chargement de ton espace…"});
   try{const[pc,ac,actus,cls,sess]=await Promise.all([fb.getProfCfg(me.profId).catch(()=>null),fb.getActivite(me.uid).catch(()=>null),fb.listActus(me.profId).catch(()=>[]),fb.getClasse(me.classeId).catch(()=>null),fb.listSessionsActives(me.classeId,me.profId).catch(()=>[])]);
     H={pc:normPC(pc),ac,cls,sessions:sess,actus:actus.filter(x=>String(x.date||"")>=today()&&(!(x.classes||[]).length||(x.classes||[]).includes(me.classeId))).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};
-    eleveClasse=cls;eleveSessions=sess;go("home")}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+    eleveClasse=cls;eleveSessions=sess;go("home");vgInit()}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 const AVATARS=["🏃","🤸","⚽","🏀","🏐","🤾","🏸","🎾","🚴","🏊","🧗","🥋","🦊","🐯","🐺","🦁"];
 function avatarHTML(cls=""){return`<div class="h-av ${cls}" aria-hidden="true">${esc(me.avatar||AVATARS[0])}</div>`}
 const dLong=d=>{const x=new Date(String(d)+"T12:00:00");return isNaN(x)?"":x.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})};
@@ -2069,7 +2084,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-2" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-4" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2166,7 +2181,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-2" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-4" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2199,16 +2214,17 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-2" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-4" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-2" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-4" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
+  ${vgHomeCard()}
   <section class="h2-card act"><div class="h2-ch"><span class="h2-ic teal">${IC.pulse}</span><h2>Mon activité physique</h2><span class="spacer"></span>${nv?`<span class="h2-chip" style="--c:${nvC}"><i></i>${nv.lab}</span>`:""}</div>
     ${r?`<div class="h2-main"><div class="h2-ring">${ring(r.score,100,"gsc","#22d3ee","#22c55e",80,14)}<div class="h2-ringv"><b>${r.score}</b><small>/100</small></div></div>
       <div class="h2-msg"><div class="h2-t" style="color:${nvC}">${nv.t}</div><div class="h2-m"><span class="h2-tr" style="color:${nvC}">${IC.trend}</span><p>${nv.m}</p></div></div>
@@ -2243,7 +2259,7 @@ function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P)
   <section class="h2-card"><div class="h2-ch"><span aria-hidden="true">🔥</span><h2>Défis de la semaine</h2><span class="spacer"></span>${DS.length?`<span class="h2-chip" style="--c:#f472b6"><i></i>${ok} / ${DS.length} relevé${ok>1?"s":""}</span>`:""}</div>
     ${DS.length?DS.map(d=>{const f=defiFait(a,d);return`<div class="pg-d"><div><b>${esc(d.valeur)}</b><small>${esc(d.texte)}</small></div><button class="d-btn${f?" ok":""}" data-act="shDefi" data-id="${d.id}">${f?"✅ Relevé":"Je relève !"}</button></div>`}).join(""):`<p class="h-empty" style="margin:8px 0 0">Pas de défi cette semaine.</p>`}</section></div>`}
 function vBottomNav(){const t=route.name,on=k=>t===k||(k==="home"&&["conseils","actus"].includes(t))||(k==="enclasse"&&t==="dossier");
-  return`<nav class="bnav four" aria-label="Onglets">${[["home","house","Accueil"],["enclasse",t==="dossier"?"dbh":"people","En classe"],["progres","bars","Progrès"],["profilEl","user","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${on(k)}"><span class="${ic==="dbh"?"dbh":""}">${ic==="dbh"?IC.dumbbellH:IC[ic]}</span>${l}</button>`).join("")}</nav>`}
+  return`<nav class="bnav" aria-label="Onglets">${[["home","house","Accueil"],["enclasse",t==="dossier"?"dbh":"people","En classe"],["profilEl","user","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${on(k)}"><span class="${ic==="dbh"?"dbh":""}">${ic==="dbh"?IC.dumbbellH:IC[ic]}</span>${l}</button>`).join("")}</nav>`}
 
 
 /* ---------- Création simplifiée : modèles, assistant, blocs, « une ligne = un critère » ---------- */
@@ -2444,3 +2460,499 @@ document.addEventListener("focusin",e=>{const i=e.target;if(i.matches&&i.matches
 document.addEventListener("pointerdown",e=>{if(!padField)return;if(padEl.contains(e.target)||e.target===padField)return;if(!(e.target.matches&&e.target.matches("input[data-pad]"))){padCommit();padHide()}},true);
 new MutationObserver(ms=>{for(const m of ms)m.addedNodes.forEach(n=>{if(n.nodeType===1)padPrepare(n)});if(padField&&!document.body.contains(padField))padHide()}).observe(document.body,{childList:true,subtree:true});
 padPrepare(document);
+
+
+/* ====================================================================
+   Course d'orientation (CA2) : formats de course, cartons de contrôle,
+   correction importée par le prof (PDF, Excel, Numbers, CSV, photo via l'IA).
+   - orient/{outilId} : réglages du prof (jamais lus par les élèves)
+   - sessions/{sid} (kind "co") : cartons autorisés pour la séance
+   - sessions/{sid}/corr/{carton} : correction, lisible par l'élève après validation de ce carton
+   - sessions/{sid}/courses/{uid}_{carton} : chrono et réponses de l'élève
+   ==================================================================== */
+OUTILS.co={ic:"🧭",nom:"Course d'orientation"};
+const CO_REP=["Haut","Bas","Gauche","Droite"];
+const CO_FORMATS=[
+  {id:"etoile",nom:"Étoile",ordre:"libre",limite:0,desc:"Tu pars du poste central vers une balise et tu reviens au centre avant de repartir vers la suivante."},
+  {id:"circuit",nom:"Circuit",ordre:"impose",limite:0,desc:"Les balises s'enchaînent dans l'ordre du carton, du départ jusqu'à l'arrivée."},
+  {id:"imbrique",nom:"Circuit imbriqué",ordre:"impose",limite:0,desc:"Plusieurs circuits se croisent sur la même carte : suis uniquement l'ordre de ton carton."},
+  {id:"papillon",nom:"Papillon",ordre:"impose",limite:0,desc:"Des boucles successives repassent par le poste central (les ailes du papillon), dans l'ordre du carton."},
+  {id:"score",nom:"Course au score",ordre:"libre",limite:20,desc:"Trouve le plus de balises possible avant la fin du temps limite, dans l'ordre que tu veux."}];
+const CO_DEF={reponses:CO_REP,formats:CO_FORMATS,cartons:[],corr:{}};
+const coId=()=>Math.random().toString(36).slice(2,8);
+const coBal=v=>(Array.isArray(v)?v:String(v||"").split(/[\s,;\/→>]+|\s-\s/)).map(x=>String(x).trim().slice(0,12)).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).slice(0,80);
+function normCo(o){o=o||{};
+  const reponses=(Array.isArray(o.reponses)?o.reponses:CO_REP).map(x=>String(x||"").trim().slice(0,16)).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).slice(0,8);
+  const formats=(Array.isArray(o.formats)&&o.formats.length?o.formats:CO_FORMATS).slice(0,12).map(f=>({id:String(f.id||coId()),nom:String(f.nom||"Format").slice(0,40),ordre:f.ordre==="impose"?"impose":"libre",limite:Math.max(0,Math.min(180,parseInt(f.limite)||0)),desc:String(f.desc||"").slice(0,300)}));
+  const cartons=(Array.isArray(o.cartons)?o.cartons:[]).slice(0,80).map(c=>({id:String(c.id||coId()),nom:String(c.nom||"Carton").slice(0,40),format:formats.some(f=>f.id===c.format)?c.format:formats[0].id,balises:coBal(c.balises)}));
+  const corr={};for(const c of cartons){const s=(o.corr||{})[c.id]||{};corr[c.id]={};for(const b of c.balises)if(s[b]!=null&&String(s[b]).trim())corr[c.id][b]=String(s[b]).trim().slice(0,16)}
+  return{reponses,formats,cartons,corr,doc:o.doc||null}}
+const CO_ARROW={haut:"↑",bas:"↓",gauche:"←",droite:"→"};
+const coArrow=r=>CO_ARROW[norm(r)]||"";
+const coSame=(a,b)=>!!norm(a)&&norm(a)===norm(b);
+// Lit une réponse écrite dans le document du prof (H, haut, ↑, B, ←…) et la ramène à une des réponses possibles
+function coNormRep(v,reps){const s=String(v??"").trim();if(!s)return"";
+  const AR={"↑":"haut","⬆":"haut","⇧":"haut","▲":"haut","↓":"bas","⬇":"bas","⇩":"bas","▼":"bas","←":"gauche","⬅":"gauche","⇦":"gauche","◄":"gauche","◀":"gauche","→":"droite","➡":"droite","⇨":"droite","►":"droite","▶":"droite"};
+  const n=AR[s]||AR[s[0]]||norm(s);if(!reps.length)return s.slice(0,16);
+  let r=reps.find(x=>norm(x)===n);if(r)return r;
+  const SYN={h:"haut",b:"bas",g:"gauche",d:"droite",up:"haut",down:"bas",left:"gauche",right:"droite",nord:"haut",sud:"bas",ouest:"gauche",est:"droite",n:"haut",s:"bas",o:"gauche",e:"droite"};
+  if(SYN[n]){r=reps.find(x=>norm(x)===SYN[n]);if(r)return r}
+  if(n.length<=2){const c=reps.filter(x=>norm(x).startsWith(n));if(c.length===1)return c[0]}
+  return s.slice(0,16)}
+function coScore(k,c,corr){const B=(k&&k.balises)||[],rep=(c&&c.rep)||{};let ok=0,nr=0;
+  B.forEach(b=>{if(rep[b])nr++;if(corr&&corr[b]&&coSame(rep[b],corr[b]))ok++});
+  return{n:B.length,ok,rep:nr,pending:!corr||!Object.keys(corr).length,ms:c&&c.fin&&c.debut?c.fin-c.debut:null}}
+const fmtDur=ms=>{if(ms==null||isNaN(ms))return"–";const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0")};
+
+/* ---------- Élève : choisir son carton, chrono, réponses, correction ---------- */
+let CO=null,coTimer=null,coSaveT=null,coWake=null;
+async function openCo(x,tab){go("loading",{msg:"Ouverture de la course d'orientation…"});
+  try{const all=(await fb.listSessionsOutil(me.classeId,me.profId,x.id).catch(e=>{console.warn(e);return[]})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const S=all.find(s=>s.active)||null;CO={x,S,all,mine:{},corr:{},tab:tab||"run",pick:null,voir:null,hist:null};
+    if(S&&!me.apercu){const L=await fb.listMesCourses(S.id,me.uid);L.forEach(c=>CO.mine[c.cartonId]=c);for(const c of L.filter(c=>c.fini))await coLoadCorr(S.id,c.cartonId)}
+    go("co");coTick();const r=coRun();if(r&&!r.fin)coWakeOn()}
+  catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+async function coLoadCorr(sid,cid){const k=sid+"/"+cid;if(CO.corr[k])return CO.corr[k];
+  try{const d=await fb.getCorr(sid,cid);CO.corr[k]=(d&&d.rep)||null}catch(e){console.warn(e);CO.corr[k]=null}return CO.corr[k]}
+const coRun=()=>CO&&CO.S?Object.values(CO.mine).find(c=>!c.fini)||null:null;
+const coCarton=id=>CO&&CO.S?(CO.S.cartons||[]).find(k=>k.id===id)||null:null;
+function coTick(){clearInterval(coTimer);coTimer=setInterval(()=>{
+  if(route.name==="co"){const c=coRun(),el=document.getElementById("co-t");if(c&&el&&!c.fin){const t=Date.now()-c.debut,k=coCarton(c.cartonId);el.textContent=fmtDur(t);if(k&&k.limite)el.parentElement.classList.toggle("over",t>k.limite*60000)}}
+  else if(route.name==="coProf")document.querySelectorAll("[data-live]").forEach(el=>el.textContent=fmtDur(Date.now()-(+el.dataset.live)));
+  else{clearInterval(coTimer);coTimer=null}},1000)}
+async function coWakeOn(){try{if(!coWake&&navigator.wakeLock&&document.visibilityState==="visible"){coWake=await navigator.wakeLock.request("screen");coWake.addEventListener("release",()=>{coWake=null})}}catch(e){}}
+function coWakeOff(){try{if(coWake)coWake.release()}catch(e){}coWake=null}
+function vCo(){const{x,S}=CO,c=coRun();
+  const seg=`<div class="seg2">${[["run","Ma course"],["res","Mes résultats"]].map(([k,l])=>`<button data-act="coTab" data-t="${k}" aria-current="${CO.tab===k}">${l}</button>`).join("")}</div>`;
+  let body;
+  if(CO.voir)body=vCoVoir();
+  else if(CO.tab==="res")body=vCoRes();
+  else if(!S)body=`<section class="card co-empty"><p style="margin:0"><b>Pas de séance ouverte pour l'instant.</b><br>Ton enseignant ouvre la course d'orientation au début du cours. Tes anciennes courses sont dans « Mes résultats ».</p><button class="btn small" data-act="coReload" style="margin-top:10px">↻ Actualiser</button></section>`;
+  else if(c)body=vCoRun(c);
+  else if(CO.pick)body=vCoPick(coCarton(CO.pick));
+  else body=vCoList();
+  return`<div class="stack co-page"><div class="row"><button class="btn ghost small" data-act="coBack">← ${esc(dossierCtx&&dossier?dossier.titre:"Retour")}</button>${c?"":`<span class="spacer"></span><button class="btn ghost small" data-act="coReload" aria-label="Actualiser">↻</button>`}</div>
+  <section class="class-hero co-hero"><span class="eyebrow">CA2 · ${S?`Séance du ${fmtDate(S.date)}`:"Course d'orientation"}</span><h2>🧭 ${esc(x.titre||"Course d'orientation")}</h2></section>
+  ${c||CO.pick||CO.voir?"":seg}${body}</div>`}
+function vCoList(){const S=CO.S,ks=S.cartons||[];
+  return`<p class="hint" style="margin:0">Choisis ton carton de contrôle. Au départ, le chrono démarre : il ne s'arrête qu'à ton retour au point d'arrivée.</p>
+  <div class="co-list">${ks.map(k=>{const c=CO.mine[k.id],sc=c?coScore(k,c,CO.corr[S.id+"/"+k.id]):null;
+    return`<button class="co-k${c?" done":""}" data-act="${c?"coVoir":"coPick"}" data-id="${esc(k.id)}"><span class="co-ki">🗺️</span><span class="co-kt"><b>${esc(k.nom)}</b><small>${esc(k.format||"")} · ${k.balises.length} balise${k.balises.length>1?"s":""}${k.limite?` · ${k.limite} min`:""}</small></span>${c?`<span class="co-ks">${sc.pending?"✅":`${sc.ok}/${sc.n}`}<small>${fmtDur(sc.ms)}</small></span>`:`<span class="chip">Choisir →</span>`}</button>`}).join("")||'<p class="hint">Aucun carton pour cette séance.</p>'}</div>`}
+function vCoPick(k){if(!k)return"";
+  return`<section class="card stack co-pick" style="gap:12px"><div class="sec-h"><h3>🗺️ ${esc(k.nom)}</h3><span class="spacer"></span><span class="chip">${esc(k.format||"")}</span></div>
+  ${k.desc?`<p style="margin:0">${esc(k.desc)}</p>`:""}
+  <div class="co-bals">${k.balises.map((b,i)=>`<span>${k.ordre==="impose"?`<small>${i+1}</small>`:""}${esc(b)}</span>`).join("")}</div>
+  <p class="hint" style="margin:0">${k.ordre==="impose"?"<b>Ordre imposé</b> : passe aux balises dans l'ordre du carton.":"<b>Ordre libre</b> : choisis ton itinéraire."}${k.limite?` Temps limite : <b>${k.limite} min</b>.`:""}</p>
+  <div class="co-warn">⏱️ Quand tu touches « Départ », le chrono démarre. <b>Il ne peut pas être arrêté</b> avant ton retour au point d'arrivée.</div>
+  <button class="btn primary big co-go" data-act="coStart" data-id="${esc(k.id)}">▶ Départ</button><button class="btn ghost small" data-act="coPickNo">← Choisir un autre carton</button></section>`}
+function vCoRun(c){const S=CO.S,k=coCarton(c.cartonId)||{balises:[],nom:"Carton"},reps=S.reponses||[],fin=!!c.fin,nb=k.balises.filter(b=>!c.rep[b]).length;
+  return`<section class="co-chrono${fin?" stop":""}${!fin&&k.limite&&Date.now()-c.debut>k.limite*60000?" over":""}"><small>${fin?"🏁 Temps de course":"⏱️ Chrono en cours · il s'arrête à ton arrivée"}</small><b id="co-t">${fmtDur((c.fin||Date.now())-c.debut)}</b>${k.limite?`<span>Temps limite : ${k.limite} min</span>`:""}</section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>🗺️ ${esc(k.nom)}</h3><span class="spacer"></span><span class="chip">${esc(k.format||"")}</span></div>
+    <p class="hint" style="margin:0">${k.ordre==="impose"?"Ordre imposé : suis l'ordre du carton.":"Ordre libre."} Pour chaque balise, note ce que tu trouves sur le poste.</p>
+    <div class="co-rows">${k.balises.map((b,i)=>`<div class="co-b${c.rep[b]?" ok":""}"><div class="co-bn">${k.ordre==="impose"?`<small>${i+1}</small>`:""}<span>Balise</span><b>${esc(b)}</b></div>
+      ${reps.length?`<div class="co-r">${reps.map(r=>`<button data-act="coRep" data-b="${esc(b)}" data-v="${esc(r)}" aria-pressed="${coSame(c.rep[b],r)}">${coArrow(r)?`<i>${coArrow(r)}</i>`:""}<span>${esc(r)}</span></button>`).join("")}</div>`
+        :`<input class="co-in" data-co="rep" data-b="${esc(b)}" value="${esc(c.rep[b]||"")}" maxlength="16" placeholder="Code du poste" autocomplete="off">`}</div>`).join("")}</div></section>
+  ${fin?`<section class="card stack" style="gap:8px">${nb?`<p class="err" style="margin:0">${nb} balise${nb>1?"s":""} sans réponse.</p>`:`<p style="margin:0">Toutes les balises ont une réponse.</p>`}<button class="btn primary big" data-act="coValider">✅ Valider mon carton</button><p class="hint" style="margin:0">Après validation, ton carton est corrigé et tes réponses ne peuvent plus être modifiées.</p></section>`
+    :`<button class="btn big co-stop" data-act="coArrivee">🏁 Je suis arrivé · stopper le chrono</button>`}`}
+function vCoVoir(){const{sid,cid}=CO.voir,isCur=CO.S&&sid===CO.S.id,S=isCur?CO.S:CO.all.find(s=>s.id===sid),k=S&&(S.cartons||[]).find(x=>x.id===cid);
+  const c=isCur?CO.mine[cid]:((CO.hist||{})[sid]||[]).find(z=>z.cartonId===cid);if(!k||!c)return`<button class="btn" data-act="coVoirNo">← Retour</button>`;
+  const C=CO.corr[sid+"/"+cid],sc=coScore(k,c,C);
+  return`<section class="co-res"><div><small>${esc(k.nom)} · ${esc(k.format||"")}</small><b>${sc.pending?"Correction en attente":`${sc.ok} / ${sc.n}`}</b><span>${sc.pending?"Ton enseignant n'a pas encore saisi la correction de ce carton (ou tu n'as pas de réseau).":`balise${sc.ok>1?"s":""} juste${sc.ok>1?"s":""}`}</span></div><div class="co-rt"><small>Temps</small><b>${fmtDur(sc.ms)}</b></div></section>
+  <section class="card"><table class="co-tab"><thead><tr><th>Balise</th><th>Ta réponse</th>${sc.pending?"":"<th>Correction</th><th></th>"}</tr></thead><tbody>${k.balises.map(b=>{const r=(c.rep||{})[b]||"",ok=!sc.pending&&coSame(r,C[b]);
+    return`<tr class="${sc.pending?"":ok?"ok":"ko"}"><td><b>${esc(b)}</b></td><td>${r?`${coArrow(r)} ${esc(r)}`:"—"}</td>${sc.pending?"":`<td>${C[b]?`${coArrow(C[b])} ${esc(C[b])}`:"?"}</td><td>${ok?"✅":"❌"}</td>`}</tr>`}).join("")}</tbody></table></section>
+  <div class="row"><button class="btn" data-act="coVoirNo">← Retour</button>${sc.pending?`<button class="btn ghost small" data-act="coReCorr">↻ Réessayer la correction</button>`:""}</div>`}
+function vCoRes(){if(!CO.hist){if(!CO.histL)coLoadHist();return`<div class="center-msg"><div class="spinner"></div></div>`}
+  const out=CO.all.map(S=>{const L=CO.hist[S.id]||[];if(!L.length)return"";
+    return`<section class="card"><div class="sec-h"><h3>${fmtDate(S.date)}</h3>${S.active?'<span class="chip">En cours</span>':""}</div><div class="co-list">${L.map(c=>{const k=(S.cartons||[]).find(x=>x.id===c.cartonId)||{nom:"Carton",balises:[]},sc=coScore(k,c,CO.corr[S.id+"/"+c.cartonId]);
+      return`<button class="co-k done" data-act="${c.fini?"coVoir":"coTab"}" data-t="run" data-sid="${S.id}" data-id="${esc(c.cartonId)}"><span class="co-ki">🗺️</span><span class="co-kt"><b>${esc(k.nom)}</b><small>${esc(k.format||"")}</small></span><span class="co-ks">${!c.fini?"En cours":sc.pending?"✅":`${sc.ok}/${sc.n}`}<small>${fmtDur(sc.ms)}</small></span></button>`}).join("")}</div></section>`}).join("");
+  return out||`<section class="card"><p style="margin:0">Tu n'as pas encore fait de course d'orientation.</p></section>`}
+async function coLoadHist(){CO.histL=true;const h={};
+  try{for(const S of CO.all){const L=me.apercu?[]:await fb.listMesCourses(S.id,me.uid);h[S.id]=L.sort((a,b)=>(a.debut||0)-(b.debut||0));for(const c of L.filter(c=>c.fini))await coLoadCorr(S.id,c.cartonId)}}catch(e){console.warn(e)}
+  CO.hist=h;CO.histL=false;if(route.name==="co")rerenderKeep()}
+async function coStart(cid){if(apercuBloque())return;const S=CO.S,k=coCarton(cid);if(!k||coRun())return;
+  const c={eleveUid:me.uid,login:me.login||"",profId:me.profId,classeId:me.classeId,sessionId:S.id,cartonId:cid,debut:Date.now(),fin:null,rep:{},fini:false};
+  CO.mine[cid]=c;CO.pick=null;render();window.scrollTo(0,0);coWakeOn();
+  try{await fb.setCourse(S.id,me.uid+"_"+cid,c)}catch(e){console.error(e);delete CO.mine[cid];coWakeOff();toast(authMsg(e));if(route.name==="co")render()}}
+function coSave(c,now){if(me.apercu)return;clearTimeout(coSaveT);const run=()=>fb.updateCourse(CO.S.id,me.uid+"_"+c.cartonId,{rep:c.rep,maj:Date.now()}).catch(e=>{console.warn(e);toast(authMsg(e))});if(now)return run();coSaveT=setTimeout(run,400)}
+function coSetRep(b,v,toggle){const c=coRun();if(!c||c.fini)return;v=String(v||"").trim().slice(0,16);if(!v||(toggle&&coSame(c.rep[b],v)))delete c.rep[b];else c.rep[b]=v;coSave(c)}
+function coArrivee(){const c=coRun();if(!c||c.fin)return;
+  confirmBox("Tu es au point d'arrivée ?","Le chrono s'arrête définitivement. Tu pourras encore vérifier tes réponses avant de valider ton carton.","Stopper le chrono",async()=>{closeModal();
+    clearTimeout(coSaveT);c.fin=Date.now();coWakeOff();render();window.scrollTo(0,0);
+    if(!me.apercu)fb.updateCourse(CO.S.id,me.uid+"_"+c.cartonId,{rep:c.rep,fin:c.fin,maj:Date.now()}).catch(e=>{console.warn(e);toast(authMsg(e))})})}
+function coValider(){const c=coRun();if(!c||!c.fin)return;const k=coCarton(c.cartonId),nb=k?k.balises.filter(b=>!c.rep[b]).length:0;
+  confirmBox("Valider ton carton ?",(nb?`Il reste <b>${nb} balise${nb>1?"s":""} sans réponse</b>. `:"")+"Après validation, tu ne pourras plus rien modifier.","Valider",async()=>{closeModal();
+    clearTimeout(coSaveT);const sid=CO.S.id;c.fini=true;c.valideAt=Date.now();CO.voir={sid,cid:c.cartonId};render();window.scrollTo(0,0);
+    if(me.apercu)return;
+    try{await fb.updateCourse(sid,me.uid+"_"+c.cartonId,{rep:c.rep,fin:c.fin,fini:true,valideAt:c.valideAt});delete CO.corr[sid+"/"+c.cartonId];await coLoadCorr(sid,c.cartonId);if(route.name==="co")rerenderKeep()}
+    catch(e){console.error(e);toast(authMsg(e))}})}
+function coBack(){coWakeOff();CO=null;if(dossierCtx)openDossier(dossierCtx.id);else openActs()}
+// Lien « Mes résultats » du dossier de l'activité
+function coResItems(its){return its.filter(x=>x.t==="outil"&&x.kind==="co").map(x=>`<div class="dl-it outil"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Tes cartons, tes temps et la correction</small></div><button class="dl-go" data-act="coOpenRes" data-id="${x.id}">Voir ${IC.arrow}</button></div>`).join("")}
+
+/* ---------- Prof : formats, cartons et correction (orient/{outilId}) ---------- */
+let CC=null,ccSaveT=null;
+async function openCoCfg(oid,from){go("loading",{msg:"Chargement des cartons…"});
+  try{const it=((dossier&&dossier.items)||[]).find(x=>x.id===oid);if(!it)throw{code:"not-found"};let o=await fb.getOrient(oid).catch(()=>null);
+    if(!o){o={profId:me.uid,...normCo(CO_DEF)};await fb.setOrient(oid,o)}
+    CC={id:oid,it,o:normCo(o),imp:null,open:null,busy:"",msg:"",msgErr:false,saved:true,from:from||null,file:null};go("coCfg")}
+  catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+function ccSave(now){CC.saved=false;clearTimeout(ccSaveT);const s0=$("#cc-saved");if(s0)s0.textContent="Enregistrement…";
+  const id=CC.id,o=CC.o,run=async()=>{try{await fb.setOrient(id,{profId:me.uid,...o,maj:new Date().toISOString()});if(CC&&CC.id===id){CC.saved=true;const s=$("#cc-saved");if(s)s.textContent="✓ Enregistré"}}catch(e){toast(authMsg(e))}};
+  if(now)return run();ccSaveT=setTimeout(run,600)}
+function ccBack(){clearTimeout(ccSaveT);const f=CC.from,p=CC.saved?null:ccSave(true);CC=null;Promise.resolve(p).then(()=>{if(f)openOutilProf(f.cid,f.did,f.oid);else openDossierEd(dossier.id)})}
+const ccCorrN=(o,c)=>c.balises.filter(b=>o.corr[c.id]&&o.corr[c.id][b]).length;
+function vCoCfg(){const o=CC.o,F=o.formats,reps=o.reponses;
+  const fmt=F.map((f,i)=>`<div class="cc-f"><div class="cc-fr"><label class="f">Nom<input data-cc="f.nom" data-i="${i}" value="${esc(f.nom)}" maxlength="40"></label><label class="f">Ordre des balises<select data-cc="f.ordre" data-i="${i}"><option value="libre" ${f.ordre==="libre"?"selected":""}>Libre</option><option value="impose" ${f.ordre==="impose"?"selected":""}>Imposé</option></select></label><label class="f">Temps limite (min)<input data-cc="f.limite" data-i="${i}" inputmode="numeric" value="${f.limite||""}" placeholder="aucun"></label><button class="btn ghost small danger" data-act="ccFDel" data-i="${i}" aria-label="Supprimer le format" ${F.length<2?"disabled":""}>✕</button></div>
+    <label class="f">Consigne affichée à l'élève<input data-cc="f.desc" data-i="${i}" value="${esc(f.desc)}" maxlength="300"></label></div>`).join("");
+  const cartons=o.cartons.map((c,i)=>{const n=ccCorrN(o,c),open=CC.open===c.id,full=c.balises.length&&n===c.balises.length;
+    return`<div class="cc-c${open?" open":""}"><div class="cc-cr"><input data-cc="c.nom" data-i="${i}" value="${esc(c.nom)}" maxlength="40" aria-label="Nom du carton"><select data-cc="c.format" data-i="${i}" aria-label="Format">${F.map(f=>`<option value="${esc(f.id)}" ${c.format===f.id?"selected":""}>${esc(f.nom)}</option>`).join("")}</select><input data-cc="c.balises" data-i="${i}" value="${esc(c.balises.join(", "))}" placeholder="ex. 4, 12, 7, 31" aria-label="Balises du carton"><button class="cc-st ${full?"ok":"ko"}" data-act="ccOpenC" data-id="${esc(c.id)}" aria-expanded="${open}">${c.balises.length?`${full?"✓":"⚠"} ${n}/${c.balises.length}`:"—"}</button><button class="btn ghost small danger" data-act="ccCDel" data-i="${i}" aria-label="Supprimer le carton">✕</button></div>
+    ${open?`<div class="cc-corr">${c.balises.length?c.balises.map(b=>{const v=(o.corr[c.id]||{})[b]||"",bad=v&&reps.length&&!reps.includes(v);
+      return`<div class="cc-cb${bad?" bad":""}${v?"":" vide"}"><b>${esc(b)}</b>${reps.length?`<div class="co-r sm" style="grid-template-columns:repeat(${reps.length},1fr)">${reps.map(r=>`<button data-act="ccRep" data-c="${esc(c.id)}" data-b="${esc(b)}" data-v="${esc(r)}" aria-pressed="${v===r}" title="${esc(r)}">${coArrow(r)||esc(r.slice(0,3))}</button>`).join("")}</div>${bad?`<small>« ${esc(v)} » non reconnu</small>`:""}`
+        :`<input data-cc="corr" data-c="${esc(c.id)}" data-b="${esc(b)}" value="${esc(v)}" maxlength="16" aria-label="Réponse de la balise ${esc(b)}">`}</div>`}).join(""):'<p class="hint" style="margin:0">Indiquez d\'abord les balises du carton.</p>'}</div>`:""}</div>`}).join("");
+  return`<div class="stack cc-page"><div class="row"><button class="btn ghost small" data-act="ccBack">← ${esc(CC.from?CC.from.nom:(dossier&&dossier.titre)||"Retour")}</button><span class="spacer"></span><span class="hint" id="cc-saved">${CC.saved?"✓ Enregistré":"Enregistrement…"}</span></div>
+  <section class="class-hero"><span class="eyebrow">CA2 · ${esc((dossier&&dossier.titre)||"")}</span><h2>🧭 ${esc(CC.it.titre||"Course d'orientation")}</h2></section>
+  <section class="card stack" style="gap:8px"><h3>1. Réponses possibles sur les postes</h3>
+    <label class="f">Séparées par des virgules<input data-cc="reponses" value="${esc(reps.join(", "))}" placeholder="Haut, Bas, Gauche, Droite"></label>
+    <p class="hint" style="margin:0">Ce sont les boutons que l'élève touche pour chaque balise (par exemple l'orientation du symbole trouvé sur le poste). Laissez vide pour que l'élève recopie un code libre (lettres, chiffres).</p></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>2. Formats de course</h3><span class="spacer"></span><button class="btn small" data-act="ccFAdd">+ Format</button></div>${fmt}</section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>3. Cartons de contrôle</h3><span class="spacer"></span><button class="btn small" data-act="ccCAdd">+ Carton</button></div>
+    <p class="hint" style="margin:0">Un carton = un parcours : son format et ses balises (dans l'ordre pour un format à ordre imposé). Touchez ✓ / ⚠ pour vérifier ou corriger la correction du carton.</p>
+    ${o.cartons.length?`<div class="cc-cs"><div class="cc-cr cc-head"><span>Carton</span><span>Format</span><span>Balises</span><span>Corr.</span><span></span></div>${cartons}</div>`:'<p style="margin:0">Aucun carton pour l\'instant. Ajoutez-les ici, ou importez votre document de correction ci-dessous : l\'appli peut créer un carton par ligne du document.</p>'}
+    <div class="row" style="gap:6px;align-items:end"><label class="f" style="width:90px">Nombre<input id="cc-nb" inputmode="numeric" value="6"></label><label class="f" style="flex:1;min-width:130px">Nom<input id="cc-pre" value="Carton" maxlength="30"></label><button class="btn small" data-act="ccCMany">+ Créer plusieurs cartons</button></div></section>
+  ${vCcImport()}</div>`}
+function vCcImport(){const I=CC.imp,o=CC.o,canIA=CC.file&&(/pdf$/i.test(CC.file.name)||/^image\//.test(CC.file.type));
+  let h=`<section class="card stack" style="gap:10px"><h3>4. Correction des balises</h3>
+   <p class="hint" style="margin:0">Importez le document qui contient la correction (PDF, Excel, Numbers, CSV ou photo). L'appli lit le tableau, puis vous reliez chaque carton à sa ligne (ou sa colonne) : la correction se remplit toute seule. Vérifiez-la ensuite carton par carton (✓ / ⚠ ci-dessus).</p>
+   <label class="f">Document de correction<input type="file" id="cc-file" accept=".pdf,.xlsx,.xls,.numbers,.ods,.csv,.txt,image/*"></label>
+   ${CC.busy?`<p class="hint" style="margin:0">⏳ ${esc(CC.busy)}</p>`:""}${CC.msg?`<p class="${CC.msgErr?"err":"cc-ok"}" style="margin:0">${esc(CC.msg)}</p>`:""}
+   ${!I&&canIA&&!CC.busy?`<button class="btn small" data-act="ccIA" style="justify-self:start">✨ Lire le document avec l'IA</button>`:""}
+   ${o.doc&&o.doc.nom?`<p class="hint" style="margin:0">Dernier document relié : ${esc(o.doc.nom)}${o.doc.date?` (${fmtDate(String(o.doc.date).slice(0,10))})`:""}</p>`:""}`;
+  if(!I)return h+`</section>`;
+  const T=ccTable(),lc=ccLc(T),labels=ccLignes(T),L=I.sens==="ligne"?"ligne":"colonne";
+  h+=`<div class="cc-imp stack" style="gap:10px">${I.sheets.length>1?`<label class="f">Feuille / page<select data-cc="imp.si">${I.sheets.map((s,i)=>`<option value="${i}" ${I.si===i?"selected":""}>${esc(s.nom)}</option>`).join("")}</select></label>`:""}
+    <div class="grid2"><label class="f">Le document est rangé…<select data-cc="imp.sens"><option value="ligne" ${I.sens==="ligne"?"selected":""}>une ligne par carton (balises en colonnes)</option><option value="col" ${I.sens==="col"?"selected":""}>une colonne par carton (balises en lignes)</option></select></label>
+    <label class="f">${L[0].toUpperCase()+L.slice(1)} des numéros de balise<select data-cc="imp.h">${T.slice(0,40).map((r,i)=>`<option value="${i}" ${I.h===i?"selected":""}>${L} ${i+1} : ${esc(r.filter(Boolean).slice(0,7).join(" · ").slice(0,48))}</option>`).join("")}</select></label></div>
+    ${vCcPreview(T,lc)}
+    ${o.cartons.length?`<div class="stack" style="gap:6px"><b>Relier chaque carton à sa ${L}</b>${o.cartons.map(c=>`<label class="cc-map"><span>${esc(c.nom)}</span><select data-cc="imp.map" data-c="${esc(c.id)}"><option value="">— pas dans ce document —</option>${labels.map(l=>`<option value="${l.i}" ${I.map[c.id]===l.i?"selected":""}>${esc(l.lab)} · ${l.n} réponse${l.n>1?"s":""}</option>`).join("")}</select></label>`).join("")}</div>
+      <div class="row"><button class="btn primary" data-act="ccApply">Relier et remplir la correction</button>${labels.some(l=>!Object.values(I.map).includes(l.i))?`<button class="btn small" data-act="ccFromDoc">+ Créer les cartons manquants</button>`:""}</div>`
+    :`<button class="btn primary" data-act="ccFromDoc" style="justify-self:start">Créer un carton par ${L} du document (${labels.length})</button>`}
+    ${I.ia||!canIA?"":`<p class="hint" style="margin:0">Tableau mal lu (PDF scanné, cases décalées) ? <button class="btn ghost small" data-act="ccIA">✨ Lire avec l'IA</button></p>`}</div>`;
+  return h+`</section>`}
+function vCcPreview(T,lc){const I=CC.imp,R=T.slice(0,14),nc=Math.min(16,Math.max(0,...R.map(r=>r.length)));
+  return`<div class="scroll cc-prev"><table><tbody>${R.map((r,i)=>`<tr class="${i===I.h?"h":""}">${Array.from({length:nc},(_,j)=>`<td class="${j===lc?"lc":""}">${esc(String(r[j]||"").slice(0,14))}</td>`).join("")}</tr>`).join("")}</tbody></table>${T.length>14?`<p class="hint" style="margin:4px 0 0">… ${T.length-14} ${I.sens==="ligne"?"lignes":"colonnes"} de plus</p>`:""}</div>`}
+/* Lecture du tableau importé */
+const coTr=R=>{const n=Math.max(0,...R.map(r=>r.length));return Array.from({length:n},(_,j)=>R.map(r=>r[j]==null?"":r[j]))};
+function coTrim(rows){let R=(rows||[]).slice(0,300).map(r=>(r||[]).slice(0,120).map(x=>String(x??"").replace(/\s+/g," ").trim()));
+  R=R.filter(r=>r.some(Boolean));if(!R.length)return[];
+  if(R.filter(r=>r.filter(Boolean).length>=3).length>=3)R=R.filter(r=>r.filter(Boolean).length>=2);   // titres et pieds de page
+  const n=Math.max(...R.map(r=>r.length));R=R.map(r=>Array.from({length:n},(_,j)=>r[j]||""));
+  const keep=[...Array(n).keys()].filter(j=>R.some(r=>r[j]));return R.map(r=>keep.map(j=>r[j]))}
+function ccTable(){const I=CC.imp,R=(I.sheets[I.si]||{rows:[]}).rows;return I.sens==="col"?coTr(R):R}
+const coIdLike=s=>/^(balise|bal\.?|b|n°|no)?\s*\d{1,3}[a-z]?$/i.test(String(s).trim())||/^[a-z]\d{0,2}$/i.test(String(s).trim());
+function ccLc(T){const n=Math.max(0,...T.map(r=>r.length));for(let j=0;j<Math.min(n,4);j++){const col=T.map(r=>r[j]).filter(Boolean);if(col.length>=Math.max(2,T.length*.4)&&col.filter(coIdLike).length<col.length*.6)return j}return 0}
+const coBk=s=>norm(s).replace(/^(balise|bal\.?|n°|no)\s*/,"").replace(/^0+(?=\d)/,"");
+function ccLignes(T){const I=CC.imp,lc=ccLc(T),H=T[I.h]||[];const out=[];
+  T.forEach((r,i)=>{if(i===I.h)return;let n=0;H.forEach((b,j)=>{if(j!==lc&&String(b).trim()&&String(r[j]||"").trim())n++});if(n)out.push({i,lab:String(r[lc]||"").trim()||`${I.sens==="ligne"?"Ligne":"Colonne"} ${i+1}`,n})});return out}
+function ccDetect(){const I=CC.imp,R=(I.sheets[I.si]||{rows:[]}).rows;let best=null;
+  for(const sens of["ligne","col"]){const T=sens==="col"?coTr(R):R,lc=ccLc(T);
+    for(let i=0;i<Math.min(T.length,15);i++){const cells=T[i].filter((x,j)=>j!==lc&&x),ids=cells.filter(coIdLike).length;
+      if(ids>=2&&ids>=cells.length*.6){const sc=ids*10-i*3+(T.length-1);if(!best||sc>best.sc)best={sens,h:i,sc};break}}}
+  I.sens=best?best.sens:"ligne";I.h=best?best.h:0;ccAutoMap()}
+function ccAutoMap(){const I=CC.imp,T=ccTable(),labels=ccLignes(T),o=CC.o,dig=s=>(String(s).match(/\d+/g)||[]).join("-");I.map={};
+  for(const c of o.cartons){const l=labels.find(l=>coBk(l.lab)===coBk(c.nom))||labels.find(l=>norm(l.lab).includes(norm(c.nom))||norm(c.nom).includes(norm(l.lab)))||labels.find(l=>dig(l.lab)&&dig(l.lab)===dig(c.nom));if(l)I.map[c.id]=l.i}
+  if(!Object.keys(I.map).length&&labels.length===o.cartons.length)o.cartons.forEach((c,k)=>I.map[c.id]=labels[k].i)}
+function ccValsOf(T,r){const I=CC.imp,lc=ccLc(T),H=T[I.h]||[],row=T[r]||[],vals=[];H.forEach((b,j)=>{b=String(b||"").trim();if(j===lc||!b)return;const v=String(row[j]||"").trim();if(v)vals.push([b,v])});return vals}
+function ccApply(){const I=CC.imp,o=CC.o,T=ccTable();let nc=0,nr=0,bad=0,miss=0;
+  for(const c of o.cartons){const r=I.map[c.id];if(r==null||r==="")continue;const vals=ccValsOf(T,r),byK={};vals.forEach(([b,v])=>byK[coBk(b)]=v);
+    if(!c.balises.length)c.balises=coBal(vals.map(x=>x[0]));
+    const corr={...(o.corr[c.id]||{})};for(const b of c.balises){const v=byK[coBk(b)];if(v==null){miss++;continue}const x=coNormRep(v,o.reponses);corr[b]=x;nr++;if(o.reponses.length&&!o.reponses.includes(x))bad++}
+    o.corr[c.id]=corr;nc++}
+  if(!nc){CC.msg="Reliez au moins un carton à une ligne du document.";CC.msgErr=true;rerenderKeep();return}
+  o.doc={nom:I.nom,date:new Date().toISOString(),sens:I.sens};
+  CC.msg=`Correction remplie pour ${nc} carton${nc>1?"s":""} (${nr} réponses).`+(bad?` ${bad} réponse${bad>1?"s":""} non reconnue${bad>1?"s":""} : à vérifier (⚠).`:"")+(miss?` ${miss} balise${miss>1?"s":""} des cartons absente${miss>1?"s":""} du document.`:"");CC.msgErr=false;
+  ccSave();rerenderKeep()}
+function ccFromDoc(){const I=CC.imp,o=CC.o,T=ccTable(),used=new Set(Object.values(I.map));let n=0;
+  for(const l of ccLignes(T)){if(used.has(l.i))continue;const c={id:coId(),nom:l.lab.slice(0,40),format:o.formats[0].id,balises:coBal(ccValsOf(T,l.i).map(x=>x[0]))};o.cartons.push(c);o.corr[c.id]={};I.map[c.id]=l.i;n++}
+  if(n)toast(`${n} carton${n>1?"s":""} créé${n>1?"s":""} : choisissez leur format`);ccApply()}
+async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg="";CC.msgErr=false;CC.file=f;CC.imp=null;rerenderKeep();
+  try{const n=f.name.toLowerCase();let sheets,ia=false;
+    if(/\.pdf$/.test(n)||f.type==="application/pdf")sheets=await coLirePdf(f);
+    else if(/\.(csv|txt)$/.test(n))sheets=[{nom:f.name,rows:coCsv(await f.text())}];
+    else if(/^image\//.test(f.type)){sheets=await ccIaSheets(f);ia=true}
+    else sheets=await coLireTableur(f);
+    sheets=sheets.map(s=>({nom:s.nom,rows:coTrim(s.rows)})).filter(s=>s.rows.length);
+    if(!sheets.length)throw new Error(/\.pdf$/.test(n)?"Aucun texte trouvé dans ce PDF (document scanné ?). Touchez « Lire le document avec l'IA ».":"Le document semble vide.");
+    CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
+  catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
+  if(route.name==="coCfg")rerenderKeep()}
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.20-4");
+  try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
+    return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
+  catch(e){throw new Error(ia.iaMessage(e))}}
+async function ccIA(){const f=CC.file;if(!f)return;CC.msg="";CC.msgErr=false;
+  try{const sheets=(await ccIaSheets(f)).map(s=>({nom:s.nom,rows:coTrim(s.rows)})).filter(s=>s.rows.length);if(!sheets.length)throw new Error("L'IA n'a trouvé aucun tableau dans ce document.");
+    CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia:true};ccDetect();CC.busy=""}
+  catch(e){CC.busy="";CC.msg=e.message||String(e);CC.msgErr=true}if(route.name==="coCfg")rerenderKeep()}
+function coCsv(t){const L=String(t).replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim()),f=L[0]||"",d=[";","\t",","].sort((a,b)=>f.split(b).length-f.split(a).length)[0];
+  return L.map(l=>{const out=[];let cur="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];if(q){if(ch==='"'&&l[i+1]==='"'){cur+='"';i++}else if(ch==='"')q=false;else cur+=ch}else if(ch==='"')q=true;else if(ch===d){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out})}
+// PDF : texte de chaque page rangé en lignes (même hauteur) et en colonnes (même position)
+async function coLirePdf(f){const pdfjs=await import(PDFJS);pdfjs.GlobalWorkerOptions.workerSrc=PDFJS_W;const doc=await pdfjs.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise,sheets=[];
+  for(let p=1;p<=Math.min(doc.numPages,12);p++){const tc=await(await doc.getPage(p)).getTextContent(),it=[];
+    for(const i of tc.items){const s=String(i.str||"").trim();if(!s)continue;const x=i.transform[4],y=i.transform[5],w=i.width||s.length*5,h=Math.abs(i.transform[3])||10,toks=s.split(/\s+/);
+      if(toks.length>=3&&toks.every(t=>t.length<=4)){let off=0;for(const t of toks){const k=s.indexOf(t,off);it.push({s:t,x:x+w*(k+t.length/2)/s.length,y,h});off=k+t.length}}
+      else it.push({s,x:x+w/2,y,h})}
+    if(!it.length)continue;it.sort((a,b)=>b.y-a.y);
+    const lines=[];for(const i of it){const L=lines.find(l=>Math.abs(l.y-i.y)<=Math.max(2.5,i.h*.45));if(L)L.it.push(i);else lines.push({y:i.y,it:[i]})}
+    const xs=[];for(const l of lines)for(const i of l.it){const C=xs.find(c=>Math.abs(c.x-i.x)<=Math.max(5,i.h*.7));if(C){C.x=(C.x*C.n+i.x)/(C.n+1);C.n++}else xs.push({x:i.x,n:1})}
+    xs.sort((a,b)=>a.x-b.x);
+    let rows=lines.sort((a,b)=>b.y-a.y).map(l=>{const r=new Array(xs.length).fill("");for(const i of l.it.sort((a,b)=>a.x-b.x)){let k=0,bd=1e9;xs.forEach((c,j)=>{const dd=Math.abs(c.x-i.x);if(dd<bd){bd=dd;k=j}});r[k]=r[k]?r[k]+" "+i.s:i.s}return r});
+    // Fusionne les colonnes voisines jamais remplies sur la même ligne (libellés de longueurs différentes)
+    for(let j=0;j<xs.length-1;){const near=xs[j+1].x-xs[j].x<40,clash=rows.some(r=>r[j]&&r[j+1]);if(near&&!clash){rows=rows.map(r=>{const m=[...r];m[j]=m[j]||m[j+1];m.splice(j+1,1);return m});xs.splice(j+1,1)}else j++}
+    sheets.push({nom:`Page ${p}`,rows})}
+  return sheets}
+// Tableurs : lecteur .xlsx intégré (sans réseau), SheetJS pour Numbers, .xls et .ods
+const XLSX_URL="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+const coScript=u=>new Promise((ok,ko)=>{const s=document.createElement("script");s.src=u;s.onload=ok;s.onerror=()=>ko(new Error("Chargement impossible"));document.head.appendChild(s)});
+async function coLireTableur(f){const buf=await f.arrayBuffer(),n=f.name.toLowerCase();
+  if(/\.xlsx$/.test(n)){try{return await coLireXlsx(buf)}catch(e){console.warn("xlsx intégré",e)}}
+  try{if(!window.XLSX)await coScript(XLSX_URL);const wb=XLSX.read(new Uint8Array(buf),{type:"array"});return wb.SheetNames.map(s=>({nom:s,rows:XLSX.utils.sheet_to_json(wb.Sheets[s],{header:1,raw:false,defval:""})}))}
+  catch(e){console.warn("SheetJS",e);if(/\.numbers$/.test(n))throw new Error("Ce fichier Numbers n'a pas pu être lu. Dans Numbers : Fichier › Exporter vers › Excel (ou PDF), puis importez ce fichier.");
+    throw new Error("Ce fichier n'a pas pu être lu. Enregistrez-le en Excel (.xlsx), CSV ou PDF puis réessayez.")}}
+async function coUnzip(buf){const dv=new DataView(buf),u8=new Uint8Array(buf);let e=u8.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error("zip");
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={},td=new TextDecoder();
+  for(let i=0;i<n;i++){const meth=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true),name=td.decode(u8.subarray(p+46,p+46+nl));
+    const st=off+30+dv.getUint16(off+26,true)+dv.getUint16(off+28,true);files[name]={meth,data:u8.subarray(st,st+csz)};p+=46+nl+xl+cl}
+  return async name=>{const f=files[name];if(!f)return null;if(f.meth===0)return td.decode(f.data);return new Response(new Blob([f.data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text()}}
+async function coLireXlsx(buf){const get=await coUnzip(buf),P=s=>new DOMParser().parseFromString(s,"application/xml"),tags=(d,t)=>[...d.getElementsByTagName(t)];
+  const ss=[],sx=await get("xl/sharedStrings.xml");if(sx)tags(P(sx),"si").forEach(si=>ss.push(tags(si,"t").map(t=>t.textContent).join("")));
+  const wb=P(await get("xl/workbook.xml")),rx=await get("xl/_rels/workbook.xml.rels"),rm={};if(rx)tags(P(rx),"Relationship").forEach(r=>rm[r.getAttribute("Id")]=r.getAttribute("Target"));
+  const col=ref=>{const m=/^([A-Z]+)/.exec(ref||"");let c=0;if(m)for(const ch of m[1])c=c*26+ch.charCodeAt(0)-64;return c-1},out=[];
+  for(const s of tags(wb,"sheet")){const rid=s.getAttribute("r:id")||[...s.attributes].find(a=>a.localName==="id")?.value,t=String(rm[rid]||"").replace(/^\/?(xl\/)?/,""),x=t&&await get("xl/"+t);if(!x)continue;const rows=[];
+    tags(P(x),"row").forEach(r=>{const ri=(+r.getAttribute("r")||rows.length+1)-1,row=rows[ri]=[];tags(r,"c").forEach((c,k)=>{const j=c.getAttribute("r")?col(c.getAttribute("r")):k,ty=c.getAttribute("t"),v=tags(c,"v")[0];
+      row[j]=ty==="s"?(ss[+(v&&v.textContent)]||""):ty==="inlineStr"?tags(c,"t").map(z=>z.textContent).join(""):(v?v.textContent:"")})});
+    out.push({nom:s.getAttribute("name")||"Feuille",rows:Array.from(rows,r=>Array.from(r||[],z=>z||""))})}
+  return out}
+
+/* ---------- Prof : séance de la classe (cartons autorisés, résultats en direct) ---------- */
+let CP=null,cpUnsub=null;
+async function openCoProf(cls,d,item){
+  const[o,sessions,eleves0,vig]=await Promise.all([fb.getOrient(item.id).catch(()=>null),fb.listSessions(me.uid,cls.id,item.id),fb.listEleves(cls.id),fb.listVigie(me.uid,cls.id).catch(()=>[])]);
+  const eleves=eleves0.sort((a,b)=>(a.numero||0)-(b.numero||0));
+  await Promise.all(eleves.map(async e=>{if(pseudoCache[e.id])return;try{const l=await fb.getLogin(e.login);if(l&&l.pseudo)pseudoCache[e.id]=l.pseudo}catch(x){}}));
+  sessions.sort((a,b)=>String(b.date).localeCompare(String(a.date)));const O=normCo(o||CO_DEF);
+  CP={cls,d,item,o:O,sessions,eleves,vig:Object.fromEntries(vig.map(v=>[v.id,v])),S:null,courses:[],corr:{},editSel:false,draftDate:dloc(Date.now())};
+  const act=sessions.find(s=>s.active);if(act)await cpShow(act);else go("coProf");coTick()}
+async function cpShow(S){if(cpUnsub){cpUnsub();cpUnsub=null}CP.S=S;CP.courses=[];CP.corr={};CP.editSel=false;
+  try{(await fb.listCorr(S.id)).forEach(c=>CP.corr[c.id]=c.rep||{})}catch(e){console.warn(e)}
+  cpUnsub=fb.watchCourses(S.id,L=>{if(!CP||CP.S!==S)return;CP.courses=L;if(route.name==="coProf")rerenderKeep()});go("coProf");coTick()}
+const cpCartons=sel=>sel.map(c=>{const f=CP.o.formats.find(f=>f.id===c.format)||{};return{id:c.id,nom:c.nom,balises:c.balises,format:f.nom||"",ordre:f.ordre||"libre",limite:f.limite||0,desc:f.desc||""}});
+async function cpSendCorr(S,ids){for(const id of ids){const rep=CP.o.corr[id]||{};await fb.setCorr(S.id,id,{rep});CP.corr[id]=rep}}
+function vCpSel(sel){const o=CP.o;return`<div class="cp-sel">${o.cartons.filter(c=>c.balises.length).map(c=>{const n=ccCorrN(o,c),f=o.formats.find(f=>f.id===c.format);
+  return`<label><input type="checkbox" class="cp-ck" value="${esc(c.id)}" ${sel.includes(c.id)?"checked":""}><span><b>${esc(c.nom)}</b> <span class="hint">${esc(f?f.nom:"")} · ${c.balises.length} balises · ${n===c.balises.length?"correction ✓":`<span class="cp-warn">correction ${n}/${c.balises.length}</span>`}</span></span></label>`}).join("")}</div>`}
+const vgDayCell=(uid,date)=>{const v=CP.vig[uid],j=v&&v.j&&v.j[date];if(!j)return`<span class="hint">0</span>`;return`${j.n?`<b class="vg-hot">${j.n}</b>`:"0"}${j.nv?` <span class="hint" title="À confirmer (iPhone)">+${j.nv}?</span>`:""}`};
+function vCoProf(){const{cls,d,item,o,S}=CP,ok=o.cartons.filter(c=>c.balises.length);let body="";
+  if(!ok.length)body=`<section class="card stack" style="gap:8px"><h3>Préparez d'abord vos cartons</h3><p style="margin:0">Indiquez vos formats de course et vos cartons de contrôle, puis importez votre document de correction.</p><button class="btn primary" data-act="cpCfg" style="justify-self:start">🗺️ Cartons et correction</button></section>`;
+  if(S){const by={};CP.courses.forEach(c=>{(by[c.eleveUid]=by[c.eleveUid]||[]).push(c)});const K=id=>(S.cartons||[]).find(k=>k.id===id)||{nom:"?",balises:[]};
+    const rows=CP.eleves.map(e=>{const L=(by[e.id]||[]).sort((a,b)=>(a.debut||0)-(b.debut||0)),who=`<td>${e.numero}</td><td>${esc(pseudoCache[e.id]||e.login)}</td>`;
+      if(!L.length)return`<tr class="none">${who}<td colspan="3" class="hint">Pas encore parti</td><td>${vgDayCell(e.id,S.date)}</td><td></td></tr>`;
+      return L.map((c,j)=>{const k=K(c.cartonId),sc=coScore(k,c,CP.corr[c.cartonId]);
+        const st=!c.fin?`<span class="cp-run">⏱️ <span data-live="${c.debut}">${fmtDur(Date.now()-c.debut)}</span></span>`:!c.fini?"🏁 Arrivé, pas validé":sc.pending?"✅ Validé · correction ?":`<b>${sc.ok}/${sc.n}</b>`;
+        return`<tr>${j?"<td></td><td></td>":who}<td>${esc(k.nom)}</td><td>${st}</td><td>${c.fin?fmtDur(c.fin-c.debut):""}</td><td>${j?"":vgDayCell(e.id,S.date)}</td><td><button class="btn ghost small" data-act="cpDelC" data-id="${esc(c.id)}" aria-label="Annuler cette course" title="Annuler : l'élève pourra refaire ce carton">↺</button></td></tr>`}).join("")}).join("");
+    const nv=CP.courses.filter(c=>c.fini).length,nr=CP.courses.filter(c=>!c.fin).length;
+    body+=`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>${S.active?"🟢 Séance ouverte aux élèves":"Séance du "+fmtDate(S.date)}</h3><span class="spacer"></span>${S.active?`<button class="btn danger small" data-act="cpClose">Clôturer</button>`:`<button class="btn small" data-act="cpReopen">Rouvrir</button>`}</div>
+      ${CP.editSel?`<div><b>Cartons autorisés</b>${vCpSel(CP.editSel)}</div><div class="row"><button class="btn primary small" data-act="cpSelSave">Enregistrer</button><button class="btn ghost small" data-act="cpSelNo">Annuler</button></div>`
+        :`<div class="pchips">${(S.cartons||[]).map(k=>`<span class="chip">${esc(k.nom)} · ${esc(k.format)} · ${k.balises.length} bal.</span>`).join("")}</div>
+        <div class="row"><button class="btn small" data-act="cpSelEd">Modifier les cartons autorisés</button><button class="btn small" data-act="cpCorr">Renvoyer la correction</button><button class="btn ghost small" data-act="cpCfg">🗺️ Cartons et correction</button></div>`}</section>
+    <section class="card stack" style="gap:8px"><div class="sec-h"><h3>Résultats</h3><span class="spacer"></span><span class="hint">${nv} validé${nv>1?"s":""} · ${nr} en course</span><button class="btn small" data-act="cpCsv">Export CSV</button></div>
+      <div class="scroll"><table class="ids cp-tab"><thead><tr><th>N°</th><th>Élève</th><th>Carton</th><th>Résultat</th><th>Temps</th><th title="Sorties de l'appli ce jour-là">📵</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="hint" style="margin:0">Mise à jour en direct. ↺ annule une course : l'élève pourra refaire ce carton. 📵 : sorties de l'appli pendant le créneau d'EPS ce jour-là (onglet « Téléphone » de la classe).</p></section>
+    <button class="btn ghost small" data-act="cpNew" style="justify-self:start">+ Préparer une nouvelle séance</button>`}
+  else if(ok.length)body+=`<section class="card stack" style="gap:10px"><h3>Préparer la séance</h3><label class="f" style="max-width:200px">Date<input type="date" id="cp-date" value="${CP.draftDate}"></label>
+      <div><b>Cartons que les élèves peuvent utiliser</b>${vCpSel(ok.map(c=>c.id))}</div>
+      <button class="btn primary big" data-act="cpOpen">Ouvrir la séance aux élèves</button></section>`;
+  const hist=CP.sessions.filter(s=>!s.active&&(!S||s.id!==S.id));
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="cpBack">← ${esc(cls.nom)}</button>${ok.length&&!S?`<span class="spacer"></span><button class="btn ghost small" data-act="cpCfg">🗺️ Cartons et correction</button>`:""}</div>
+  <section class="class-hero"><span class="eyebrow">${esc(d.titre)} · ${esc(cls.nom)}</span><h2>🧭 ${esc(item.titre||"Course d'orientation")}</h2></section>${body}
+  ${hist.length?`<section class="card"><div class="sec-h"><h3>Séances précédentes</h3></div><div class="list-s">${hist.map(s=>`<button class="s-item" data-act="cpHist" data-id="${s.id}"><div><strong>${fmtDate(s.date)}</strong><div class="hint">${(s.cartons||[]).length} carton(s)</div></div><span class="chip">Voir →</span></button>`).join("")}</div></section>`:""}</div>`}
+const cpChecked=()=>[...document.querySelectorAll(".cp-ck:checked")].map(x=>x.value);
+async function cpOpen(){const ids=cpChecked(),o=CP.o,sel=o.cartons.filter(c=>ids.includes(c.id)&&c.balises.length);if(!sel.length){toast("Cochez au moins un carton");return}
+  const date=($("#cp-date")||{}).value||dloc(Date.now());
+  try{for(const s of CP.sessions.filter(s=>s.active)){await fb.updateSession(s.id,{active:false});s.active=false}
+    const S={profId:me.uid,classeId:CP.cls.id,dossierId:CP.d.id,outilId:CP.item.id,kind:"co",titre:CP.item.titre||"Course d'orientation",date,active:true,reponses:o.reponses,cartons:cpCartons(sel)};
+    S.id=await fb.createSession(S);await cpSendCorr(S,sel.map(c=>c.id));CP.sessions.unshift(S);toast("Séance ouverte : les élèves choisissent leur carton");await cpShow(S)}
+  catch(e){console.error(e);toast(authMsg(e))}}
+async function cpSelSave(){const ids=cpChecked(),sel=CP.o.cartons.filter(c=>ids.includes(c.id)&&c.balises.length);if(!sel.length){toast("Cochez au moins un carton");return}
+  try{const cartons=cpCartons(sel);await fb.updateSession(CP.S.id,{cartons});await cpSendCorr(CP.S,sel.map(c=>c.id));CP.S.cartons=cartons;CP.editSel=false;toast("Cartons autorisés mis à jour");rerenderKeep()}catch(e){toast(authMsg(e))}}
+async function cpCorr(){try{const o=await fb.getOrient(CP.item.id);if(o)CP.o=normCo(o);const ids=(CP.S.cartons||[]).map(k=>k.id);await cpSendCorr(CP.S,ids);toast("Correction renvoyée : les résultats sont recalculés");rerenderKeep()}catch(e){toast(authMsg(e))}}
+function cpCsv(){const S=CP.S,K=id=>(S.cartons||[]).find(k=>k.id===id)||{nom:"?",balises:[]},q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const L=[["N°","Identifiant","Pseudo","Carton","Format","Balises justes","Balises","Temps (s)","Temps","Statut","Sorties appli","Sorties à confirmer"]];
+  for(const e of CP.eleves){const v=CP.vig[e.id],j=v&&v.j&&v.j[S.date]||{};const cs=CP.courses.filter(c=>c.eleveUid===e.id);
+    if(!cs.length)L.push([e.numero,e.login,pseudoCache[e.id]||"","","","","","","","pas parti",j.n||0,j.nv||0]);
+    for(const c of cs){const k=K(c.cartonId),sc=coScore(k,c,CP.corr[c.cartonId]);L.push([e.numero,e.login,pseudoCache[e.id]||"",k.nom,k.format,c.fini&&!sc.pending?sc.ok:"",sc.n,sc.ms!=null?Math.round(sc.ms/1000):"",fmtDur(sc.ms),!c.fin?"en course":!c.fini?"arrivé":"validé",j.n||0,j.nv||0])}}
+  const blob=new Blob(["﻿"+L.map(r=>r.map(q).join(";")).join("\r\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=`orientation_${CP.cls.nom}_${S.date}.csv`.replace(/[^\w.\-]+/g,"_");document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+
+/* ---------- Actions et champs (course d'orientation, compteur de sorties) ---------- */
+function coClick(a,b){
+  // Élève
+  if(a==="coTab"){CO.tab=b.dataset.t;CO.voir=null;CO.pick=null;if(CO.tab==="res")CO.hist=null;rerenderKeep();return true}
+  if(a==="coPick"){CO.pick=b.dataset.id;render();window.scrollTo(0,0);return true}
+  if(a==="coPickNo"){CO.pick=null;render();return true}
+  if(a==="coStart"){coStart(b.dataset.id);return true}
+  if(a==="coRep"){coSetRep(b.dataset.b,b.dataset.v,true);rerenderKeep();return true}
+  if(a==="coArrivee"){coArrivee();return true}
+  if(a==="coValider"){coValider();return true}
+  if(a==="coVoir"){CO.voir={sid:b.dataset.sid||(CO.S&&CO.S.id),cid:b.dataset.id};render();window.scrollTo(0,0);return true}
+  if(a==="coVoirNo"){CO.voir=null;render();return true}
+  if(a==="coReCorr"){const{sid,cid}=CO.voir;delete CO.corr[sid+"/"+cid];coLoadCorr(sid,cid).then(()=>rerenderKeep());return true}
+  if(a==="coReload"){openCo(CO.x,CO.tab);return true}
+  if(a==="coBack"){coBack();return true}
+  if(a==="coOpenRes"){const x=dossierItems.find(y=>y.id===b.dataset.id);if(x)openCo(x,"res");return true}
+  // Prof : cartons et correction
+  if(a==="ccOpen"){openCoCfg(b.dataset.id);return true}
+  if(a==="ccBack"){ccBack();return true}
+  if(!CC&&/^cc/.test(a))return true;
+  if(a==="ccFAdd"){CC.o.formats.push({id:coId(),nom:"Nouveau format",ordre:"libre",limite:0,desc:""});ccSave();rerenderKeep();return true}
+  if(a==="ccFDel"){const f=CC.o.formats[+b.dataset.i];if(!f||CC.o.formats.length<2)return true;CC.o.formats.splice(+b.dataset.i,1);CC.o.cartons.forEach(c=>{if(c.format===f.id)c.format=CC.o.formats[0].id});ccSave();rerenderKeep();return true}
+  if(a==="ccCAdd"){const c={id:coId(),nom:`Carton ${CC.o.cartons.length+1}`,format:CC.o.formats[0].id,balises:[]};CC.o.cartons.push(c);CC.o.corr[c.id]={};ccSave();rerenderKeep();return true}
+  if(a==="ccCMany"){const n=Math.max(1,Math.min(40,parseInt(($("#cc-nb")||{}).value)||1)),p=(($("#cc-pre")||{}).value||"Carton").trim().slice(0,30)||"Carton",d0=CC.o.cartons.length;
+    for(let k=1;k<=n;k++){const c={id:coId(),nom:`${p} ${d0+k}`,format:CC.o.formats[0].id,balises:[]};CC.o.cartons.push(c);CC.o.corr[c.id]={}}ccSave();rerenderKeep();return true}
+  if(a==="ccCDel"){const c=CC.o.cartons[+b.dataset.i];if(!c)return true;confirmBox("Supprimer ce carton ?",`« ${esc(c.nom)} » et sa correction seront supprimés.`,"Supprimer",async()=>{closeModal();CC.o.cartons=CC.o.cartons.filter(x=>x.id!==c.id);delete CC.o.corr[c.id];if(CC.imp)delete CC.imp.map[c.id];ccSave();rerenderKeep()},true);return true}
+  if(a==="ccOpenC"){CC.open=CC.open===b.dataset.id?null:b.dataset.id;rerenderKeep();return true}
+  if(a==="ccRep"){const m=CC.o.corr[b.dataset.c]=CC.o.corr[b.dataset.c]||{};if(m[b.dataset.b]===b.dataset.v)delete m[b.dataset.b];else m[b.dataset.b]=b.dataset.v;ccSave();rerenderKeep();return true}
+  if(a==="ccApply"){ccApply();return true}
+  if(a==="ccFromDoc"){ccFromDoc();return true}
+  if(a==="ccIA"){if(!CC.busy)ccIA();return true}
+  return false}
+function cpClick(a,b){if(!CP)return true;
+  if(a==="cpBack"){if(cpUnsub){cpUnsub();cpUnsub=null}const c=CP.cls.id;CP=null;openClasse(c,"activites");return true}
+  if(a==="cpCfg"){if(cpUnsub){cpUnsub();cpUnsub=null}dossier=CP.d;dossierCtx=null;const f={cid:CP.cls.id,did:CP.d.id,oid:CP.item.id,nom:CP.cls.nom};openCoCfg(CP.item.id,f);return true}
+  if(a==="cpOpen"){cpOpen();return true}
+  if(a==="cpNew"){if(cpUnsub){cpUnsub();cpUnsub=null}CP.S=null;CP.courses=[];render();return true}
+  if(a==="cpHist"){const s=CP.sessions.find(z=>z.id===b.dataset.id);if(s)cpShow(s);return true}
+  if(a==="cpSelEd"){CP.editSel=(CP.S.cartons||[]).map(k=>k.id);rerenderKeep();return true}
+  if(a==="cpSelNo"){CP.editSel=false;rerenderKeep();return true}
+  if(a==="cpSelSave"){cpSelSave();return true}
+  if(a==="cpCorr"){cpCorr();return true}
+  if(a==="cpCsv"){cpCsv();return true}
+  if(a==="cpClose"){confirmBox("Clôturer la séance ?","Les élèves ne pourront plus commencer de carton. Ceux qui sont en course pourront encore terminer et valider. Vous pourrez la rouvrir.","Clôturer",async()=>{try{await fb.updateSession(CP.S.id,{active:false});CP.S.active=false;closeModal();toast("Séance clôturée");render()}catch(x){closeModal();toast(authMsg(x))}});return true}
+  if(a==="cpReopen"){(async()=>{try{for(const s of CP.sessions.filter(z=>z.active&&z.id!==CP.S.id)){await fb.updateSession(s.id,{active:false});s.active=false}await fb.updateSession(CP.S.id,{active:true});CP.S.active=true;toast("Séance rouverte");render()}catch(x){toast(authMsg(x))}})();return true}
+  if(a==="cpDelC"){const c=CP.courses.find(z=>z.id===b.dataset.id);if(!c)return true;confirmBox("Annuler cette course ?","Les réponses et le temps de l'élève pour ce carton seront effacés : il pourra le refaire.","Annuler la course",async()=>{try{await fb.deleteCourse(CP.S.id,c.id);closeModal();toast("Course annulée")}catch(x){closeModal();toast(authMsg(x))}},true);return true}
+  return false}
+function coField(el,e){
+  if(el.dataset.co==="rep"){if(e.type==="change"||e.type==="input"){coSetRep(el.dataset.b,el.value);const row=el.closest(".co-b");if(row)row.classList.toggle("ok",!!el.value.trim())}return}
+  const k=el.dataset.cc;if(k===undefined||!CC)return;const o=CC.o,i=+el.dataset.i;
+  if(k==="imp.si"||k==="imp.sens"||k==="imp.h"||k==="imp.map"){if(e.type!=="change")return;const I=CC.imp;
+    if(k==="imp.si"){I.si=+el.value;ccDetect()}else if(k==="imp.sens"){I.sens=el.value;I.h=0;const T=ccTable();for(let r=0;r<Math.min(T.length,15);r++){if(T[r].filter(coIdLike).length>=2){I.h=r;break}}ccAutoMap()}
+    else if(k==="imp.h"){I.h=+el.value;ccAutoMap()}else{if(el.value==="")delete I.map[el.dataset.c];else I.map[el.dataset.c]=+el.value}
+    rerenderKeep();return}
+  if(k==="reponses"){if(e.type!=="change")return;o.reponses=normCo({...o,reponses:el.value.split(/[,;]+/)}).reponses;ccSave();rerenderKeep();return}
+  if(k.startsWith("f.")){const f=o.formats[i];if(!f)return;const p=k.slice(2);f[p]=p==="limite"?Math.max(0,Math.min(180,parseInt(el.value)||0)):el.value.slice(0,p==="desc"?300:40);ccSave();if(e.type==="change"&&p==="nom")rerenderKeep();return}
+  if(k.startsWith("c.")){const c=o.cartons[i];if(!c)return;const p=k.slice(2);
+    if(p==="balises"){if(e.type!=="change")return;c.balises=coBal(el.value);const m=o.corr[c.id]||{};o.corr[c.id]=Object.fromEntries(Object.entries(m).filter(([b])=>c.balises.includes(b)));ccSave();rerenderKeep();return}
+    c[p]=p==="nom"?el.value.slice(0,40):el.value;ccSave();return}
+  if(k==="corr"){const m=o.corr[el.dataset.c]=o.corr[el.dataset.c]||{};const v=el.value.trim().slice(0,16);if(v)m[el.dataset.b]=v;else delete m[el.dataset.b];ccSave();return}}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="cc-file"&&CC){ccImport(e.target.files&&e.target.files[0]);e.target.value=""}});
+
+
+/* ====================================================================
+   Sorties de l'appli pendant les créneaux d'EPS
+   - Le prof indique les créneaux d'EPS de la classe (classes/{id}.creneaux) et un avertissement automatique (vigieCfg).
+   - Pendant un créneau, chaque passage de l'appli en arrière-plan (autre appli, fermeture) est compté dans vigie/{uid}.
+   - Le verrouillage de l'écran n'est pas compté : Android (Chrome) le signale à l'appli grâce à la détection
+     d'inactivité, que l'élève autorise une fois. iPhone : impossible à distinguer pour une appli web,
+     ces sorties sont comptées à part, « à confirmer ».
+   ==================================================================== */
+const JOURS_L=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const dloc=t=>{const d=new Date(t);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const hhmm=t=>{const d=new Date(t);return`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
+const hmMin=s=>{const[a,b]=String(s||"").split(":");return(+a||0)*60+(+b||0)};
+const VG_TXT="Ton enseignant voit que tu as quitté l'appli pendant le cours d'EPS. Pendant le cours, ton téléphone sert uniquement à ce qui est demandé.";
+const vgCfgOf=c=>{const v=(c&&c.vigieCfg)||{};return{on:!!v.on,seuil:Math.max(1,Math.min(20,parseInt(v.seuil)||1)),nv:!!v.nv,texte:String(v.texte||VG_TXT).slice(0,400)}};
+const VG={det:null,scr:"",scrAt:0,pend:null,expect:0,doc:null,perm:"",init:null,lastAv:0};
+const vgOn=()=>!!(me&&me.role==="eleve"&&!me.apercu&&!VUE);
+function vgCls(){return eleveClasse||(H&&H.cls)||null}
+function vgCr(){const c=vgCls();if(c&&me){lsSet("vgCr",{cid:me.classeId,cr:c.creneaux||[],cfg:c.vigieCfg||null});return Array.isArray(c.creneaux)?c.creneaux:[]}const s=lsGet("vgCr",null);return s&&me&&s.cid===me.classeId?s.cr||[]:[]}
+function vgCfg(){const c=vgCls();if(c)return vgCfgOf(c);const s=lsGet("vgCr",null);return vgCfgOf({vigieCfg:s&&s.cfg})}
+function vgSlot(t){const d=new Date(t),j=d.getDay(),m=d.getHours()*60+d.getMinutes();return vgCr().find(c=>+c.j===j&&hmMin(c.d)<=m&&m<hmMin(c.f))||null}
+function vgHide(){if(!vgOn()||VG.pend)return;const t=Date.now(),s=vgSlot(t);if(!s)return;
+  VG.pend={t,c:s.d,lock:!!(VG.det&&VG.det.screenState==="locked"),ext:t-VG.expect<20000,v:VG.det?1:0,uid:me.uid};lsSet("vgPend",VG.pend)}
+function vgShow(){if(!vgOn())return;const p=VG.pend||lsGet("vgPend",null);VG.pend=null;lsSet("vgPend",null);
+  if(p&&p.uid===me.uid)setTimeout(()=>vgDecide(p,false),1500);
+  vgCheckAvert(false);const r=route.name==="co"&&coRun();if(r&&!r.fin)coWakeOn()}
+async function vgDecide(p,ferme){const d=Date.now()-p.t;if(p.ext||d<2000||d>6*3600e3)return;
+  if(p.lock||(VG.det&&VG.scrAt>=p.t-1500))return;   // l'écran a été verrouillé : pas compté
+  await vgRecord({t:p.t,d,v:p.v&&!ferme?1:0,f:ferme?1:0,c:p.c})}
+async function vgRecord(ev){const uid=me.uid,date=dloc(ev.t);
+  if(!VG.doc||VG.doc._uid!==uid){let d=null;try{d=await fb.getVigie(uid)}catch(e){}VG.doc={...(d||{}),_uid:uid}}
+  const j=VG.doc.j=VG.doc.j||{},day=j[date]=j[date]||{n:0,nv:0,ms:0,ev:[]};
+  if(ev.v)day.n=(day.n||0)+1;else day.nv=(day.nv||0)+1;day.ms=(day.ms||0)+ev.d;
+  day.ev=[...(day.ev||[]),{h:hhmm(ev.t),d:Math.round(ev.d/1000),v:ev.v,f:ev.f,c:ev.c}].slice(-60);
+  fb.setVigie(uid,{profId:me.profId,classeId:me.classeId,login:me.login||"",j:{[date]:day},maj:Date.now()}).catch(e=>console.warn("vigie",e));
+  const cfg=vgCfg();if(cfg.on&&(ev.v||cfg.nv)){const nb=day.ev.filter(x=>x.c===ev.c&&(x.v||cfg.nv)).length;if(nb>=cfg.seuil)vgWarn(cfg.texte,nb)}}
+function vgWarn(texte,nb){openModal(`<div class="vg-warn"><div class="vg-ic">📵</div><h3>Ton enseignant est au courant</h3><p>${esc(texte)}</p>${nb?`<p class="hint">Sorties de l'appli pendant ce cours : <b>${nb}</b></p>`:""}<button class="btn primary" data-mact="close">J'ai compris</button></div>`)}
+async function vgCheckAvert(force){if(!vgOn())return;const now=Date.now();if(!force&&now-VG.lastAv<60000)return;VG.lastAv=now;
+  try{const d=await fb.getVigie(me.uid);if(!d)return;VG.doc={...d,_uid:me.uid};const a=d.avert;
+    if(a&&a.id&&d.avertVu!==a.id&&$("#modal").hidden)openModal(`<div class="vg-warn"><div class="vg-ic">✉️</div><h3>Message de ton enseignant</h3><p>${esc(a.texte)}</p><button class="btn primary" data-mact="vgVu" data-id="${esc(a.id)}">J'ai compris</button></div>`)}catch(e){console.warn(e)}}
+function vgVu(id){if(!vgOn()||!id)return;if(VG.doc)VG.doc.avertVu=id;fb.updateVigie(me.uid,{avertVu:id}).catch(e=>console.warn(e))}
+async function vgInit(){if(!vgOn()||VG.init===me.uid)return;VG.init=me.uid;VG.doc=null;
+  const p=lsGet("vgPend",null);lsSet("vgPend",null);if(p&&p.uid===me.uid)vgDecide(p,true);   // appli fermée puis rouverte
+  if("IdleDetector"in window){try{const st=await navigator.permissions.query({name:"idle-detection"});VG.perm=st.state;if(st.state==="granted")await vgDet()}catch(e){VG.perm=""}if(route.name==="home")rerenderKeep()}
+  vgCheckAvert(true)}
+async function vgDet(){if(VG.det)return;try{const d=new IdleDetector();d.addEventListener("change",()=>{if(d.screenState!==VG.scr){VG.scr=d.screenState;VG.scrAt=Date.now()}});await d.start({threshold:60000});VG.det=d;VG.scr=d.screenState;VG.perm="granted"}catch(e){console.warn("IdleDetector",e)}}
+async function vgAsk(){try{const r=await IdleDetector.requestPermission();VG.perm=r;if(r==="granted"){await vgDet();toast("Merci ! Le verrouillage de ton écran ne sera pas compté.")}else toast("Détection refusée : tes sorties seront « à confirmer » pour ton enseignant.")}
+  catch(e){VG.perm="denied";toast("Ton navigateur ne permet pas cette détection.")}rerenderKeep()}
+function vgHomeCard(){if(!vgOn()||!vgCr().length)return"";const s=vgSlot(Date.now()),android="IdleDetector"in window;
+  if(android&&VG.perm!=="granted"&&VG.perm!=="denied")return`<section class="h2-card vg-card"><div class="vg-ct"><span>📵</span><div><b>Pendant l'EPS, ton enseignant voit quand tu quittes l'appli.</b><p>Verrouiller ton écran n'est pas compté : touche « Autoriser » pour que ton téléphone le reconnaisse.</p></div></div><button class="h-btn" data-act="vgAsk">Autoriser</button></section>`;
+  if(s)return`<section class="h2-card vg-card on"><div class="vg-ct"><span>🟢</span><div><b>Cours d'EPS jusqu'à ${esc(s.f)}</b><p>Reste dans l'appli : si tu la quittes, ton enseignant le voit.${android&&VG.perm==="granted"?" Tu peux verrouiller ton écran.":""}</p></div></div></section>`;
+  return`<p class="vg-info">📵 Pendant tes cours d'EPS, l'appli compte combien de fois tu la quittes. Ton enseignant voit ce nombre.</p>`}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")vgHide();else vgShow()});
+window.addEventListener("pagehide",()=>vgHide());
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("a[href],[data-nav='home'],#maj-go"))VG.expect=Date.now()},true);
+/* --- Prof : onglet « Téléphone » de la classe --- */
+let VGP=null;
+async function vgLoadProf(){const cid=classe.id;VGP={cid,date:dloc(Date.now()),list:{},err:""};
+  try{const L=await fb.listVigie(me.uid,cid);VGP.list=Object.fromEntries(L.map(v=>[v.id,v]))}catch(e){console.warn(e);VGP.err=authMsg(e)}
+  await Promise.all(eleves.map(async e=>{if(pseudoCache[e.id])return;try{const l=await fb.getLogin(e.login);if(l&&l.pseudo)pseudoCache[e.id]=l.pseudo}catch(x){}}));
+  VGP.ok=true;if(route.name==="classe"&&classeTab==="vigie")rerenderKeep()}
+function vVgProf(){if(!VGP||VGP.cid!==classe.id){vgLoadProf();return`<div class="center-msg"><div class="spinner"></div></div>`}if(!VGP.ok)return`<div class="center-msg"><div class="spinner"></div></div>`;
+  const c=classe,cr=Array.isArray(c.creneaux)?c.creneaux:[],cfg=vgCfgOf(c),D=VGP.date;
+  const dates=[...new Set([dloc(Date.now()),D,...Object.values(VGP.list).flatMap(v=>Object.keys(v.j||{}))])].sort().reverse().slice(0,40);
+  const rows=eleves.map(e=>{const v=VGP.list[e.id],j=(v&&v.j&&v.j[D])||null,av=v&&v.avert;
+    return`<tr><td>${e.numero}</td><td>${esc(pseudoCache[e.id]||e.login)}</td><td>${j&&j.n?`<b class="vg-hot">${j.n}</b>`:"0"}</td><td>${j&&j.nv?j.nv:"–"}</td><td>${j&&j.ms?fmtDur(j.ms):"–"}</td><td class="hint vg-h">${j&&j.ev?j.ev.slice(-8).map(x=>`${x.h}${x.v?"":"?"}${x.f?" (fermée)":""}`).join(", "):""}</td><td>${av?`<span class="hint" title="${esc(av.texte)}">${v.avertVu===av.id?"✓ lu":"envoyé"}</span>`:""}</td><td><button class="btn ghost small" data-act="vgAvert" data-id="${e.id}" data-l="${esc(e.login)}">✉️ Avertir</button></td></tr>`}).join("");
+  return`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>📵 Créneaux d'EPS de la classe</h3></div>
+   <p class="hint" style="margin:0">Pendant ces créneaux, l'appli compte chaque fois que l'élève la quitte (autre appli, fermeture). Le verrouillage de l'écran n'est pas compté. En dehors, rien n'est compté. Les élèves sont informés sur leur accueil.</p>
+   <div class="vg-crs">${cr.map((x,i)=>`<div class="vg-cr"><select data-vg="cr.j" data-i="${i}" aria-label="Jour">${[1,2,3,4,5,6].map(j=>`<option value="${j}" ${+x.j===j?"selected":""}>${JOURS_L[j]}</option>`).join("")}</select><input type="time" data-vg="cr.d" data-i="${i}" value="${esc(x.d)}" aria-label="Début"><span>→</span><input type="time" data-vg="cr.f" data-i="${i}" value="${esc(x.f)}" aria-label="Fin"><button class="btn ghost small danger" data-act="vgCrDel" data-i="${i}" aria-label="Supprimer le créneau">✕</button></div>`).join("")||'<p class="hint" style="margin:0">Aucun créneau : le compteur est désactivé pour cette classe.</p>'}</div>
+   <button class="btn small" data-act="vgCrAdd" style="justify-self:start">+ Ajouter un créneau</button></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>Avertissement automatique</h3></div>
+   <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-vg="on" ${cfg.on?"checked":""} style="width:20px;height:20px"> Afficher ce message à l'élève quand il revient dans l'appli</label>
+   <div class="grid2"><label class="f">À partir de combien de sorties (dans le même cours)<input data-vg="seuil" inputmode="numeric" value="${cfg.seuil}"></label><label class="row" style="gap:8px;align-self:end"><input type="checkbox" data-vg="nv" ${cfg.nv?"checked":""} style="width:20px;height:20px"><span>Compter aussi les sorties « à confirmer » (iPhone)</span></label></div>
+   <label class="f">Message<textarea data-vg="texte" rows="3" maxlength="400">${esc(cfg.texte)}</textarea></label></section>
+  <section class="card stack" style="gap:10px"><div class="sec-h"><h3>Sorties de l'appli</h3><span class="spacer"></span><select data-vg="date" aria-label="Jour">${dates.map(x=>`<option value="${x}" ${x===D?"selected":""}>${fmtDate(x)}</option>`).join("")}</select><button class="btn ghost small" data-act="vgReload" aria-label="Actualiser">↻</button></div>
+   ${VGP.err?`<p class="err" style="margin:0">${esc(VGP.err)}</p>`:""}
+   <div class="scroll"><table class="ids vg-tab"><thead><tr><th>N°</th><th>Élève</th><th>Sorties</th><th title="iPhone, ou détection refusée : verrouillage possible">À confirmer</th><th>Hors appli</th><th>Heures</th><th>Message</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+   <p class="hint" style="margin:0"><b>Sorties</b> : téléphones Android qui ont autorisé la détection ; le verrouillage de l'écran y est reconnu et n'est pas compté. <b>À confirmer</b> (« ? » après l'heure) : iPhone, ou détection refusée. Le téléphone ne permet pas à une appli web de distinguer une sortie d'un verrouillage de l'écran.</p></section>`}
+async function vgSaveCls(patch){Object.assign(classe,patch);const c=classes.find(x=>x.id===classe.id);if(c)Object.assign(c,patch);try{await fb.updateClasse(classe.id,patch)}catch(e){toast(authMsg(e))}}
+function vgClick(a,b){
+  if(a==="vgAsk"){vgAsk();return true}
+  if(a==="vgReload"){VGP=null;rerenderKeep();return true}
+  if(a==="vgCrAdd"){const cr=[...(classe.creneaux||[])],l=cr[cr.length-1];cr.push(l?{j:l.j,d:l.d,f:l.f}:{j:1,d:"08:00",f:"10:00"});vgSaveCls({creneaux:cr});rerenderKeep();return true}
+  if(a==="vgCrDel"){const cr=[...(classe.creneaux||[])];cr.splice(+b.dataset.i,1);vgSaveCls({creneaux:cr});rerenderKeep();return true}
+  if(a==="vgAvert"){const uid=b.dataset.id,login=b.dataset.l,cfg=vgCfgOf(classe);
+    openModal(`<h3>Avertir l'élève</h3><p class="hint" style="margin:0">Le message s'affiche à sa prochaine ouverture de l'appli. Vous voyez ensuite s'il l'a lu.</p><label class="f">Message<textarea id="vg-msg" rows="4" maxlength="400">${esc(cfg.texte)}</textarea></label><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-mact="confirm">Envoyer</button></div>`,
+      {type:"confirm",run:async()=>{const texte=String($("#vg-msg").value||"").trim().slice(0,400);if(!texte){closeModal();return}const avert={id:Date.now().toString(36),texte,at:Date.now()};
+        try{await fb.setVigie(uid,{profId:me.uid,classeId:classe.id,login,avert});const v=VGP&&VGP.list;if(v)v[uid]={...(v[uid]||{}),avert};closeModal();toast("Message envoyé");rerenderKeep()}catch(x){closeModal();toast(authMsg(x))}}});return true}
+  return false}
+function vgField(el,e){if(e.type!=="change")return;const k=el.dataset.vg;
+  if(k==="date"){VGP.date=el.value;rerenderKeep();return}
+  if(k.startsWith("cr.")){const cr=(classe.creneaux||[]).map(x=>({...x})),x=cr[+el.dataset.i];if(!x)return;x[k.slice(3)]=k==="cr.j"?+el.value:el.value;vgSaveCls({creneaux:cr});return}
+  const cfg={...vgCfgOf(classe)};if(k==="on"||k==="nv")cfg[k]=el.checked;else if(k==="seuil")cfg.seuil=Math.max(1,Math.min(20,parseInt(el.value)||1));else if(k==="texte")cfg.texte=el.value.trim().slice(0,400)||VG_TXT;
+  vgSaveCls({vigieCfg:cfg})}
+
+
+/* ====================================================================
+   Stock : préconfigurations proposées par l'appli
+   ==================================================================== */
+const STOCK_INT=[{id:"int-co",integre:true,titre:"Course d'orientation",cle:actKeyOf("Course d'orientation"),ca:"CA2",signature:"Préconfiguration de l'appli",
+  principe:"Course d'orientation (CA2 : adapter son déplacement à des environnements variés). L'élève choisit un carton de contrôle, un chrono impossible à arrêter démarre au départ et s'arrête à son retour au point d'arrivée. Pour chaque balise, il note la réponse trouvée sur le poste ; à la validation, le carton est corrigé automatiquement grâce au document de correction du prof.\nAFL1 : réussite des parcours (balises justes) et temps de course, sur des formats de plus en plus exigeants (étoile → circuit → papillon → course au score).\nAFL2 : choix d'itinéraire et régulation de l'allure au fil des séances (temps et réussite comparés d'un carton à l'autre).\nAFL3 : sécurité et respect des règles (retour avant la fin du temps limite, carton complet, rôles d'observateur ou de traceur).\nÀ adapter : vos cartons, votre correction et votre barème restent à saisir.",
+  carnets:[],fiches:[],outils:[{kind:"co",titre:"Course d'orientation",cfg:{reponses:CO_REP,formats:CO_FORMATS}}]}];

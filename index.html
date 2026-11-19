@@ -592,7 +592,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-2) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-4) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -752,6 +752,65 @@ details.ia-box:not([open])>summary h3::after{content:" ▾";color:var(--muted,#6
 .tuto-dots{display:flex;justify-content:center;gap:6px;margin:8px 0}.tuto-dots button{width:8px;height:8px;border-radius:50%;border:0;background:#d1d5db;padding:0;cursor:pointer}.tuto-dots button[aria-current="true"]{background:#111827;width:20px;border-radius:4px}
 .tuto-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 body.tuto-on .pad,body.tuto-on #pad{display:none!important}
+/* Course d'orientation (2026.11.20-4) */
+.co-hero{background:linear-gradient(135deg,#0f3d2e,#14532d);}
+.co-list{display:grid;gap:8px}
+.co-k{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-left:5px solid #16a34a;border-radius:12px;padding:12px;font:inherit;color:inherit;cursor:pointer}
+.co-k.done{border-left-color:#0f766e;background:#f3faf7}
+.co-ki{font-size:1.5rem}.co-kt{flex:1;min-width:0;display:grid}.co-kt small{color:var(--muted)}
+.co-ks{display:grid;justify-items:end;font-weight:800;font-size:1.15rem}.co-ks small{font-size:.75rem;color:var(--muted);font-weight:600}
+.co-bals{display:flex;flex-wrap:wrap;gap:6px}.co-bals span{display:inline-flex;align-items:center;gap:4px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-weight:800;border-radius:8px;padding:4px 9px}
+.co-bals small{font-size:.7rem;background:#065f46;color:#fff;border-radius:99px;padding:0 6px}
+.co-warn{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;font-size:.95rem}
+.co-go{font-size:1.4rem!important;padding:18px!important;background:#16a34a!important;border-color:#16a34a!important}
+.co-chrono{position:sticky;top:6px;z-index:5;display:grid;justify-items:center;background:#14532d;color:#fff;border-radius:16px;padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.co-chrono small{font-weight:700;opacity:.85}.co-chrono b{font:800 2.8rem/1 var(--font-display);letter-spacing:.02em;font-variant-numeric:tabular-nums}.co-chrono span{font-size:.85rem;opacity:.85}
+.co-chrono.over{background:#b91c1c}.co-chrono.stop{background:var(--ink);position:static}
+.co-rows{display:grid;gap:8px}
+.co-b{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px}
+.co-b.ok{border-color:#86efac;background:#f0fdf4}
+.co-bn{display:grid;justify-items:center;min-width:58px;line-height:1.05}.co-bn span{font-size:.7rem;color:var(--muted);text-transform:uppercase;font-weight:700}.co-bn b{font:800 1.6rem var(--font-display)}
+.co-bn small{font-size:.7rem;font-weight:800;background:var(--ink);color:#fff;border-radius:99px;padding:0 6px}
+.co-r{display:grid;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));gap:6px}
+.co-r button{display:grid;justify-items:center;gap:0;border:2px solid var(--line);background:#fff;border-radius:10px;padding:6px 4px;font:700 .78rem var(--font-body);color:var(--ink);cursor:pointer;min-height:52px;align-content:center}
+.co-r button i{font-style:normal;font-size:1.35rem;line-height:1}
+.co-r button[aria-pressed="true"]{background:#16a34a;border-color:#16a34a;color:#fff}
+.co-r.sm{grid-template-columns:repeat(auto-fit,minmax(34px,1fr));gap:4px}.co-r.sm button{min-height:34px;padding:2px;font-size:1rem}
+.co-in{font-size:1.2rem;text-transform:uppercase}
+.co-stop{background:var(--ink)!important;color:#fff!important;font-size:1.2rem!important;padding:18px!important}
+.co-res{display:flex;gap:12px;align-items:center;background:#14532d;color:#fff;border-radius:16px;padding:14px 16px}
+.co-res>div:first-child{flex:1;display:grid}.co-res small{opacity:.8;font-weight:700}.co-res b{font:800 2.2rem/1.1 var(--font-display)}.co-res span{font-size:.88rem;opacity:.9}
+.co-rt{display:grid;justify-items:end}.co-rt b{font-size:1.6rem}
+.co-tab{width:100%;border-collapse:collapse}.co-tab th,.co-tab td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
+.co-tab tr.ok td{background:#f0fdf4}.co-tab tr.ko td{background:#fef2f2}
+.cc-go{cursor:pointer;margin-left:auto;background:#ecfdf5;border-color:#6ee7b7;color:#065f46}
+.cc-f{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px}
+.cc-fr{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:8px;align-items:end}
+.cc-cs{display:grid;gap:6px}
+.cc-cr{display:grid;grid-template-columns:minmax(90px,1.1fr) minmax(90px,1fr) minmax(120px,2fr) 64px auto;gap:6px;align-items:center}
+.cc-head{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase}
+.cc-c{border:1px solid transparent;border-radius:10px}.cc-c.open{border-color:var(--line);padding:6px;background:var(--panel2)}
+.cc-st{border:1px solid var(--line);background:#fff;border-radius:99px;font:800 .8rem var(--font-body);padding:6px 4px;cursor:pointer}
+.cc-st.ok{border-color:#16a34a;color:#15803d}.cc-st.ko{border-color:#f59e0b;color:#b45309}
+.cc-corr{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:6px;margin-top:6px}
+.cc-cb{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px}
+.cc-cb b{min-width:28px;text-align:center;font:800 1.1rem var(--font-display)}.cc-cb small{grid-column:1/-1;color:#b45309;font-size:.75rem}
+.cc-cb.vide{border-style:dashed}.cc-cb.bad{border-color:#f59e0b;background:#fffbeb}
+.cc-map{display:grid;grid-template-columns:minmax(90px,1fr) 2fr;gap:8px;align-items:center;font-weight:600}
+.cc-prev table{border-collapse:collapse;font-size:.78rem}.cc-prev td{border:1px solid var(--line);padding:3px 6px;white-space:nowrap}
+.cc-prev tr.h td{background:#dcfce7;font-weight:800}.cc-prev td.lc{background:#f3f4f5;font-weight:700}
+.cc-ok{color:#15803d;font-weight:700;font-size:.92rem}
+.cp-sel{display:grid;gap:6px;margin-top:6px}.cp-sel label{display:flex;gap:8px;align-items:flex-start}.cp-sel input{width:20px;height:20px;flex:none}
+.cp-warn{color:#b45309;font-weight:700}.cp-run{color:#15803d;font-weight:700;font-variant-numeric:tabular-nums}
+.cp-tab tr.none td{opacity:.65}.vg-hot{color:var(--d1)}
+@media (max-width:620px){.cc-cr{grid-template-columns:1fr 1fr;}.cc-cr input[data-cc="c.balises"]{grid-column:1/-1}.cc-head{display:none}.cc-fr{grid-template-columns:1fr 1fr}.cc-map{grid-template-columns:1fr}}
+/* Sorties de l'appli pendant l'EPS */
+.vg-crs{display:grid;gap:6px}.vg-cr{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.vg-cr select,.vg-cr input{width:auto}
+.vg-h{white-space:normal!important;min-width:120px}
+.vg-warn{display:grid;gap:10px;text-align:center;justify-items:center}.vg-warn .vg-ic{font-size:2.6rem}.vg-warn p{margin:0}
+.vg-card{display:grid;gap:10px}.vg-card .vg-ct{display:flex;gap:12px;align-items:flex-start}.vg-card .vg-ct>span{font-size:1.6rem}.vg-card p{margin:2px 0 0;color:#94a3b8;font-size:.88rem}
+.vg-card.on{border-color:#166534}
+.vg-info{margin:0 4px;color:#94a3b8;font-size:.8rem}
 </style>
 </head>
 <body>
@@ -774,6 +833,6 @@ body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.20-2"></script>
+<script type="module" src="app.js?v=2026.11.20-4"></script>
 </body>
 </html>
