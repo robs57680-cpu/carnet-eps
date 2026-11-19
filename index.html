@@ -592,7 +592,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.19-17) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-2) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -708,6 +708,50 @@ body.shell main{position:relative;z-index:1}
 .d-nav i{width:6px;height:6px;border-radius:50%;background:#475569}.d-nav i.on{background:#f472b6;width:12px;border-radius:4px}.d-nav i.ok{box-shadow:0 0 0 1.5px #22c55e}
 .dos-h h1{white-space:nowrap;font-size:clamp(1.25rem,6.2vw,1.6rem)}.dh-t b{white-space:nowrap;font-size:clamp(1.4rem,7.4vw,2.05rem)}.dl-t b{font-size:1.02rem}
 @media (max-width:380px){.ec-tools small{font-size:.78rem}.dh-t b{font-size:1.7rem}.dl-ic{width:54px;height:54px}.dl-go{padding:8px 12px}}
+
+/* Création simplifiée et éditeur avec aperçu en direct (2026.11.20-2) */
+.cr-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
+.cr-t{display:grid;gap:3px;justify-items:start;align-content:start;text-align:left;background:var(--paper,#fff);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;color:var(--ink);cursor:pointer;min-height:96px}
+.cr-t:hover,.cr-t:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.cr-t b{font-size:.98rem;line-height:1.2}.cr-t small{color:var(--muted,#64748b);font-size:.8rem;line-height:1.3}.cr-ic{font-size:1.6rem;line-height:1}
+.cr-g.ia .cr-t{border-style:dashed;border-color:var(--accent)}
+.cr-l{font-weight:800;margin-bottom:6px}
+.cr-os{display:flex;flex-wrap:wrap;gap:6px}
+.cr-o{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper,#fff);border-radius:999px;padding:9px 14px;font:inherit;font-weight:700;color:var(--ink);cursor:pointer}
+.cr-o[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.cr-n{width:64px;text-align:center}
+.cr-ck{display:flex;flex-wrap:wrap;gap:6px 16px}.cr-ck label{display:flex;align-items:center;gap:6px;font-weight:600}.cr-ck input{width:20px;height:20px}
+.cr-guess{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bloc-pal{display:flex;flex-wrap:wrap;gap:6px}
+.madv>summary{cursor:pointer;font-weight:700;color:var(--muted,#64748b);list-style:revert}
+details.card.madv>summary{color:var(--ink)}
+details.ia-box>summary{cursor:pointer;list-style:none;flex-wrap:wrap}details.ia-box>summary::-webkit-details-marker{display:none}
+details.ia-box:not([open])>summary h3::after{content:" ▾";color:var(--muted,#64748b)}
+.mfield.flash{outline:3px solid var(--accent);outline-offset:2px;transition:outline-color .3s}
+.m-live{display:none}
+@media(min-width:1100px){
+  html:has(body.wide),body.wide{overflow-x:clip}
+  body.wide #main{max-width:1260px}
+  .m-split{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+  .m-split.solo{display:block}
+  .m-live{display:block;position:sticky;top:58px}
+  .m-ph-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:800;margin:0 4px 6px}
+  .m-phone{border:10px solid #111827;border-radius:30px;background:var(--bg,#f6f7f9);padding:10px;max-height:calc(100vh - 130px);overflow:auto;cursor:pointer}
+}
+
+/* Didacticiel « ? » (2026.11.20-2) */
+.hero-top .tuto-q{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(255,255,255,.18);color:#fff;font:800 1.1rem/1 var(--font-display,inherit);cursor:pointer;display:grid;place-items:center;margin-left:4px}
+.hero-top .tuto-q:hover,.hero-top .tuto-q:focus-visible{background:#fff;color:#111}
+#tuto{position:fixed;inset:0;z-index:200}#tuto[hidden]{display:none}
+.tuto-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(10,14,22,.72);outline:3px solid #fde047;transition:all .3s ease;pointer-events:none}
+.tuto-card{position:fixed;left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 20px));background:#fff;color:#111827;border-radius:16px;padding:14px 16px 12px;box-shadow:0 18px 40px rgba(0,0,0,.35);transition:top .3s ease}
+.tuto-top{display:flex;justify-content:space-between;align-items:center}.tuto-n{font-size:.78rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.04em}
+.tuto-x{border:0;background:none;font-size:1.1rem;cursor:pointer;color:#6b7280;padding:4px}
+.tuto-ti{margin:4px 0 6px;font-size:1.15rem}.tuto-tx{margin:0 0 6px;line-height:1.45}
+.tuto-li{margin:0 0 6px;padding-left:18px;line-height:1.4;font-size:.93rem;max-height:34vh;overflow:auto}.tuto-li li{margin:3px 0}
+.tuto-dots{display:flex;justify-content:center;gap:6px;margin:8px 0}.tuto-dots button{width:8px;height:8px;border-radius:50%;border:0;background:#d1d5db;padding:0;cursor:pointer}.tuto-dots button[aria-current="true"]{background:#111827;width:20px;border-radius:4px}
+.tuto-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 </style>
 </head>
 <body>
@@ -730,6 +774,6 @@ body.shell main{position:relative;z-index:1}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.19-17"></script>
+<script type="module" src="app.js?v=2026.11.20-2"></script>
 </body>
 </html>

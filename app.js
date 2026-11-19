@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.19-17";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-17";
-const APP_VERSION="2026.11.19-17";
+import * as fb from "./fb.js?v=2026.11.20-2";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-2";
+const APP_VERSION="2026.11.20-2";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -444,7 +444,7 @@ function renderHeader(){
   else if(me&&me.role!=="eleve"&&!["loading","login"].includes(route.name)){const cur2=["classes","classe","suivi"].includes(route.name)?"classes":["modele","dossiers","dossierEd"].includes(route.name)?"modeles":route.name==="profAccueil"?"accueilEl":route.name;
     h=[["classes","Classes"],["modeles","Activités"],["accueilEl","Élèves"],["stock","Stock"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
   t.querySelector(".wrap").innerHTML=h;t.hidden=!h}
-function render(){document.body.classList.toggle("vue",!!VUE);document.body.classList.toggle("shell",isShell());renderHeader();const m=$("#main");let h="";
+function render(){document.body.classList.toggle("vue",!!VUE);document.body.classList.toggle("wide",route.name==="modele"&&!!modeleEdit&&SB());document.body.classList.toggle("shell",isShell());renderHeader();const m=$("#main");let h="";
   try{switch(route.name){
     case"loading":h=`<div class="center-msg"><div class="spinner"></div><p>${esc(route.msg||"Chargement…")}</p></div>`;break;
     case"setup":h=vSetup();break;
@@ -475,8 +475,8 @@ function render(){document.body.classList.toggle("vue",!!VUE);document.body.clas
     case"suivi":h=MOD?gSuivi():vSuivi();break;
     case"dev":h=vDev();break;
     case"compte":h=vCompte();break;
-  }}catch(e){console.error(e);h=`<div class="card center-card"><h2>Erreur d'affichage</h2><p>${esc(e.message)}</p></div>`}
-  m.innerHTML=(isShell()&&["dossier","enclasse","progres"].includes(route.name)?"":vVueBanner())+h;syncWatch()}
+  }}catch(e){console.error(e);h=(isShell()&&["dossier","enclasse","progres"].includes(route.name)?vVueBanner():"")+`<div class="card center-card"><h2>Erreur d'affichage</h2><p>${esc(e.message)}</p>${isShell()?`<button class="btn primary" data-act="shTab" data-t="home">← Retour à l'accueil</button>`:""}</div>`+(isShell()?vBottomNav():"")}
+  m.innerHTML=(isShell()&&["dossier","enclasse","progres"].includes(route.name)?"":vVueBanner())+h;syncWatch();tutoInject()}
 function syncWatch(){const s=curS&&data?curS():null;
   const want=s&&((route.name==="coach"&&COACH)||(route.name==="carnet"&&!RO&&!COACH&&(s.coachUid||isGroupe())&&!s.valide))?`${carnetId}/${s.id}`:null;
   if(want===watchKey)return;if(watchUnsub){watchUnsub();watchUnsub=null}watchKey=want;if(!want)return;
@@ -734,7 +734,8 @@ function onField(e){const el=e.target;
   if(el.dataset.clsdos!==undefined){if(e.type==="change"){const ds=new Set(classe.dossiers||[]);el.checked?ds.add(el.dataset.clsdos):ds.delete(el.dataset.clsdos);fb.updateClasse(classe.id,{dossiers:[...ds]}).then(()=>{classe.dossiers=[...ds];const c=classes.find(x=>x.id===classe.id);if(c)c.dossiers=classe.dossiers;openClasse(classe.id,"activites")}).catch(x=>toast(authMsg(x)))}return}
   if(el.dataset.doscls!==undefined){if(e.type==="change")toggleDossierClasse(el.dataset.doscls,el.checked);return}
   if(el.dataset.ficheTitre!==undefined){if(e.type==="change"){const t=el.value.trim().slice(0,80);const f=fiches.find(x=>x.id===el.dataset.ficheTitre);if(f&&t){f.titre=t;const di=dossierItems.find(x=>x.id===f.id);if(di)di.titre=t;fb.updateFiche(f.id,{titre:t}).then(()=>toast("Titre enregistré")).catch(x=>toast(authMsg(x)))}}return}
-  if(mField(el,e))return;
+  if(crField(el,e))return;
+  if(mField(el,e)){liveSoon();return}
   if(el.dataset.actcls!==undefined){if(e.type==="change")toggleActivite(el.dataset.actcls,el.checked);return}
   if(!el.dataset.k||RO||(route.name!=="carnet"&&route.name!=="modele"))return;
   if(/^seances\.\d+\./.test(el.dataset.k)){const si=+el.dataset.k.split(".")[1];if(data.seances[si]&&data.seances[si].valide)return}
@@ -757,7 +758,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.19-17");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.20-2");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -765,6 +766,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
 main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){cur=o.dataset.open;render();window.scrollTo(0,0);return}
   const b=e.target.closest("[data-act]");if(!b)return;if(b.dataset.act==="openEleve"&&e.target.closest(".noclk"))return;
   const a=b.dataset.act,i=+b.dataset.i;
+  if(/^(cr|mAddBloc|mPaste)/.test(a)&&crClick(a,b))return;
   // Connexion
   if(a==="askAccess"){openModal(`<h3>Demander un accès prof</h3><label class="f">E-mail professionnel<input id="d-email" type="email" autocomplete="email"></label><label class="f">Établissement<input id="d-eta" maxlength="190"></label><label class="f">Message (facultatif)<textarea id="d-msg" maxlength="990"></textarea></label><div class="err" id="m-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-mact="sendDem">Envoyer</button></div>`);return}
   if(a==="forgot"){openModal(`<h3>Mot de passe oublié</h3><p class="hint" style="margin:0">Réservé aux professeurs. Élèves : demandez votre mot de passe à votre enseignant.</p><label class="f">E-mail<input id="r-email" type="email" value="${esc(($("#l-id")||{}).value||"")}"></label><div class="err" id="m-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-mact="sendReset">Envoyer le lien</button></div>`);return}
@@ -809,7 +811,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   // Dossiers d'activité
   if(a==="openDossier"){openDossier(b.dataset.id);return}
   if(a==="openDossierEd"){openDossierEd(b.dataset.id);return}
-  if(a==="dosGen"){dosGen=!dosGen;rerenderKeep();return}
+  if(a==="dosGen"){dosGen=dosGen?false:"ref";rerenderKeep();return}
   if(a==="dosAddCa5"){(async()=>{await dosAddCarnet(CA5_ID);openDossierEd(dossier.id)})();return}
   if(a==="dosUp"||a==="dosDown"){const it=[...(dossier.items||[])],j=i+(a==="dosUp"?-1:1);if(j<0||j>=it.length)return;[it[i],it[j]]=[it[j],it[i]];[dossierItems[i],dossierItems[j]]=[dossierItems[j],dossierItems[i]];dosItems(it);rerenderKeep();return}
   if(a==="dosDel"){const x=dossierItems[i];if(!x)return;
@@ -1366,12 +1368,13 @@ function mFieldEd(M,si,fi,f){const p=`sections.${si}.champs.${fi}`;let extra="";
   if(f.type==="resume"){const sr=f.src||{};extra=`${mSel(p+".src.exos",sr.exos||"",[["","—"],...allFields(M,["exercices"])],"Exercices résumés")}<div class="grid2">${mSel(p+".src.tours",sr.tours||"",[["","—"],...allFields(M,["nombre"])],"Nombre de tours")}${mSel(p+".src.temps",sr.temps||"",[["","—"],...allFields(M,["temps"])],"Temps par tour")}</div>`}
   if(f.type==="passages")extra=`<div class="grid2">${mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric"',"Nombre de tours")}${mSel(p+".nbChamp",f.nbChamp||"",[["","Nombre fixe"],...allFields(M,["nombre"])],"ou lu dans la case","data-rerender")}</div><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.noRep" data-mt="bool" ${f.noRep?"checked":""} style="width:20px;height:20px"> Compteur de NO REP par tour</label>
     <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.adapt" data-mt="bool" ${f.adapt?"checked":""} style="width:20px;height:20px"> Bouton adaptation par tour</label>`;
-  return`<div class="mfield"><div class="mf-h"><span class="chip">${esc(G_TYPES[f.type]||f.type)}</span><span class="spacer"></span>
+  return`<div class="mfield" id="mf-${esc(M.sections[si].id)}-${esc(f.id)}"><div class="mf-h"><span class="chip">${esc(G_TYPES[f.type]||f.type)}</span><span class="spacer"></span>
     <button class="btn ghost small" data-act="mUpChamp" data-si="${si}" data-fi="${fi}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownChamp" data-si="${si}" data-fi="${fi}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelChamp" data-si="${si}" data-fi="${fi}" aria-label="Supprimer la case">✕</button></div>
     <div class="grid2">${mIn(p+".label",f.label,"","Intitulé")}${mSel(p+".type",f.type,Object.entries(G_TYPES),"Type de case","data-rerender")}</div>
-    <div class="grid2">${mIn(p+".unite",f.unite,"","Unité (facultatif)")}${mIn(p+".aide",f.aide,"","Aide pour l'élève")}</div>${extra}
-    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.requis" data-mt="bool" ${f.requis?"checked":""} style="width:20px;height:20px"> Obligatoire pour valider</label>
-    ${M.partage==="coach"&&f.type!=="resume"?`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.coach" data-mt="bool" ${f.coach?"checked":""} style="width:20px;height:20px"> 📣 Remplie par le coach</label>`:""}</div>`}
+    ${extra}
+    ${M.partage==="coach"&&f.type!=="resume"?`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.coach" data-mt="bool" ${f.coach?"checked":""} style="width:20px;height:20px"> 📣 Remplie par le coach</label>`:""}
+    <details class="madv"><summary>Plus d'options</summary><div class="stack" style="gap:8px;margin-top:8px"><div class="grid2">${mIn(p+".unite",f.unite,"","Unité (facultatif)")}${mIn(p+".aide",f.aide,"","Aide pour l'élève")}</div>
+    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.requis" data-mt="bool" ${f.requis?"checked":""} style="width:20px;height:20px"> Obligatoire pour valider</label></div></details></div>`}
 function mCritEd(M,ci,c){const p=`criteres.${ci}`,cal=c.calcul||{type:"autoeval"};const nums=allFields(M,["nombre","temps","echelle","compteur","case","choix","tableau","passages"]);
   let cfg="";const srcF=cal.source&&gField(M,cal.source.champ);
   if(cal.type==="seuils"||cal.type==="ecart"){
@@ -1404,18 +1407,18 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=(()=>{const p=E.
     <section class="card"><div class="row"><div style="flex:1;min-width:200px"><strong>Modifier ce carnet ?</strong><div class="hint">Repassez en bac à sable : les élèves gardent la version publiée et toutes leurs données jusqu'à ce que vous republiiez.</div></div><button class="btn primary" data-act="mSandbox">✏️ Repasser en bac à sable</button></div></section>
     <section class="card"><div class="sec-h"><h3>Fonctionnement</h3></div><p style="margin:0">${esc(PAGES_FR[M.pages])} · ${esc(PARTAGE_FR[M.partage])}${M.partage==="groupe"?` · ${M.noteGroupe?"parties collectives notées":"parties collectives non notées"}`:""}.</p></section>
     <h2 style="margin-top:6px">Aperçu élève</h2>${gSeance(curS())}</div>`;
-  const tabs=[["infos","Réglages"],["seance","Page"],["criteres","Critères"],["apercu","Aperçu"]];
+  const tabs=[["seance","Page"],["infos","Réglages"],["criteres","Critères"],["apercu","▶ Essayer"]];
   let body="";
   if(E.tab==="seance")body=M.sections.map((S,si)=>`<section class="card sec"><div class="sec-h"><span class="num">${si+1}</span><h3>${esc(S.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="mUpSec" data-si="${si}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownSec" data-si="${si}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelSec" data-si="${si}" aria-label="Supprimer la partie">✕</button></div>
       <div class="grid2">${mIn(`sections.${si}.titre`,S.titre,"","Titre de la partie")}${mIn(`sections.${si}.consigne`,S.consigne,"","Consigne pour l'élève")}</div>
       ${M.pages==="seance"?`<label class="row" style="gap:8px;font-weight:600;margin-top:6px"><input type="checkbox" data-m="sections.${si}.reprise" data-mt="bool" ${S.reprise?"checked":""} style="width:20px;height:20px"> Reprendre les réponses de la séance précédente</label>`:""}
       ${M.partage==="groupe"?mSel(`sections.${si}.portee`,S.portee||"collective",[["collective","👥 Collective : une seule réponse pour le groupe"],["individuelle","👤 Individuelle : chaque élève du groupe remplit la sienne"]],"Partie"):""}
       <div class="stack" style="gap:10px;margin-top:10px">${S.champs.map((f,fi)=>mFieldEd(M,si,fi,f)).join("")}</div>
-      <button class="btn small" data-act="mAddChamp" data-si="${si}" style="margin-top:10px">+ Ajouter une case</button></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
-  if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
-    <section class="card"><div class="sec-h"><h3>Barème AFL1</h3></div>${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
+      <div style="margin-top:10px">${vBlocs(si)}</div></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
+  if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.${M.criteres.length?"":" Aucun critère : le carnet n'est pas noté."}</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
+    <details class="card madv"><summary>Barème AFL1 (note sur ${M.bareme.afl1.max}, proportionnelle par défaut)</summary><div style="margin-top:10px">${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
     <p class="hint">Table de conversion (facultative) : à partir de tant de points, la note vaut… Sans table, la note est proportionnelle aux points.</p>
-    ${M.bareme.afl1.table.map((r,ri)=>`<div class="mcol">${mIn(`bareme.afl1.table.${ri}.pts`,r.pts,'data-mt="num" inputmode="decimal"',"Points ≥")}${mIn(`bareme.afl1.table.${ri}.note`,r.note,'data-mt="num" inputmode="decimal"',"Note")}<button class="btn ghost small" data-act="mDelRow" data-ri="${ri}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddRow">+ Ligne</button></section>`;
+    ${M.bareme.afl1.table.map((r,ri)=>`<div class="mcol">${mIn(`bareme.afl1.table.${ri}.pts`,r.pts,'data-mt="num" inputmode="decimal"',"Points ≥")}${mIn(`bareme.afl1.table.${ri}.note`,r.note,'data-mt="num" inputmode="decimal"',"Note")}<button class="btn ghost small" data-act="mDelRow" data-ri="${ri}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddRow">+ Ligne</button></div></details>`;
   if(E.tab==="infos")body=`<section class="card stack" style="gap:10px"><h3>Utilisation de la page</h3>
     ${mSel("pages",M.pages||"seance",Object.entries(PAGES_FR),"Une page du carnet sert…","data-rerender")}
     <p class="hint" style="margin:-4px 0 0">${M.pages==="cycle"?"Ex. construction d'un enchaînement d'acrosport : l'élève complète la même page tout au long du cycle.":M.pages==="plusieurs"?"L'élève crée une page et la complète sur plusieurs séances, puis la valide.":"Ex. cross training : une nouvelle page à chaque séance."}</p>
@@ -1424,36 +1427,40 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=(()=>{const p=E.
     ${M.partage==="groupe"?`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="noteGroupe" data-mt="bool" ${M.noteGroupe!==false?"checked":""} style="width:20px;height:20px"> Noter les parties collectives (même note pour tout le groupe)</label><p class="hint" style="margin:-4px 0 0">Les critères liés aux parties individuelles donnent toujours une note à chaque élève.</p>
     <div class="grid2">${mIn("groupeMin",M.groupeMin||2,'data-mt="num" inputmode="numeric"',"Élèves par groupe : au moins")}${mIn("groupeMax",M.groupeMax||4,'data-mt="num" inputmode="numeric"',"au plus")}</div>`:""}</section>
     <section class="card stack" style="gap:10px"><h3>Présentation</h3>${mIn("titre",M.titre,"","Nom du carnet")}<div class="grid2">${mSel("ca",M.ca,[["",""],["CA1","CA1"],["CA2","CA2"],["CA3","CA3"],["CA4","CA4"],["CA5","CA5"]],"Champ d'apprentissage")}${mIn("apsa",M.apsa,"","APSA")}</div>${mTa("description",M.description,"Description pour l'élève")}
-    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="rm" data-mt="bool" ${M.rm?"checked":""} style="width:20px;height:20px"> Les élèves notent leurs 1RM dans leur profil</label></section>
-    <section class="card"><div class="sec-h"><h3>Thèmes au choix de l'élève</h3></div>${M.themes.map((t,ti)=>`<div class="mfield" style="margin-bottom:8px"><div class="mcol" style="margin:0">${mIn(`themes.${ti}.label`,t.label,"","Thème")}${mIn(`themes.${ti}.desc`,t.desc,"","Description")}<button class="btn ghost small" data-act="mDelTheme" data-ti="${ti}" aria-label="Retirer">✕</button></div>
+</section>
+    <details class="card madv"${M.rm||M.themes.length?" open":""}><summary>Options avancées : 1RM, thèmes au choix de l'élève</summary><div style="margin-top:10px">
+    <label class="row" style="gap:8px;font-weight:600;margin-bottom:12px"><input type="checkbox" data-m="rm" data-mt="bool" ${M.rm?"checked":""} style="width:20px;height:20px"> Les élèves notent leurs 1RM dans leur profil</label>
+    <div class="sec-h"><h3>Thèmes au choix de l'élève</h3></div>${M.themes.map((t,ti)=>`<div class="mfield" style="margin-bottom:8px"><div class="mcol" style="margin:0">${mIn(`themes.${ti}.label`,t.label,"","Thème")}${mIn(`themes.${ti}.desc`,t.desc,"","Description")}<button class="btn ghost small" data-act="mDelTheme" data-ti="${ti}" aria-label="Retirer">✕</button></div>
       <div class="grid4">${mIn(`themes.${ti}.reps.0`,(t.reps||[])[0],'data-mt="num" inputmode="numeric"',"Rép. min")}${mIn(`themes.${ti}.reps.1`,(t.reps||[])[1],'data-mt="num" inputmode="numeric"',"Rép. max")}${mIn(`themes.${ti}.pct.0`,(t.pct||[])[0],'data-mt="num" inputmode="numeric"',"% 1RM min")}${mIn(`themes.${ti}.pct.1`,(t.pct||[])[1],'data-mt="num" inputmode="numeric"',"% 1RM max")}</div></div>`).join("")}
-    <p class="hint" style="margin:0 0 8px">Repères facultatifs, utilisés par le critère « repères du thème ».</p><button class="btn small" data-act="mAddTheme">+ Thème</button></section>`;
+    <p class="hint" style="margin:0 0 8px">Repères facultatifs, utilisés par le critère « repères du thème ».</p><button class="btn small" data-act="mAddTheme">+ Thème</button></div></details>`;
   if(E.tab==="apercu")body=`<p class="hint" style="margin:0">Remplissez l'aperçu puis « Tester la correction ». Rien n'est enregistré.</p>${gSeance(curS())}`;
   return`<div class="stack">${head}
-  <section class="card ia-box"><div class="sec-h"><h3>✨ Demander à l'IA</h3>${modeleHist.length?`<span class="spacer"></span><button class="btn ghost small" data-act="iaUndo">↶ Annuler (${modeleHist.length})</button>`:""}</div>
+  <details class="card ia-box"${iaBusy||modeleHist.length?" open":""}><summary class="sec-h"><h3>✨ Modifier en parlant à l'IA</h3><span class="hint">« ajoute un chrono pour le gainage », « enlève le bilan »…</span></summary><div class="sec-h" style="margin-top:8px">${modeleHist.length?`<span class="spacer"></span><button class="btn ghost small" data-act="iaUndo">↶ Annuler (${modeleHist.length})</button>`:""}</div>
     <p class="hint" style="margin:-4px 0 0">Donnez vos consignes de correction : l'IA modifie le bac à sable, vous vérifiez puis vous publiez.</p>
     <textarea id="ia-req" placeholder="ex. Ajoute la fréquence cardiaque à la fin de chaque tour · Le critère de régularité doit tolérer 3 s"></textarea>
     <label class="f">Joindre un document (facultatif)<input type="file" id="ia-file" accept="application/pdf,image/*"></label>
-    <div class="err" id="ia-err"></div><button class="btn primary" data-act="iaEdit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA modifie le carnet…":"Envoyer à l'IA"}</button></section>
-  <div class="seg2" style="grid-template-columns:repeat(4,minmax(0,1fr))">${tabs.map(([k,l])=>`<button data-act="mTab" data-t="${k}" aria-current="${E.tab===k}">${l}</button>`).join("")}</div>
-  ${body}
+    <div class="err" id="ia-err"></div><button class="btn primary" data-act="iaEdit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA modifie le carnet…":"Envoyer à l'IA"}</button></details>
+  <div class="m-split${E.tab==="apercu"?" solo":""}"><div class="m-left stack"><div class="seg2" style="grid-template-columns:repeat(4,minmax(0,1fr))">${tabs.map(([k,l])=>`<button data-act="mTab" data-t="${k}" aria-current="${E.tab===k}">${l}</button>`).join("")}</div>
+  ${body}</div>${E.tab==="apercu"?"":`<aside class="m-live"><div class="m-ph-h"><span>📱 Aperçu élève en direct</span><span class="hint">touchez une case pour la retrouver</span></div><div class="m-phone" id="m-live">${gSeance(curS())}</div></aside>`}</div>
   <div class="valid-bar"><button class="btn big go-valid" style="--th:var(--d4)" data-act="mPublish"><span>✅ Valider et publier</span><small>${E.pub?"Remplace la version des élèves · leurs données sont conservées":"Le carnet apparaît pour les élèves des classes activées"}</small></button></div></div>`}
 const fileToB64=f=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(",")[1]);r.onerror=ko;r.readAsDataURL(f)});
-async function iaGenerer(){const f1=$("#gen-file").files[0],f2=$("#gen-fiche").files[0],texte=($("#gen-text")||{value:""}).value.trim(),consignes=$("#gen-cons").value.trim(),err=$("#gen-err");err.textContent="";
-  if(!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
+async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files[0]:null},f1=fv("#gen-file"),f2=fv("#gen-fiche"),texte=(($("#gen-text")||{}).value||"").trim(),consignes=(($("#gen-cons")||{}).value||"").trim(),mode=(($("#gen-form")||{}).dataset||{}).mode||"ref",err=$("#gen-err");err.textContent="";
+  if(mode==="ref"&&!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
+  if(mode==="photo"&&!f2){err.textContent="Prenez en photo ou choisissez votre fiche.";return}
+  if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.19-17");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.20-2");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
-    const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-17");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+    const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.19-17");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-17");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.20-2");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1465,7 +1472,7 @@ async function publierModele(){const E=modeleEdit,M=normModele(E.draft);E.draft=
       await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,modele:M,statut:"publie",publieLe:new Date().toISOString()});
       E.pub=M;E.statut="publie";E.publieLe={toDate:()=>new Date()};E.dirty=false;closeModal();setPreview();toast("Carnet publié pour les élèves");rerenderKeep()}catch(e){closeModal();toast(authMsg(e))}};
   confirmBox("Publier ce carnet ?",`${E.pub?"Les élèves passeront à cette nouvelle version. Les réponses déjà saisies sont conservées ; une case supprimée n'est plus affichée.":"Il apparaîtra pour les élèves des classes activées."}${prob.length?`<br><br><strong>À vérifier :</strong> ${esc(prob.join(" ; "))}.`:""}`,"Publier",go2)}
-function mutDraft(fn,rr=true){const M=modeleEdit.draft;fn(M);modeleEdit.dirty=true;if(rr)rerenderKeep()}
+function mutDraft(fn,rr=true){const M=modeleEdit.draft;fn(M);modeleEdit.dirty=true;setPreview();if(rr)rerenderKeep()}
 function mClick(a,b){if(a==="mBlank"){startEditor({modele:null,brouillon:blankModele()});return true}if(!modeleEdit)return false;const si=+b.dataset.si,fi=+b.dataset.fi,ci=+b.dataset.ci,mv=(arr,i,d)=>{const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]};
   switch(a){
     case"mTab":modeleEdit.tab=b.dataset.t;if(modeleEdit.tab==="apercu")setPreview();render();return true;
@@ -1684,7 +1691,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.19-17" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-2" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?(carnets.length?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -1702,7 +1709,7 @@ function vDossiers(){return`<div class="stack"><h2>Mes activités</h2>
   ${dossiers.length?`<div class="grid-cards">${dossiers.map(d=>`<button class="class-card" data-act="openDossierEd" data-id="${d.id}"><span class="act-ca">${esc(d.ca||"")}</span><span class="cc-n" style="font-size:1.3rem">${esc(d.titre)}</span><span class="hint">${(d.items||[]).filter(x=>x.t==="carnet").length} carnet(s) · ${(d.items||[]).filter(x=>x.t==="fiche").length} fiche(s)</span><span class="chip">${classes.filter(c=>(c.dossiers||[]).includes(d.id)).map(c=>esc(c.nom)).join(", ")||"Aucune classe"}</span></button>`).join("")}</div>`:""}
   <form class="card" id="new-dossier"><div class="sec-h"><h3>Nouvelle activité</h3></div><div class="grid2"><label class="f">Nom<input id="nd-t" required maxlength="60" placeholder="ex. Acrosport"></label><label class="f">Champ d'apprentissage<select id="nd-ca">${["","CA1","CA2","CA3","CA4","CA5"].map(x=>`<option>${x}</option>`).join("")}</select></label></div>
   <button class="btn primary" type="submit" style="margin-top:10px">Créer l'activité</button></form></div>`}
-async function openDossierEd(id){shareOpen=false;go("loading");try{await loadClasses();const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};dosGen=false;
+async function openDossierEd(id){shareOpen=false;go("loading");try{await loadClasses();const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};dosGen=false;CR=null;
   dossierItems=await itemsOf(d,me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;go("dossierEd")}catch(e){go("error",{msg:authMsg(e)})}}
 function vDossierEd(){const d=dossier,its=dossierItems;
   const st=x=>x.id===CA5_ID?(x.doc?(x.doc.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié · votre version"):"Publié · version d'origine"):x.pub?(x.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié"):"Bac à sable · pas encore visible";
@@ -1718,9 +1725,7 @@ function vDossierEd(){const d=dossier,its=dossierItems;
     <label class="f" style="margin-top:8px">Présentation pour les élèves (facultatif)<textarea data-dos="desc" rows="2">${esc(d.desc||"")}</textarea></label></section>
   <section class="card"><div class="sec-h"><h3>Documents de l'activité</h3><span class="hint">Ce que l'élève trouve dans le dossier</span></div>
     ${rows?`<div class="docs">${rows}</div>`:'<p class="hint" style="margin:0">Le dossier est vide : ajoutez un carnet ou une fiche ci-dessous.</p>'}</section>
-  <section class="card stack" style="gap:8px"><h3>Ajouter un carnet</h3><p class="hint" style="margin:0">Carnet d'entraînement, feuille de poule, fiche de juge, fiche d'observation… Tout carnet se crée en bac à sable puis se publie.</p>
-    <div class="row"><button class="btn primary" data-act="dosGen">✨ Avec l'IA</button><button class="btn" data-act="mBlank">Carnet vide</button>${hasCa5?"":`<button class="btn" data-act="dosAddCa5">Cross training CA5</button>`}</div>
-    ${dosGen?vGenForm():""}</section>
+  ${vCreer(hasCa5)}
   <section class="card stack" style="gap:8px"><h3>Ajouter un outil</h3><p class="hint" style="margin:0">Feuille de match : poules de 3 à 8 joueurs sur 1 à 4 terrains, scores reportés par les élèves arbitres. Scoreur : compteur de points avec bonus et chrono.</p>
     <div class="row"><button class="btn" data-act="dosAddOutil" data-k="feuille">🏆 Feuille de match</button><button class="btn" data-act="dosAddOutil" data-k="scoreur">⏱️ Scoreur</button></div></section>
   <form class="card stack" id="fiche-form" style="gap:10px"><h3>Ajouter une fiche</h3>
@@ -1732,14 +1737,19 @@ function vDossierEd(){const d=dossier,its=dossierItems;
     <p class="hint" style="margin:0">Les PDF sont transformés en images page par page pour s'afficher tels quels sur les téléphones.</p></form>
   <section class="card"><div class="sec-h"><h3>Activer pour mes classes</h3></div>${classes.map(c=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-doscls="${c.id}" ${(c.dossiers||[]).includes(d.id)?"checked":""} style="width:20px;height:20px"> ${esc(c.nom)}</label>`).join("")||'<p class="hint">Aucune classe.</p>'}
     <p class="hint" style="margin:6px 0 0">Les élèves voient les carnets publiés et toutes les fiches.</p></section>${vShareBox()}</div>`}
-function vGenForm(){return`<form class="stack" id="gen-form" style="gap:10px;border-top:1px solid var(--line);padding-top:10px">
+function vGenForm(mode){mode=mode||"ref";const ft=`<p class="hint" style="margin:0">${IAKEY?"Gemini avec votre clé personnelle.":"Gemini, quota gratuit partagé. Votre propre quota : ajoutez votre clé dans « Compte »."} Comptez 30 secondes à 2 minutes. Vous vérifiez ensuite tout en bac à sable avant de publier.</p>`;
+  const go=`<div class="err" id="gen-err"></div><button class="btn primary big" type="submit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA prépare votre carnet…":"✨ Créer l'ébauche avec l'IA"}</button>`;
+  if(mode==="photo")return`<form class="stack" id="gen-form" data-mode="photo" style="gap:10px">
+    <label class="f">Votre fiche (photo prise avec le téléphone, image ou PDF)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
+    <label class="f">Précisions (facultatif)<textarea id="gen-cons" placeholder="ex. C'est un camarade qui remplit la fiche · Ajoute un chrono pour le gainage"></textarea></label>
+    <details><summary class="hint">Ajouter aussi le référentiel pour la correction (facultatif)</summary><input type="file" id="gen-file" accept="application/pdf,image/*"></details>${go}${ft}</form>`;
+  if(mode==="phrase")return`<form class="stack" id="gen-form" data-mode="phrase" style="gap:10px">
+    <label class="f">Décrivez le carnet en une ou deux phrases<textarea id="gen-cons" rows="3" placeholder="ex. Fiche d'observation du smash en badminton, remplie par un camarade, avec le nombre de smashs réussis et 3 critères techniques"></textarea></label>${go}${ft}</form>`;
+  return`<form class="stack" id="gen-form" data-mode="ref" style="gap:10px">
     <label class="f">1. Référentiel d'évaluation (PDF ou photo)<input type="file" id="gen-file" accept="application/pdf,image/*"></label>
     <label class="f">2. Fiche d'observation / d'évaluation (facultatif)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
     <details><summary class="hint">Pas de fichier ? Coller le texte du référentiel</summary><textarea id="gen-text" placeholder="Texte du référentiel"></textarea></details>
-    <label class="f">Vos consignes (facultatif)<textarea id="gen-cons" placeholder="ex. Feuille de poule pour 4 équipes · Carnet de construction de l'enchaînement sur tout le cycle, en groupe"></textarea></label>
-    <div class="err" id="gen-err"></div>
-    <button class="btn primary big" type="submit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA lit vos documents…":"✨ Créer l'ébauche avec l'IA"}</button>
-    <p class="hint" style="margin:0">${IAKEY?"Gemini avec votre clé personnelle.":"Gemini, quota gratuit partagé. Votre propre quota : ajoutez votre clé dans « Compte »."} Comptez 30 secondes à 2 minutes.</p></form>`}
+    <label class="f">Vos consignes (facultatif)<textarea id="gen-cons" placeholder="ex. Feuille de poule pour 4 équipes · Carnet de construction de l'enchaînement sur tout le cycle, en groupe"></textarea></label>${go}${ft}</form>`}
 async function saveDossier(patch){Object.assign(dossier,patch);try{await fb.updateDossier(dossier.id,patch)}catch(e){toast(authMsg(e))}}
 async function dosItems(items){dossier.items=items;await saveDossier({items})}
 async function dosAddCarnet(id){if(!dossierCtx)return;const d=await fb.getDossier(dossierCtx.id);if(!d)return;if((d.items||[]).some(x=>x.id===id))return;
@@ -2059,7 +2069,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.19-17" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-2" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2156,7 +2166,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.19-17" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-2" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2189,14 +2199,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.19-17" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-2" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.19-17" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-2" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   <section class="h2-card act"><div class="h2-ch"><span class="h2-ic teal">${IC.pulse}</span><h2>Mon activité physique</h2><span class="spacer"></span>${nv?`<span class="h2-chip" style="--c:${nvC}"><i></i>${nv.lab}</span>`:""}</div>
@@ -2222,7 +2232,7 @@ function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):nu
 function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P),ok=DS.filter(d=>defiFait(a,d)).length,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const bar=(l,v,max,txt,c)=>`<div class="pg-b"><div class="pg-bl"><span>${l}</span><b style="${c?`color:${c}`:""}">${txt}</b></div><div class="h2-bar"><i style="width:${Math.max(0,Math.min(100,v/max*100))}%;${c?`background:${c}`:""}"></i></div></div>`;
   return`<div class="shell-home ec">${vVueBanner()}
-  <div class="ec-h"><span class="ec-hic green">${IC.bars}</span><div><h1>Progrès</h1><p>Ton activité, tes objectifs, tes défis !</p></div><i class="ec-sw" aria-hidden="true"></i></div>
+  <div class="ec-h"><button class="dos-back" data-act="shTab" data-t="home" aria-label="Retour à l'accueil">${IC.chev}</button><span class="ec-hic green">${IC.bars}</span><div><h1>Progrès</h1><p>Ton activité, tes objectifs, tes défis !</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <section class="h2-card act"><div class="h2-ch"><span class="h2-ic teal">${IC.pulse}</span><h2>Ma semaine</h2><span class="spacer"></span>${nv?`<span class="h2-chip" style="--c:${nv.c}"><i></i>${nv.lab}</span>`:""}</div>
     ${r?`<div class="pg-sc"><b style="color:${nv.c}">${r.score}</b><small>/100</small><span>${nv.t}</span></div>
       ${bar("Activité",+a.min||0,P.act.cible,`${fmtHM(a.min)} / ${fmtHM(P.act.cible)}`)}${bar("Jours actifs",jours,P.jours.cible,`${jours} / ${P.jours.cible}`)}
@@ -2233,7 +2243,161 @@ function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P)
   <section class="h2-card"><div class="h2-ch"><span aria-hidden="true">🔥</span><h2>Défis de la semaine</h2><span class="spacer"></span>${DS.length?`<span class="h2-chip" style="--c:#f472b6"><i></i>${ok} / ${DS.length} relevé${ok>1?"s":""}</span>`:""}</div>
     ${DS.length?DS.map(d=>{const f=defiFait(a,d);return`<div class="pg-d"><div><b>${esc(d.valeur)}</b><small>${esc(d.texte)}</small></div><button class="d-btn${f?" ok":""}" data-act="shDefi" data-id="${d.id}">${f?"✅ Relevé":"Je relève !"}</button></div>`}).join(""):`<p class="h-empty" style="margin:8px 0 0">Pas de défi cette semaine.</p>`}</section></div>`}
 function vBottomNav(){const t=route.name,on=k=>t===k||(k==="home"&&["conseils","actus"].includes(t))||(k==="enclasse"&&t==="dossier");
-  return`<nav class="bnav" aria-label="Onglets">${[["home","house","Accueil"],["enclasse",t==="dossier"?"dbh":"people","En classe"],["profilEl","user","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${on(k)}"><span class="${ic==="dbh"?"dbh":""}">${ic==="dbh"?IC.dumbbellH:IC[ic]}</span>${l}</button>`).join("")}</nav>`}
+  return`<nav class="bnav four" aria-label="Onglets">${[["home","house","Accueil"],["enclasse",t==="dossier"?"dbh":"people","En classe"],["progres","bars","Progrès"],["profilEl","user","Profil"]].map(([k,ic,l])=>`<button data-act="shTab" data-t="${k}" aria-current="${on(k)}"><span class="${ic==="dbh"?"dbh":""}">${ic==="dbh"?IC.dumbbellH:IC[ic]}</span>${l}</button>`).join("")}</nav>`}
+
+
+/* ---------- Création simplifiée : modèles, assistant, blocs, « une ligne = un critère » ---------- */
+const FX=(id,type,label,x)=>({id,type,label,aide:"",unite:"",requis:true,...(x||{})});
+const BLOCS={
+  series:{ic:"🏋️",lab:"Séries muscu",mk:()=>FX(newId("c"),"tableau","Mes séries",{colonnes:[{id:"exo",type:"texte",label:"Exercice",options:[]},{id:"charge",type:"nombre",label:"Charge (kg)",options:[]},{id:"reps",type:"nombre",label:"Répétitions",options:[]},{id:"series",type:"nombre",label:"Séries",options:[]},{id:"recup",type:"temps",label:"Récup",options:[]}]})},
+  chrono:{ic:"⏱️",lab:"Chrono",mk:()=>FX(newId("c"),"temps","Mon temps")},
+  tours:{ic:"🔁",lab:"Temps de passage",mk:()=>FX(newId("c"),"passages","Mes temps de passage",{nb:4})},
+  compteur:{ic:"➕",lab:"Compteur",mk:()=>FX(newId("c"),"compteur","Nombre de réussites")},
+  fc:{ic:"❤️",lab:"Fréquence cardiaque",mk:()=>FX(newId("c"),"nombre","Fréquence cardiaque",{unite:"bpm"})},
+  ressenti:{ic:"😮‍💨",lab:"Ressenti",mk:()=>FX(newId("c"),"echelle","Difficulté ressentie (1 facile → 10 très dur)",{min:1,max:10})},
+  check:{ic:"✅",lab:"Critère oui / non",mk:()=>FX(newId("c"),"choix","Critère observé",{options:["Oui","En cours","Non"]})},
+  texte:{ic:"📝",lab:"Texte libre",mk:()=>FX(newId("c"),"texte_long","Mon bilan")},
+  nombre:{ic:"🔢",lab:"Nombre",mk:()=>FX(newId("c"),"nombre","Nombre")},
+  choix:{ic:"🔘",lab:"Choix",mk:()=>FX(newId("c"),"choix","Choix",{options:["Choix 1","Choix 2"]})},
+  note:{ic:"⭐",lab:"Note sur 10",mk:()=>FX(newId("c"),"echelle","Note",{min:0,max:10})}};
+/* Une ligne = une case : le type est deviné, et peut être forcé par (compteur) (temps) (note) (oui/non) (texte) (nombre) en fin de ligne */
+function lignesChamps(txt,def,coach){return String(txt||"").split(/\n/).map(x=>x.replace(/^[\s\-•*·]+/,"").trim()).filter(Boolean).slice(0,20).map(l=>{
+  let k=null;const m=l.match(/\(\s*(compteur|nombre|temps|chrono|note|oui\s*\/\s*non|texte)\s*\)\s*$/i);
+  if(m){l=l.slice(0,m.index).trim();const t=norm(m[1]).replace(/\s/g,"");k=t==="chrono"?"temps":t==="oui/non"?"check":t}
+  else{const n=norm(l);k=/^(nombre|nb|combien)\b|repetition|\breps?\b|\bfois\b|touches|\bpoints?\b|\bpasses\b|reussi|valides?\b|\bfautes?\b|\berreurs?\b/.test(n)?"compteur":/\btemps\b|duree|chrono|secondes|\bsec\b|tenu/.test(n)?"temps":/\bnote\b|\/ ?10|sur 10/.test(n)?"note":def}
+  const f=k==="compteur"?FX(newId("c"),"compteur",l):k==="temps"?FX(newId("c"),"temps",l):k==="note"?FX(newId("c"),"echelle",l,{min:0,max:10}):k==="nombre"?FX(newId("c"),"nombre",l):k==="texte"?FX(newId("c"),"texte_long",l):FX(newId("c"),"choix",l,{options:["Oui","En cours","Non"]});
+  f.label=f.label.slice(0,80);if(coach)f.coach=true;return f})}
+const DESC4=(a,b,c,d)=>[a,b,c,d];
+const TPL={
+  muscu:{ic:"🏋️",nom:"Carnet de musculation",d:"Séries, charges, répétitions, ressenti",qui:"aucun",pages:"seance",
+    ex:[["objectif","Objectif de la séance",1],["echauf","Échauffement",1],["ressenti","Ressenti",1],["fc","Fréquence cardiaque",0],["bilan","Bilan",1]],
+    build:c=>{const av=[],ap=[];if(c.ex.objectif)av.push(FX("objectif","texte","Mon objectif du jour"));if(c.ex.echauf)av.push(FX("echauf","texte_long","Mon échauffement",{requis:false}));
+      if(c.ex.ressenti)ap.push(FX("ressenti","echelle","Difficulté ressentie (1 facile → 10 très dur)",{min:1,max:10}));if(c.ex.fc)ap.push(FX("fc","nombre","Fréquence cardiaque en fin de séance",{unite:"bpm"}));if(c.ex.bilan)ap.push(FX("bilan","texte_long","Mon bilan : ce que je garde, ce que je change"));
+      const se=BLOCS.series.mk();se.id="series";return{sections:[{id:"avant",titre:"Avant la séance",champs:av},{id:"seance",titre:"Ma séance",champs:[se]},{id:"apres",titre:"Après la séance",champs:ap}],
+      criteres:[{id:"k_complet",afl:"AFL2",label:"Carnet complet et régulier",descripteurs:DESC4("Carnet très incomplet.","Carnet partiellement rempli.","Carnet presque complet.","Carnet complet à chaque séance."),points:[1,2,3,4],calcul:{type:"complet",champs:[],seuils:[1,.85,.5]}},
+        {id:"k_charge",afl:"AFL1",label:"Je respecte les charges et répétitions prévues",descripteurs:DESC4("Rarement.","Parfois.","Souvent.","Toujours."),points:[1,2,3,4],calcul:{type:"autoeval"}}]}}},
+  course:{ic:"🏃",nom:"Carnet de course",d:"Temps visé, temps de passage, régularité",qui:"coach",pages:"seance",
+    ex:[["fc","Fréquence cardiaque",1],["ressenti","Ressenti",1],["bilan","Bilan",1]],
+    build:c=>{const ap=[];if(c.ex.fc)ap.push(FX("fc","nombre","Fréquence cardiaque à l'arrivée",{unite:"bpm"}));if(c.ex.ressenti)ap.push(FX("ressenti","echelle","Difficulté ressentie (1 facile → 10 très dur)",{min:1,max:10}));if(c.ex.bilan)ap.push(FX("bilan","texte_long","Mon bilan"));
+      return{sections:[{id:"objectif",titre:"Mon projet",champs:[FX("nbtours","nombre","Nombre de tours prévus"),FX("cible","temps","Temps visé par tour")]},{id:"course",titre:"Ma course",champs:[FX("passages","passages","Mes temps de passage",{nb:4,nbChamp:"objectif.nbtours",coach:true})]},{id:"apres",titre:"Après la course",champs:ap}],
+      criteres:[{id:"k_rythme",afl:"AFL1",label:"Régularité de l'allure",descripteurs:DESC4("Décroche tôt ou course non terminée.","Décroche à partir de la moitié.","Décroche sur les 2 derniers tours.","Rythme tenu jusqu'au bout."),points:[1,2,3,4],calcul:{type:"rythme",source:{champ:"course.passages",cible:{champ:"objectif.cible"},tolerance:5}}}]}}},
+  technique:{ic:"🤸",nom:"Progression technique",d:"Gym, acrosport, danse… éléments et niveau d'acquisition",qui:"groupe",pages:"cycle",
+    ex:[["bilan","Bilan individuel",1]],
+    build:c=>({sections:[{id:"elements",titre:"Nos éléments",champs:[FX("liste","tableau","Éléments travaillés",{colonnes:[{id:"el",type:"texte",label:"Élément",options:[]},{id:"diff",type:"choix",label:"Difficulté",options:["A","B","C","D"]},{id:"etat",type:"choix",label:"Où on en est",options:["À travailler","En cours","Acquis ✅"]}]})]},
+      ...(c.ex.bilan?[{id:"bilan",titre:"Mon bilan",portee:"individuelle",champs:[FX("bilan","texte_long","Ce que je maîtrise, ce qu'il me reste à travailler")]}]:[])],
+      criteres:[{id:"k_maitrise",afl:"AFL1",label:"Maîtrise des éléments",descripteurs:DESC4("Peu d'éléments maîtrisés.","Quelques éléments maîtrisés.","La plupart des éléments maîtrisés.","Tous les éléments maîtrisés."),points:[1,2,3,4],calcul:{type:"autoeval"}}]})},
+  observation:{ic:"👀",nom:"Fiche d'observation",d:"Un camarade observe : critères oui / non, compteurs, chrono",qui:"coach",pages:"seance",lignes:"Dos droit pendant l'exercice\nNombre de répétitions valides\nTemps de gainage tenu",def:"check",
+    ex:[["conseil","Conseil de l'observateur",1],["ressenti","Ressenti de l'élève",0]],
+    build:c=>{const co=c.qui==="coach",ob=lignesChamps(c.lignes,"check",co);if(c.ex.conseil)ob.push(FX("conseil","texte_long","Mon conseil",{coach:co,requis:false}));
+      return{sections:[{id:"obs",titre:"Observation",consigne:co?"Rempli par ton observateur depuis son téléphone.":"",champs:ob},...(c.ex.ressenti?[{id:"moi",titre:"Mon ressenti",champs:[FX("ressenti","echelle","Difficulté ressentie (1 facile → 10 très dur)",{min:1,max:10})]}]:[])],
+      criteres:[{id:"k_obs",afl:"AFL3",label:"Observation complète",descripteurs:DESC4("Fiche presque vide.","Fiche partiellement remplie.","Fiche presque complète.","Fiche complète."),points:[1,2,3,4],calcul:{type:"complet",champs:[],seuils:[1,.85,.5]}}]}}},
+  juge:{ic:"⚖️",nom:"Fiche de juge",d:"Co-évaluation : une note par critère",qui:"coach",pages:"seance",lignes:"Amplitude\nRythme\nOriginalité",def:"note",
+    ex:[["conseil","Commentaire du juge",1]],
+    build:c=>{const co=c.qui==="coach",ob=lignesChamps(c.lignes,"note",co);if(c.ex.conseil)ob.push(FX("conseil","texte_long","Commentaire du juge",{coach:co,requis:false}));
+      return{sections:[{id:"jury",titre:"Jugement",champs:ob}],criteres:[]}}},
+  vierge:{ic:"📄",nom:"Carnet vierge",d:"Partir de zéro, bloc par bloc",qui:"aucun",pages:"seance",ex:[],
+    build:()=>({sections:[{id:"seance",titre:"Ma séance",champs:[FX("notes","texte_long","Ce que j'ai fait")]}],criteres:[]})}};
+let CR=null;
+function crStart(k){const t=TPL[k];if(!t)return;CR={k,qui:t.qui,pages:t.pages,gmin:2,gmax:4,note:true,lignes:t.lignes||"",ex:Object.fromEntries(t.ex.map(([id,,on])=>[id,!!on]))}}
+function crBuild(){const t=TPL[CR.k],b=t.build(CR),dz=typeof dossier!=="undefined"&&dossier||{};
+  const m={titre:t.nom,ca:dz.ca||"",apsa:dz.titre||"",description:"",themes:[],pages:CR.pages,partage:CR.qui,noteGroupe:true,groupeMin:CR.gmin,groupeMax:CR.gmax,bareme:{afl1:{max:12,table:[]}},...b};
+  m.sections=m.sections.filter(S=>S.champs.length).map(S=>({consigne:"",...S}));
+  m.criteres=CR.note?(m.criteres||[]).map(k=>{if(k.calcul&&k.calcul.type==="complet")k.calcul.champs=m.sections.flatMap(S=>S.champs.filter(f=>f.type!=="resume"&&(k.afl!=="AFL3"||f.coach||CR.qui!=="coach")).map(f=>S.id+"."+f.id));return k}):[];
+  if(m.partage!=="coach")m.sections.forEach(S=>S.champs.forEach(f=>delete f.coach));
+  return m}
+function crCreate(){if(CR.k==="observation"||CR.k==="juge"){if(!String(CR.lignes).trim()){toast("Écrivez au moins un critère (une ligne = un critère).");return}}
+  const m=crBuild();CR=null;startEditor({modele:null,brouillon:m});toast("Carnet prêt en bac à sable : ajustez-le, puis publiez")}
+function vCreer(hasCa5){const opt=(k,v,l,ic)=>`<button type="button" class="cr-o" data-act="crSet" data-k="${k}" data-v="${v}" aria-pressed="${String(CR[k])===String(v)}">${ic?`<span>${ic}</span>`:""}${l}</button>`;
+  if(dosGen)return`<section class="card stack" style="gap:8px"><div class="row"><button class="btn ghost small" data-act="crIA" data-m="">← Retour</button><h3 style="margin:0">${{photo:"📷 À partir de ma fiche papier",phrase:"💬 Décrire mon carnet",ref:"📑 À partir du référentiel"}[dosGen]||"✨ Avec l'IA"}</h3></div>${vGenForm(dosGen)}</section>`;
+  if(!CR)return`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>Ajouter un carnet</h3><span class="hint">Choisissez un point de départ, tout reste modifiable</span></div>
+    <div class="cr-g">${Object.entries(TPL).map(([k,t])=>`<button class="cr-t" data-act="crTpl" data-k="${k}"><span class="cr-ic">${t.ic}</span><b>${esc(t.nom)}</b><small>${esc(t.d)}</small></button>`).join("")}${hasCa5?"":`<button class="cr-t" data-act="dosAddCa5"><span class="cr-ic">🔥</span><b>Cross training CA5</b><small>Le carnet complet, prêt à l'emploi</small></button>`}</div>
+    <div class="sec-h" style="margin-top:4px"><h3 style="font-size:1rem">✨ Ou laissez l'IA le préparer</h3></div>
+    <div class="cr-g ia">${[["photo","📷","Ma fiche papier","Photo ou PDF de la fiche que vous utilisez déjà"],["phrase","💬","En une phrase","« Fiche d'observation du smash en badminton »"],["ref","📑","Mon référentiel","Carnet corrigé fidèlement au référentiel"]].map(([m,ic,l,d])=>`<button class="cr-t" data-act="crIA" data-m="${m}"><span class="cr-ic">${ic}</span><b>${l}</b><small>${esc(d)}</small></button>`).join("")}</div></section>`;
+  const t=TPL[CR.k],lig=CR.k==="observation"||CR.k==="juge";
+  return`<section class="card stack cr-q" style="gap:14px"><div class="row"><button class="btn ghost small" data-act="crBack">← Changer</button><h3 style="margin:0">${t.ic} ${esc(t.nom)}</h3></div>
+    <div><div class="cr-l">1. Qui remplit ?</div><div class="cr-os">${opt("qui","aucun","L'élève seul","👤")}${opt("qui","coach",CR.k==="observation"||CR.k==="juge"?"Un camarade observateur":"L'élève + un coach","📣")}${opt("qui","groupe","Un groupe","👥")}</div>
+      ${CR.qui==="groupe"?`<div class="row" style="margin-top:8px;gap:8px"><span class="hint">Élèves par groupe : de</span><input class="cr-n" data-cr="gmin" inputmode="numeric" value="${CR.gmin}"><span class="hint">à</span><input class="cr-n" data-cr="gmax" inputmode="numeric" value="${CR.gmax}"></div>`:""}
+      ${CR.qui==="coach"?`<p class="hint" style="margin:6px 0 0">L'élève choisit un camarade qui remplit ${lig?"la fiche":"les temps et mesures"} depuis son propre téléphone.</p>`:""}</div>
+    <div><div class="cr-l">2. Une page…</div><div class="cr-os">${opt("pages","seance","à chaque séance","📅")}${opt("pages","cycle","pour tout le cycle","🗂️")}</div></div>
+    ${lig?`<div><div class="cr-l">3. ${CR.k==="juge"?"Les critères notés":"Ce que l'on observe"} — une ligne = un critère</div><textarea data-cr="lignes" rows="5" placeholder="Un critère par ligne">${esc(CR.lignes)}</textarea>
+      <div class="cr-guess">${lignesChamps(CR.lignes,TPL[CR.k].def).map(f=>`<span class="chip">${{choix:"✅ oui / non",compteur:"➕ compteur",temps:"⏱️ chrono",echelle:"⭐ note /10",nombre:"🔢 nombre",texte_long:"📝 texte"}[f.type]} · ${esc(f.label)}</span>`).join("")}</div>
+      <p class="hint" style="margin:4px 0 0">Le type est deviné (« Nombre de… » → compteur, « Temps… » → chrono). Pour le forcer, terminez la ligne par (compteur), (temps), (note), (oui/non) ou (texte).</p></div>`:""}
+    ${t.ex.length?`<div><div class="cr-l">${lig?4:3}. ${lig?"À ajouter":"Ce que l'élève note en plus"}</div><div class="cr-ck">${t.ex.map(([id,l])=>`<label><input type="checkbox" data-crx="${id}" ${CR.ex[id]?"checked":""}> ${esc(l)}</label>`).join("")}</div></div>`:""}
+    ${CR.k!=="vierge"&&CR.k!=="juge"?`<div><div class="cr-l">${(lig?4:3)+(t.ex.length?1:0)}. Évaluation</div><div class="cr-os">${opt("note","false","Autoévaluation seulement","🙋")}${opt("note","true","Avec correction automatique","🎯")}</div></div>`:""}
+    <button class="btn primary big" data-act="crGo">Créer et voir l'aperçu →</button></section>`}
+function crClick(a,b){
+  if(a==="crTpl"){crStart(b.dataset.k);dosGen=false;rerenderKeep();return true}
+  if(a==="crBack"){CR=null;rerenderKeep();return true}
+  if(a==="crIA"){CR=null;dosGen=b.dataset.m||false;rerenderKeep();return true}
+  if(a==="crSet"){const k=b.dataset.k,v=b.dataset.v;CR[k]=k==="note"?v==="true":v;rerenderKeep();return true}
+  if(a==="crGo"){crCreate();return true}
+  if(a==="mAddBloc"&&modeleEdit){const si=+b.dataset.si,B=BLOCS[b.dataset.k];if(!B)return true;const f=B.mk();mutDraft(M=>M.sections[si].champs.push(f));mFocus(M0=>M0.sections[si].id+"-"+f.id);return true}
+  if(a==="mPaste"&&modeleEdit){mPasteSi=mPasteSi===+b.dataset.si?null:+b.dataset.si;rerenderKeep();return true}
+  if(a==="mPasteGo"&&modeleEdit){const si=+b.dataset.si,ta=$("#mp-"+si),M=modeleEdit.draft,co=M.partage==="coach";const fs=lignesChamps(ta&&ta.value,"check",false);if(!fs.length){toast("Écrivez au moins une ligne.");return true}mPasteSi=null;mutDraft(D=>D.sections[si].champs.push(...fs));toast(fs.length+" case"+(fs.length>1?"s":"")+" ajoutée"+(fs.length>1?"s":"")+(co?" — cochez « Remplie par le coach » si besoin":""));return true}
+  return false}
+function crField(el,e){if(el.dataset.cr!==undefined){const k=el.dataset.cr;if(k==="lignes"){CR.lignes=el.value;if(e.type==="input"){clearTimeout(crField.t);crField.t=setTimeout(()=>{const g=document.querySelector(".cr-guess");if(g)g.innerHTML=lignesChamps(CR.lignes,TPL[CR.k].def).map(f=>`<span class="chip">${{choix:"✅ oui / non",compteur:"➕ compteur",temps:"⏱️ chrono",echelle:"⭐ note /10",nombre:"🔢 nombre",texte_long:"📝 texte"}[f.type]} · ${esc(f.label)}</span>`).join("")},250)}return true}
+    CR[k]=Math.max(1,Math.min(30,parseInt(el.value)||1));return true}
+  if(el.dataset.crx!==undefined){if(e.type==="change")CR.ex[el.dataset.crx]=el.checked;return true}
+  return false}
+let mPasteSi=null;
+function vBlocs(si){return`<div class="bloc-pal"><span class="hint" style="width:100%">Ajouter :</span>${Object.entries(BLOCS).map(([k,B])=>`<button class="btn small" data-act="mAddBloc" data-k="${k}" data-si="${si}">${B.ic} ${B.lab}</button>`).join("")}<button class="btn small" data-act="mPaste" data-si="${si}">📋 Une liste (une ligne = une case)</button></div>
+  ${mPasteSi===si?`<div class="stack" style="gap:6px;margin-top:8px"><textarea id="mp-${si}" rows="4" placeholder="Dos droit pendant le squat&#10;Nombre de répétitions valides&#10;Temps de gainage tenu"></textarea><p class="hint" style="margin:0">Type deviné pour chaque ligne ; forcez-le avec (compteur), (temps), (note), (oui/non), (texte) en fin de ligne.</p><button class="btn primary small" data-act="mPasteGo" data-si="${si}" style="justify-self:start">Ajouter ces cases</button></div>`:""}`}
+/* Aperçu en direct à côté de l'éditeur */
+function liveRefresh(){const box=$("#m-live");if(!box||!modeleEdit)return;setPreview();box.innerHTML=gSeance(curS())}
+function liveSoon(){clearTimeout(liveSoon.t);liveSoon.t=setTimeout(liveRefresh,350)}
+function mFocus(fn){setTimeout(()=>{try{const el=document.getElementById("mf-"+fn(modeleEdit.draft));if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flash");const i=el.querySelector("input");if(i){i.focus({preventScroll:true});i.select&&i.select()}setTimeout(()=>el.classList.remove("flash"),1400)}}catch(x){}},60)}
+document.addEventListener("click",e=>{const live=e.target.closest("#m-live");if(!live||!modeleEdit)return;const t=e.target.closest("[id^='g-']")||(e.target.closest(".field,.gf,label,section,div")||live).querySelector("[id^='g-']");if(!t)return;
+  const id=t.id.slice(2),el=document.getElementById("mf-"+id);if(!el)return;if(modeleEdit.tab!=="seance"){return}el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flash");setTimeout(()=>el.classList.remove("flash"),1400)});
+
+
+/* ---------- Didacticiel « ? » des pages de carnet : écrans successifs générés depuis la page ---------- */
+const TUTO_T={texte:"Écris une réponse courte.",texte_long:"Écris quelques phrases avec tes mots.",nombre:"Tape le nombre (le pavé numérique s'ouvre).",temps:"Tape le temps en minutes:secondes, par ex. 1:30.",choix:"Choisis la réponse dans la liste.",case:"Coche la case quand c'est fait.",
+  echelle:"Choisis la valeur qui correspond le mieux.",compteur:"Touche + à chaque fois, − si tu t'es trompé.",tableau:"Remplis une ligne à la fois ; ajoute une ligne avec le bouton +.",passages:"Note ton temps à la fin de chaque tour.",exercices:"Une ligne par exercice : nom, répétitions, charge…",resume:"Se remplit tout seul à partir de tes réponses."};
+function tutoInject(){if(!["carnet","coach","modele"].includes(route.name))return;
+  document.querySelectorAll("#main .stack.seance .hero-top").forEach(h=>{if(h.closest("#m-live")||h.querySelector(".tuto-q"))return;
+    h.insertAdjacentHTML("beforeend",`<button type="button" class="tuto-q" aria-label="Comment remplir cette page ?" title="Comment remplir cette page ?">?</button>`)})}
+function tutoSteps(root){const M=typeof MOD!=="undefined"?MOD:null,st=[],coachPage=route.name==="coach";
+  const hero=root.querySelector(".hero");
+  if(hero){let t=coachPage?"Tu es le coach : tu remplis les cases de ton camarade depuis ton téléphone. Tout est enregistré tout seul.":"Cette page est ton carnet. Tes réponses sont enregistrées automatiquement, même sans réseau au gymnase.";
+    if(!coachPage&&M){t+=M.pages==="cycle"?" Tu complètes la même page pendant tout le cycle.":M.pages==="plusieurs"?" Tu peux la compléter sur plusieurs séances.":" Tu crées une nouvelle page à chaque séance.";if(M.partage==="groupe")t+=" Ton groupe remplit la même page.";}
+    if(hero.querySelector('input[type="date"]'))t+=" En haut à droite : vérifie la date.";
+    if(hero.querySelector(".pills"))t+=" Choisis ton thème du jour en touchant une pastille.";
+    st.push({el:hero,ti:"👋 Bienvenue",tx:t})}
+  [...root.querySelectorAll("section.card")].forEach(sec=>{if(sec.classList.contains("hero")||!sec.offsetParent)return;
+    const h=sec.querySelector("h3"),titre=h?h.textContent.trim():"",m=/^gsec-(\d+)$/.exec(sec.id||""),S=m&&M?M.sections[+m[1]]:null;let tx="",lis=[];
+    if(S){if(sec.classList.contains("resume")){st.push({el:sec,ti:"📊 Résumé",tx:"Ce résumé se calcule tout seul à partir de ce que tu as rempli."});return}
+      if(S.consigne)tx=S.consigne;
+      const seen=new Set();S.champs.forEach(f=>{if(f.type==="resume")return;const coach=M.partage==="coach"&&f.coach&&!coachPage;lis.push(`<li><b>${esc(f.label)}</b> — ${coach?"📣 rempli par ton coach depuis son téléphone.":esc(f.aide||TUTO_T[f.type]||"")}</li>`);seen.add(f.type)});
+      if(M.partage==="groupe"&&S.portee==="individuelle")tx+=(tx?" ":"")+"Cette partie est personnelle : chacun remplit la sienne.";}
+    else if(/autoévalue/i.test(titre))tx="Pour chaque critère, touche le niveau (1 à 4) qui te correspond le mieux. Touche un niveau pour lire ce qu'il veut dire.";
+    else if(/coach/i.test(sec.textContent.slice(0,200))&&sec.querySelector("select,input"))tx="Choisis le camarade qui sera ton coach : il remplira certaines cases depuis son téléphone.";
+    else{const c=[];if(sec.querySelector("textarea"))c.push("écris tes réponses dans les zones de texte");if(sec.querySelector("select"))c.push("choisis dans les listes");if(sec.querySelector('input[inputmode="numeric"],input[inputmode="decimal"]'))c.push("tape les nombres et les temps (pavé numérique)");if(sec.querySelector("button.btn:not(.danger)"))c.push("utilise les boutons pour ajouter une ligne ou un tour");
+      tx=c.length?c.join(", ").replace(/^./,x=>x.toUpperCase())+".":sec.querySelector(".hint")?sec.querySelector(".hint").textContent.trim().slice(0,220):"Lis cette partie attentivement."}
+    st.push({el:sec,ti:(st.length)+". "+(titre||"Partie"),tx,lis})});
+  const vb=root.querySelector(".valid-bar");
+  if(vb&&vb.offsetParent){const go=vb.querySelector(".go-valid");st.push({el:vb,ti:"🏁 Pour finir",tx:go?"Quand tout est rempli, touche ce bouton pour valider. Attention : après, tu ne pourras plus modifier la page. Ta note apparaît alors dans l'onglet « Bilan » en haut.":"Ici s'affiche l'état de la page."})}
+  return st}
+let TUTO=null;
+function tutoOpen(btn){const root=btn.closest(".stack.seance")||document.querySelector("#main .stack.seance");if(!root)return;const steps=tutoSteps(root);if(!steps.length)return;TUTO={steps,i:0};
+  if(!document.getElementById("tuto")){document.body.insertAdjacentHTML("beforeend",`<div id="tuto" role="dialog" aria-modal="true" aria-label="Didacticiel"><div class="tuto-hole"></div><div class="tuto-card"><div class="tuto-top"><span class="tuto-n"></span><button type="button" class="tuto-x" data-tuto="x" aria-label="Fermer">✕</button></div><h3 class="tuto-ti"></h3><p class="tuto-tx"></p><ul class="tuto-li"></ul><div class="tuto-dots"></div><div class="tuto-nav"><button type="button" class="btn" data-tuto="prev">‹ Précédent</button><button type="button" class="btn primary" data-tuto="next">Suivant ›</button></div></div></div>`);
+    const T=document.getElementById("tuto");T.addEventListener("click",e=>{const b=e.target.closest("[data-tuto]");if(!b){if(e.target===T||e.target.classList.contains("tuto-hole"))tutoClose();return}const a=b.dataset.tuto;if(a==="x")tutoClose();else if(a==="prev")tutoGo(TUTO.i-1);else if(a==="next"){TUTO.i>=TUTO.steps.length-1?tutoClose():tutoGo(TUTO.i+1)}else if(a==="dot")tutoGo(+b.dataset.i)});
+    let x0=null;T.addEventListener("touchstart",e=>{x0=e.touches[0].clientX},{passive:true});T.addEventListener("touchend",e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)tutoGo(TUTO.i+(dx<0?1:-1))});
+    document.addEventListener("keydown",e=>{if(!TUTO)return;if(e.key==="Escape")tutoClose();if(e.key==="ArrowRight")tutoGo(TUTO.i+1);if(e.key==="ArrowLeft")tutoGo(TUTO.i-1)});
+    window.addEventListener("resize",()=>TUTO&&tutoPlace());window.addEventListener("scroll",()=>TUTO&&tutoPlace(),{passive:true})}
+  document.getElementById("tuto").hidden=false;document.body.classList.add("tuto-on");tutoGo(0)}
+function tutoClose(){TUTO=null;const T=document.getElementById("tuto");if(T)T.hidden=true;document.body.classList.remove("tuto-on")}
+function tutoGo(i){if(!TUTO)return;const n=TUTO.steps.length;if(i<0||i>=n)return;TUTO.i=i;const s=TUTO.steps[i],T=document.getElementById("tuto");
+  T.querySelector(".tuto-n").textContent=`Étape ${i+1} / ${n}`;T.querySelector(".tuto-ti").textContent=s.ti;T.querySelector(".tuto-tx").textContent=s.tx||"";T.querySelector(".tuto-tx").hidden=!s.tx;
+  const ul=T.querySelector(".tuto-li");ul.innerHTML=(s.lis||[]).slice(0,8).join("")+((s.lis||[]).length>8?`<li>… et ${(s.lis.length-8)} autre(s)</li>`:"");ul.hidden=!(s.lis||[]).length;
+  T.querySelector(".tuto-dots").innerHTML=TUTO.steps.map((_,k)=>`<button type="button" data-tuto="dot" data-i="${k}" aria-label="Étape ${k+1}" aria-current="${k===i}"></button>`).join("");
+  T.querySelector('[data-tuto="prev"]').disabled=i===0;T.querySelector('[data-tuto="next"]').textContent=i===n-1?"J'ai compris ✓":"Suivant ›";
+  const r=s.el.getBoundingClientRect(),vh=window.innerHeight;const top=window.scrollY+r.top-Math.max(70,Math.min(140,(vh-Math.min(r.height,vh*.5))/4));window.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+  tutoPlace();setTimeout(tutoPlace,350)}
+function tutoPlace(){if(!TUTO)return;const s=TUTO.steps[TUTO.i],T=document.getElementById("tuto"),h=T.querySelector(".tuto-hole"),c=T.querySelector(".tuto-card"),r=s.el.getBoundingClientRect(),vh=window.innerHeight,p=6;
+  h.style.cssText=`left:${r.left-p}px;top:${r.top-p}px;width:${r.width+2*p}px;height:${r.height+2*p}px`;
+  const ch=c.offsetHeight,below=vh-r.bottom,above=r.top;c.classList.toggle("up",!(below>ch+20)&&above>ch+20);
+  c.style.top=below>ch+20?`${Math.min(vh-ch-10,r.bottom+14)}px`:above>ch+20?`${r.top-ch-14}px`:`${vh-ch-10}px`}
+document.addEventListener("click",e=>{const q=e.target.closest(".tuto-q");if(!q)return;e.preventDefault();e.stopPropagation();tutoOpen(q)},true);
 
 /* ---------- Mises à jour de l'appli ---------- */
 let majVersion=null;

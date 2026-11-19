@@ -137,13 +137,20 @@ export function iaMessage(e) {
 }
 
 /** Crée une ébauche de modèle à partir d'un référentiel (fichier PDF/image en base64 et/ou texte). */
-export async function genererModele({ fichiers, fichier, texte, consignes, cle }) {
-  const parts = [{ text: `Tu es un expert de l'EPS au lycée (référentiels du baccalauréat, France). À partir du référentiel d'évaluation fourni, conçois le carnet d'entraînement numérique que l'élève remplira à chaque séance, avec une correction automatique fidèle au référentiel.
+export async function genererModele({ fichiers, fichier, texte, consignes, cle, mode }) {
+  const intro = mode === "photo"
+    ? `Tu es un expert de l'EPS (collège et lycée, France). Le professeur te donne la photo ou le PDF de la fiche papier qu'il utilise déjà (carnet d'entraînement, fiche d'observation, fiche de juge ou d'évaluation). Reproduis-la fidèlement en carnet numérique : mêmes rubriques (sections), mêmes cases, même ordre, mêmes intitulés. Pour chaque case, choisis le type le plus pratique sur téléphone pendant la séance : "compteur" pour compter, "temps" pour chronométrer, "choix" (Oui / En cours / Non) pour cocher un critère, "echelle" pour une note. Si la fiche est remplie par un observateur, utilise partage "coach" et coche coach:true sur ses cases. Si la fiche contient une grille d'évaluation, transforme-la en critères ; sinon, laisse criteres vide.`
+    : mode === "phrase"
+    ? `Tu es un expert de l'EPS (collège et lycée, France). Le professeur décrit en quelques mots le carnet ou la fiche qu'il veut. Conçois un carnet simple, rapide à remplir sur téléphone en séance : peu de cases, bien choisies, avec des intitulés clairs pour des élèves. Ajoute des critères seulement si le professeur parle d'évaluation ou de note.`
+    : `Tu es un expert de l'EPS au lycée (référentiels du baccalauréat, France). À partir du référentiel d'évaluation fourni, conçois le carnet d'entraînement numérique que l'élève remplira à chaque séance, avec une correction automatique fidèle au référentiel.`;
+  const parts = [{ text: `${intro}
 ${SCHEMA}
-${consignes ? "CONSIGNES DU PROFESSEUR : " + consignes : ""}` }];
+${consignes ? (mode === "phrase" ? "DEMANDE DU PROFESSEUR : " : "CONSIGNES DU PROFESSEUR : ") + consignes : ""}` }];
   const fs = fichiers || (fichier ? [{ role: "referentiel", ...fichier }] : []);
   for (const f of fs) {
-    parts.push({ text: f.role === "fiche"
+    parts.push({ text: f.role === "fiche" && mode === "photo"
+      ? "FICHE PAPIER DU PROFESSEUR À REPRODUIRE :"
+      : f.role === "fiche"
       ? "FICHE D'OBSERVATION / D'ÉVALUATION utilisée par le professeur (s'en inspirer pour les champs à relever pendant la séance et pour les critères) :"
       : "RÉFÉRENTIEL D'ÉVALUATION (source principale pour les AFL, les degrés et le barème) :" });
     parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } });
