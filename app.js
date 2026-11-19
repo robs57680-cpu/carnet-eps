@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.19-4";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-4";
-const APP_VERSION="2026.11.19-4";
+import * as fb from "./fb.js?v=2026.11.19-6";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.19-6";
+const APP_VERSION="2026.11.19-6";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -47,7 +47,13 @@ function setPath(o,p,v){const ks=p.split(".");let a=o;for(let i=0;i<ks.length-1;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"Sans date";const[y,m,j]=d.split("-");return`${j}/${m}/${y}`};
-const stamp=(d,sm)=>d?`<span class="stamp d${d}${sm?" sm":""}" title="Degré ${d}" aria-label="Degré ${d}">${FACE[d]}</span>`:`<span class="stamp d0${sm?" sm":""}" title="À compléter">?</span>`;
+const MOUTH={1:'<path d="M40 83 Q60 66 80 83" fill="none" stroke="url(#sm-e1)" stroke-width="6" stroke-linecap="round"/>',
+  2:'<path d="M38 77 Q60 72 82 77" fill="none" stroke="url(#sm-e2)" stroke-width="6" stroke-linecap="round"/>',
+  3:'<path d="M40 72 Q60 86 80 72" fill="none" stroke="url(#sm-e3)" stroke-width="6" stroke-linecap="round"/>',
+  4:'<path d="M35 67 Q60 101 85 67 Q60 75 35 67 Z" fill="url(#sm-e4)" stroke="url(#sm-e4)" stroke-width="3" stroke-linejoin="round"/>'};
+const smRing=g=>`<circle cx="60" cy="60" r="56" fill="#fff"/><circle cx="60" cy="60" r="44" fill="none" stroke="${g}" stroke-width="10.5" stroke-dasharray="11 6.3" transform="rotate(-96 60 60)"/>`;
+const stamp=(d,sm)=>d?`<span class="stamp d${d}${sm?" sm":""}" role="img" title="Degré ${d}" aria-label="Degré ${d}"><svg viewBox="0 0 120 120" aria-hidden="true">${smRing(`url(#sm-r${d})`)}<ellipse cx="46" cy="50" rx="6.5" ry="8" fill="url(#sm-e${d})"/><ellipse cx="74" cy="50" rx="6.5" ry="8" fill="url(#sm-e${d})"/>${MOUTH[d]}</svg></span>`
+  :`<span class="stamp d0${sm?" sm":""}" role="img" title="À compléter" aria-label="À compléter"><svg viewBox="0 0 120 120" aria-hidden="true">${smRing("#a7adb3")}<text x="60" y="76" text-anchor="middle" font-size="46" font-weight="800" fill="#8a9097" font-family="system-ui,sans-serif">?</text></svg></span>`;
 
 /* ---------- Modèle ---------- */
 function blankTour(){return{passage:null,noRep:0,adapt:null}}
@@ -410,11 +416,11 @@ const getReperes=cid=>load(reperesKey(cid))||{};
 function save(){if(COACH){const s=curS();if(!s||s.valide)return;clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(flushCoach,500);return}
   if(RO||!carnetId)return;dirtyProfil=true;if(cur)dirty.add(cur);clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(flush,700)}
 async function flushCoach(){clearTimeout(saveTimer);saveTimer=null;const s=curS();if(!COACH||!s)return;setSync(navigator.onLine===false?"offline":"saving");
-  try{await fb.coachSaveTours(carnetId,s.id,s.real.tours);setSync("ok")}catch(e){console.error(e);setSync("error");toast(e&&e.code==="permission-denied"?"Tu n'es plus le coach de cette séance.":authMsg(e))}}
+  try{if(MOD){const p=gCoachField(MOD,s);await fb.coachSaveVals(carnetId,s.id,p,gVal(s,p))}else await fb.coachSaveTours(carnetId,s.id,s.real.tours);setSync("ok")}catch(e){console.error(e);setSync("error");toast(e&&e.code==="permission-denied"?"Tu n'es plus le coach de cette séance.":authMsg(e))}}
 async function flush(){clearTimeout(saveTimer);saveTimer=null;if(COACH)return flushCoach();if(RO||!carnetId)return;const jobs=[];
   if(dirtyProfil){dirtyProfil=false;jobs.push(fb.updateCarnet(carnetId,{profil:data.profil}))}
   for(const id of [...dirty]){dirty.delete(id);const s=data.seances.find(x=>x.id===id);if(!s||savedValide.has(id))continue;const v=!!s.valide;
-    let docData=s,merge=false;if(s.coachUid){docData=clone(s);delete docData.real.tours;merge=true}
+    let docData=s,merge=false;if(s.coachUid){docData=clone(s);if(MOD){const[a,b]=gCoachField(MOD,s).split(".");if(docData.valeurs&&docData.valeurs[a])delete docData.valeurs[a][b]}else delete docData.real.tours;merge=true}
     jobs.push(fb.saveSeance(carnetId,id,docData,merge).then(()=>{if(v)savedValide.add(id)}))}
   if(!jobs.length){setSync("ok");return}
   setSync(navigator.onLine===false?"offline":"saving");
@@ -435,7 +441,7 @@ function renderHeader(){
   const t=$("#tabs");let h="";
   if(route.name==="carnet"){h=`<button class="back" data-nav="${RO?"suivi":"acts"}" aria-label="Retour">←</button>`+[["seances","Séances"],["bilan","Bilan"],["profil","Profil"]].map(([v,l])=>`<button data-view="${v}" aria-current="${view===v}">${l}</button>`).join("")}
   else if(me&&me.role!=="eleve"&&!["loading","login"].includes(route.name)){const cur2=["classes","classe","suivi"].includes(route.name)?"classes":route.name==="modele"?"modeles":route.name;
-    h=[["classes","Classes"],["modeles","Carnets IA"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
+    h=[["classes","Classes"],["modeles","Carnets"],...(me.role==="dev"?[["dev","Dév."]]:[]),["compte","Compte"]].map(([v,l])=>`<button data-nav="${v}" aria-current="${cur2===v}">${l}</button>`).join("")}
   t.querySelector(".wrap").innerHTML=h;t.hidden=!h}
 function render(){renderHeader();const m=$("#main");let h="";
   try{switch(route.name){
@@ -445,7 +451,7 @@ function render(){renderHeader();const m=$("#main");let h="";
     case"noaccount":h=`<div class="card center-card"><h2>Compte non activé</h2><p>Ce compte n'a pas (ou plus) accès au carnet. Demande à ton enseignant de vérifier tes identifiants.</p><button class="btn primary" data-nav="logout">Retour à la connexion</button></div>`;break;
     case"error":h=`<div class="card center-card"><h2>Oups</h2><p>${esc(route.msg)}</p><button class="btn primary" data-nav="home">Réessayer</button></div>`;break;
     case"acts":h=vActs();break;
-    case"coach":h=curS()?vCoach(curS()):`<div class="card center-card"><p>Séance introuvable.</p></div>`;break;
+    case"coach":h=curS()?(MOD?gCoach(curS()):vCoach(curS())):`<div class="card center-card"><p>Séance introuvable.</p></div>`;break;
     case"carnet":h=MOD?(view==="profil"?gProfil():view==="bilan"?gBilan()+(RO?vAfl3Prof():""):(cur?gSeance(curS()):gListe())):(view==="profil"?vProfil():view==="bilan"?vBilan()+(RO?vAfl3Prof():""):(cur?vSeance(curS()):vListe()));break;
     case"modeles":h=vModeles();break;
     case"modele":h=vModele();break;
@@ -462,7 +468,8 @@ function syncWatch(){const s=curS&&data?curS():null;
   const sid=s.id;watchUnsub=fb.watchSeance(carnetId,sid,(d,err)=>{if(err){if(COACH){toast("Tu n'es plus le coach de cette séance.");}return}
     const loc=data&&data.seances.find(x=>x.id===sid);if(!d||!loc)return;
     const busy=!$("#modal").hidden||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
-    if(COACH){if(saveTimer)return;const before=JSON.stringify(loc);Object.keys(d).forEach(k=>{if(k!=="id")loc[k]=d[k]});syncTours(loc);if(JSON.stringify(loc)!==before&&!busy)rerenderKeep()}
+    if(COACH){if(saveTimer)return;const before=JSON.stringify(loc);Object.keys(d).forEach(k=>{if(k!=="id")loc[k]=d[k]});if(MOD)gEnsure(MOD,loc);else syncTours(loc);if(JSON.stringify(loc)!==before&&!busy)rerenderKeep()}
+    else if(MOD){const p=gCoachField(MOD,loc),[a,b]=p.split("."),nt=gVal(d,p);if(!Array.isArray(nt))return;if(JSON.stringify(nt)!==JSON.stringify(gVal(loc,p))){loc.valeurs[a][b]=nt;gEnsure(MOD,loc);if(!busy)rerenderKeep();else toast("Ton coach a mis à jour les temps")}}
     else{const nt=d.real&&d.real.tours;if(!nt)return;if(JSON.stringify(nt)!==JSON.stringify(loc.real.tours)){loc.real.tours=nt;syncTours(loc);if(!busy)rerenderKeep();else toast("Ton coach a mis à jour les temps")}}})}
 
 /* ---------- Écrans : connexion ---------- */
@@ -493,11 +500,11 @@ async function openActs(){COACH=false;coachCtx=null;carnetId=null;data=null;cur=
   try{actsList=await loadActs(await fb.getClasse(me.classeId))}catch(e){console.error(e);actsList=[]}go("acts")}
 async function openCoach(id){const c=coachings.find(x=>x.id===id);if(!c)return;go("loading",{msg:"Ouverture de la séance…"});
   try{const sd=await fb.getSeance(c.carnetId,c.sid);if(!sd)throw{code:"not-found"};
-    const cl=await fb.getClasse(me.classeId).catch(()=>null);settings=mergeSettings(cl&&cl.reglages&&cl.reglages[c.activite]);
-    COACH=true;RO=false;coachCtx=c;carnetId=c.carnetId;data={profil:blankProfil(),seances:[sd]};syncTours(sd);cur=sd.id;syncState="ok";chrono.run=false;chrono.acc=0;go("coach")}
+    if(c.activite===CA5_ID){MOD=(await ca5Modele(me.profId)).M;ca5Convert(sd)}else{const d=await fb.getModele(c.activite);if(!d)throw{code:"not-found"};MOD=normModele(d.modele||d.brouillon)}gEnsure(MOD,sd);
+    COACH=true;RO=false;coachCtx=c;carnetId=c.carnetId;data={profil:blankProfil(),seances:[sd]};cur=sd.id;syncState="ok";chrono.run=false;chrono.acc=0;go("coach")}
   catch(e){console.error(e);toast(e&&e.code==="permission-denied"||e.code==="not-found"?"Cette séance n'est plus disponible : l'élève t'a retiré ou l'a supprimée.":authMsg(e));
     openActs()}}
-async function openCarnetEleve(act){if(!ACTIVITES[act])return openCarnetModele(act);go("loading",{msg:"Ouverture du carnet…"});
+async function openCarnetEleve(act){return openCarnetModele(act);go("loading",{msg:"Ouverture du carnet…"});
   try{MOD=null;PREVIEW=false;activite=act;RO=false;carnetId=`${me.uid}_${act}`;
     let c=await fb.getCarnet(carnetId);
     if(!c){const base={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};await fb.createCarnet(carnetId,base);c={id:carnetId,...base}}
@@ -507,14 +514,15 @@ async function openCarnetEleve(act){if(!ACTIVITES[act])return openCarnetModele(a
 function setCarnetData(c,ss){carnetDoc=c;carnetId=c.id;
   data={profil:{...blankProfil(),...(c.profil||{})},seances:ss.slice().sort((a,b)=>(a.ordre||0)-(b.ordre||0))};
   if(!data.profil.rms||!data.profil.rms.length)data.profil.rms=[{nom:"",kg:""}];
-  data.seances.forEach(s=>{s.autoeval=s.autoeval||{afl2:null,afl3:null};s.real=s.real||{tours:[]};s.real.tours=s.real.tours||[];s.echauffement=s.echauffement||{exos:[],pret:""};s.analyse=s.analyse||{}});
+  if(MOD)data.seances.forEach(s=>{if(c.activite===CA5_ID||activite===CA5_ID)ca5Convert(s);gEnsure(MOD,s)});
+  else data.seances.forEach(s=>{s.autoeval=s.autoeval||{afl2:null,afl3:null};s.real=s.real||{tours:[]};s.real.tours=s.real.tours||[];s.echauffement=s.echauffement||{exos:[],pret:""};s.analyse=s.analyse||{}});
   savedValide=new Set(data.seances.filter(s=>s.valide).map(s=>s.id));dirty.clear();dirtyProfil=false}
 
 async function setCoach(s){const inp=$("#coach-id"),err=$("#coach-err"),login=String(inp.value||"").trim().toLowerCase();err.textContent="";
   if(!login){err.textContent="Entre l'identifiant de ton coach.";return}
   if(login===String(me.login).toLowerCase()){err.textContent="Tu ne peux pas être ton propre coach.";return}
   try{const l=await fb.getLogin(login);if(!l){err.textContent="Identifiant introuvable dans ta classe.";return}
-    s.coachLogin=login;s.coachUid=l.uid;dirty.add(s.id);await flush();
+    s.coachLogin=login;s.coachUid=l.uid;if(MOD)s.coachChamp=gCoachField(MOD,s);dirty.add(s.id);await flush();
     await fb.setCoaching(`${carnetId}__${s.id}`,{coachUid:l.uid,eleveUid:me.uid,eleveLogin:me.login,carnetId,sid:s.id,classeId:me.classeId,activite,date:s.date});
     toast("Coach ajouté : il retrouve ta séance dans « Séances à coacher »");rerenderKeep()}
   catch(e){console.error(e);err.textContent=e&&e.code==="permission-denied"?"Identifiant introuvable dans ta classe.":authMsg(e)}}
@@ -534,7 +542,7 @@ function vClasse(){const c=classe,rep=getReperes(c.id);
   const tabs=`<div class="seg2">${[["activites","Activités"],["eleves",`Élèves (${eleves.length})`]].map(([k,l])=>`<button data-act="classeTab" data-t="${k}" aria-current="${classeTab===k}">${l}</button>`).join("")}</div>`;
   let body="";
   if(classeTab==="activites")body=`<div class="acts">${[...Object.entries(ACTIVITES).map(([k,a])=>({id:k,...a})),...classeActs].map(a=>`<button class="act-card" data-act="openSuivi" data-a="${a.id}"><span class="act-ca">${esc(a.ca||"")}</span><span class="act-t">${esc(a.titre)}</span><span class="act-d">Carnets d'entraînement des élèves et notes.</span><span class="act-go">Voir les carnets →</span></button>`).join("")}</div>
-    <section class="card"><div class="row"><div><strong>Une autre activité ?</strong><div class="hint">Créez un carnet avec l'IA à partir de son référentiel, puis activez-le pour cette classe.</div></div><span class="spacer"></span><button class="btn" data-nav="modeles">✨ Carnets IA</button></div></section>`;
+    <section class="card"><div class="row"><div><strong>Une autre activité ?</strong><div class="hint">Créez un carnet avec l'IA à partir de son référentiel, puis activez-le pour cette classe.</div></div><span class="spacer"></span><button class="btn" data-nav="modeles">Mes carnets</button></div></section>`;
   else body=`<section class="card"><div class="sec-h"><h3>Comptes élèves</h3><span class="spacer"></span>${eleves.length?`<button class="btn small" data-act="copyIds">Copier</button><button class="btn small" data-act="printIds">Imprimer les fiches</button>`:""}</div>
     <p class="hint" style="margin:-4px 0 10px">Distribuez les identifiants aux élèves. La colonne « Repère » (initiales, prénom…) reste uniquement sur cet appareil : elle n'est jamais envoyée en ligne.</p>
     ${eleves.length?`<div class="scroll"><table class="ids"><thead><tr><th>N°</th><th>Identifiant</th><th>Mot de passe</th><th>Repère (cet appareil)</th><th></th></tr></thead><tbody>${eleves.map(e=>`<tr><td>${e.numero}</td><td><code>${esc(e.login)}</code></td><td><code>${esc(e.password)}</code></td><td><input id="rep-${e.id}" data-repere="${e.id}" value="${esc(rep[e.id]||"")}" maxlength="30" style="min-width:110px"></td><td><button class="btn ghost small" data-act="delEleve" data-id="${e.id}" aria-label="Supprimer le compte">✕</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
@@ -561,8 +569,8 @@ function printIds(){const url=location.origin+location.pathname,rep=getReperes(c
   window.print()}
 
 async function openSuivi(act){go("loading",{msg:"Chargement des carnets…"});
-  try{activite=act;PREVIEW=false;MOD=null;if(!ACTIVITES[act]){const d=await fb.getModele(act);if(!d)throw{code:"not-found"};MODDOC=d;MOD=normModele(d.modele||d.brouillon)}const cs=await fb.listCarnets(me.uid,classe.id,act);
-    const withS=await Promise.all(cs.map(async c=>({c,ss:await fb.listSeances(c.id)})));
+  try{activite=act;PREVIEW=false;MOD=null;if(act===CA5_ID){const r=await ca5Modele(me.uid);MODDOC=r.doc;MOD=r.M}else{const d=await fb.getModele(act);if(!d)throw{code:"not-found"};MODDOC=d;MOD=normModele(d.modele||d.brouillon)}const cs=await fb.listCarnets(me.uid,classe.id,act);
+    const withS=await Promise.all(cs.map(async c=>({c,ss:(await fb.listSeances(c.id)).map(x=>{if(act===CA5_ID)ca5Convert(x);gEnsure(MOD,x);return x})})));
     suivi={act,rows:eleves.map(e=>{const f=withS.find(x=>x.c.eleveUid===e.id);return{e,c:f&&f.c,ss:f&&f.ss}})};
     settings=mergeSettings(classe.reglages&&classe.reglages[act]);go("suivi")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
@@ -590,7 +598,7 @@ function vSuivi(){const a=ACTIVITES[suivi.act],rep=getReperes(classe.id),st=sett
     <div class="row" style="margin-top:10px;align-items:end"><label class="f" style="width:210px">Tolérance par tour (s)<input id="s-tol" data-set="tol" value="${st.tol}" inputmode="numeric"></label><span class="spacer"></span><button class="btn small" data-act="resetSettings">Valeurs par défaut</button></div></section></div>`}
 async function saveReglages(){const r={tol:settings.tol,themes:{}};Object.entries(settings.themes).forEach(([k,t])=>r.themes[k]={reps:t.reps,pct:t.pct});
   classe.reglages={...(classe.reglages||{}),[suivi.act]:r};try{await fb.updateClasse(classe.id,{reglages:classe.reglages});toast("Réglages enregistrés")}catch(e){toast(authMsg(e))}}
-function openEleve(i){const r=suivi.rows[i];if(!r||!r.c)return;RO=true;setCarnetData({...r.c,_login:`N°${r.e.numero} · ${r.e.login}`},r.ss);r.ss=data.seances;if(MOD)data.seances.forEach(x=>gEnsure(MOD,x));suivi.cur=i;view="seances";cur=null;go("carnet")}
+function openEleve(i){const r=suivi.rows[i];if(!r||!r.c)return;RO=true;setCarnetData({...r.c,_login:`N°${r.e.numero} · ${r.e.login}`},r.ss);r.ss=data.seances;suivi.cur=i;view="seances";cur=null;go("carnet")}
 function vAfl3Prof(){const a3=carnetDoc.afl3Prof,m3=REPART[data.profil.repartition||"4-4"][1];
   return`<section class="card" style="margin-top:14px"><div class="sec-h"><h3>AFL3 · votre évaluation</h3><span class="spacer"></span>${a3?stamp(a3):""}</div>
   <div class="lvls">${[1,2,3,4].map(d=>`<button class="lvl d${d}${a3===d?" on":""}" data-act="setA3" data-d="${d}"><b>D${d}</b><span>${esc(AFL3_LABELS[d])}</span></button>`).join("")}</div>
@@ -695,7 +703,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.19-4");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.19-6");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -726,6 +734,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
       catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="delClasse"){confirmBox("Supprimer la classe ?",`La classe ${esc(classe.nom)} sera supprimée.`,"Supprimer",async()=>{try{await fb.deleteClasse(classe.id);closeModal();await loadClasses();go("classes")}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="exportCSV"){exportCSV();return}
+  if(a==="gExport"){gExportCSV();return}
   if(a==="delIaKey"){fb.setPrefs(me.uid,{geminiKey:""}).then(()=>{IAKEY="";toast("Clé retirée : retour au quota partagé");render()}).catch(x=>toast(authMsg(x)));return}
   if(a==="resetSettings"){settings=clone(DEF_SETTINGS);saveReglages();render();return}
   if(a==="setA3"){setAfl3(+b.dataset.d);return}
@@ -736,17 +745,23 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="refuseDem"){fb.updateDemande(b.dataset.id,{statut:"refusee"}).then(openDev).catch(x=>toast(authMsg(x)));return}
   if(a==="delDem"){fb.deleteDemande(b.dataset.id).then(openDev).catch(x=>toast(authMsg(x)));return}
   // Carnet (élève)
+  if(a==="openCa5"||(a==="openModele"&&b.dataset.id===CA5_ID)){openCa5();return}
   if(a==="openModele"){(async()=>{go("loading");try{await loadClasses();const d=await fb.getModele(b.dataset.id);if(!d)throw{code:"not-found"};startEditor(d)}catch(x){go("error",{msg:authMsg(x)})}})();return}
   if(a==="backModeles"){if(modeleEdit&&modeleEdit.dirty){confirmBox("Quitter sans enregistrer ?","Les modifications de ce carnet seront perdues.","Quitter",async()=>{closeModal();PREVIEW=false;openModeles()},true);return}PREVIEW=false;openModeles();return}
   if(a==="saveModele"){saveModele();return}
   if(route.name==="modele"||a==="mBlank"){if(mClick(a,b))return}
   if(a==="iaEdit"){if(!iaBusy)iaModifier();return}
   if(a==="iaUndo"){if(modeleHist.length){modeleEdit.draft=modeleHist.pop();modeleEdit.dirty=true;setPreview();rerenderKeep()}return}
+  if(a==="delModele"&&modeleEdit&&modeleEdit.builtin){confirmBox("Revenir à la version d'origine ?","Vos modifications du carnet de cross training seront supprimées et vos élèves retrouveront la version d'origine. Leurs réponses sont conservées.","Revenir à l'origine",async()=>{
+      try{await fb.deleteModele(modeleEdit.id);closeModal();toast("Version d'origine rétablie");openCa5()}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="delModele"){confirmBox("Supprimer ce carnet ?","Le modèle sera supprimé et retiré de vos classes. Les carnets déjà remplis par les élèves restent en base mais ne seront plus accessibles.","Supprimer",async()=>{
       try{for(const c of classes){if((c.activites||[]).includes(modeleEdit.id)){const a2=c.activites.filter(x=>x!==modeleEdit.id);await fb.updateClasse(c.id,{activites:a2});c.activites=a2}}await fb.deleteModele(modeleEdit.id);closeModal();PREVIEW=false;openModeles()}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(route.name!=="carnet"&&route.name!=="coach"&&route.name!=="modele")return;
   const s=curS();
-  if(MOD&&a==="gNew"&&!RO){const last=data.seances[data.seances.length-1];const n={id:uid(),ordre:Date.now(),date:today(),valide:false,epreuve:false,theme:last?last.theme:(MOD.themes[0]&&MOD.themes[0].id)||"",valeurs:{},autoeval:{}};gEnsure(MOD,n);data.seances.push(n);cur=n.id;save();render();window.scrollTo(0,0);return}
+  if(MOD&&a==="gNew"&&!RO){const last=data.seances[data.seances.length-1];const n={id:uid(),ordre:Date.now(),date:today(),valide:false,epreuve:false,theme:last?last.theme:(MOD.themes[0]&&MOD.themes[0].id)||"",valeurs:{},autoeval:{}};
+    const rep2=last?MOD.sections.filter(S=>S.reprise&&last.valeurs&&last.valeurs[S.id]):[];rep2.forEach(S=>n.valeurs[S.id]=clone(last.valeurs[S.id]));
+    gEnsure(MOD,n);data.seances.push(n);cur=n.id;save();render();window.scrollTo(0,0);if(rep2.length)toast(`Repris de ta séance précédente : ${rep2.map(S=>S.titre.toLowerCase()).join(", ")}`);return}
+
   if(MOD&&gClick(a,b,s))return;
   const TOUR_ACTS=["pas","nr","adapt","chGo","chStop","chReset"];
   if(COACH&&(!TOUR_ACTS.includes(a)||!s||s.valide))return;
@@ -801,25 +816,115 @@ else{render();
    Carnets génériques (modèles créés avec l'IA à partir d'un référentiel)
    ==================================================================== */
 let IAKEY="",MOD=null,MODDOC=null,PREVIEW=false,modeles=[],modeleEdit=null,modeleHist=[],iaBusy=false,actsList=[];
-const G_TYPES={texte:"Texte",texte_long:"Texte long",nombre:"Nombre",temps:"Temps",choix:"Choix",case:"Case à cocher",echelle:"Échelle",compteur:"Compteur",tableau:"Tableau",passages:"Temps de passage"};
+const G_TYPES={texte:"Texte",texte_long:"Texte long",nombre:"Nombre",temps:"Temps",choix:"Choix",case:"Case à cocher",echelle:"Échelle",compteur:"Compteur",tableau:"Tableau",passages:"Temps de passage",exercices:"Exercices (WOD)",resume:"Résumé du WOD"};
 const AGG_FR={moyenne:"moyenne",somme:"somme",max:"maximum",min:"minimum",nombre:"nombre de lignes",dernier:"dernière valeur",ecart_premier_dernier:"écart entre première et dernière valeur"};
-const MES_FR={proportion_dans_cible:"part des tours dans le temps visé",nb_hors_cible:"tours hors du temps visé",norep:"total des NO REP",termine:"séance terminée",temps_total:"temps total"};
+const MES_FR={proportion_dans_cible:"part des tours dans le temps visé",nb_hors_cible:"tours hors du temps visé",norep:"total des NO REP",adaptations:"paramètres adaptés",termine:"séance terminée",temps_total:"temps total"};
 const idOk=s=>norm(s).replace(/[^a-z0-9_]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"x";
+/* --- Cross training CA5 : carnet de référence exprimé avec le moteur commun --- */
+const CA5_ID="ca5-crosstraining";
+const ca5DocId=profId=>"ca5_"+profId;
+const C_TEMPS={champ:"wod.temps"},C_TOURS="realisation.tours";
+const CA5_MODELE={titre:"Cross training",ca:"CA5",apsa:"Cross training",description:"Réaliser et orienter son activité physique pour développer ses ressources et s'entretenir.",rm:true,
+  themes:Object.entries(DEF_SETTINGS.themes).map(([id,t])=>({id,label:t.label,desc:t.desc,reps:t.reps,pct:t.pct})),
+  sections:[
+    {id:"echauffement",titre:"Rituel d'échauffement",consigne:"Cardio, mobilité, activation et spécifique : vise 10 minutes.",reprise:true,champs:[
+      {id:"exos",type:"tableau",label:"Exercices",colonnes:[{id:"nom",type:"texte",label:"Exercice"},{id:"duree",type:"nombre",label:"Min"},{id:"cat",type:"choix",label:"Contenu",options:Object.values(WU_CATS)}]},
+      {id:"pret",type:"choix",label:"Je me sens prêt·e",options:["Oui","Moyennement","Non"]}]},
+    {id:"wod",titre:"Je conçois mon WOD",consigne:"",reprise:true,champs:[
+      {id:"tours",type:"nombre",label:"Nombre de tours"},{id:"temps",type:"temps",label:"Temps prévu / tour"},
+      {id:"exos",type:"exercices",label:"Exercices du WOD",nb:3}]},
+    {id:"resume",titre:"Mon WOD",consigne:"",champs:[{id:"recap",type:"resume",label:"Résumé",requis:false,src:{exos:"wod.exos",tours:"wod.tours",temps:"wod.temps"}}]},
+    {id:"realisation",titre:"Je réalise",consigne:"",champs:[
+      {id:"tours",type:"passages",label:"Temps de passage",nb:4,nbChamp:"wod.tours",noRep:true,adapt:true,coach:true},
+      {id:"ressenti",type:"choix",label:"Charge de l'haltéro ressentie",options:["Trop légère","Adaptée","Lourde"]},
+      {id:"rpe",type:"echelle",label:"Effort perçu (RPE)",min:1,max:10}]},
+    {id:"analyse",titre:"J'analyse ma séance",consigne:"",champs:[
+      {id:"reussite",type:"texte_long",label:"Ce qui a fonctionné (rythme, technique…)"},
+      {id:"difficulte",type:"texte_long",label:"Ma principale difficulté et sa cause"},
+      {id:"regulation",type:"texte_long",label:"Ce que je change à la prochaine séance (avec des chiffres)",aide:"ex. passer les thrusters de 25 à 20 kg et de 20 à 15 répétitions"}]}],
+  criteres:[
+    {id:"charge",afl:"AFL1",label:"Charge d'entraînement",points:[1,2,3,5],
+      descripteurs:["Charge inadaptée : WOD non terminé, rythme perdu dès le début ou charge jugée trop légère.","Rythme perdu à partir de la moitié du WOD.","Rythme perdu sur les 2 derniers tours.","Charge adaptée : rythme tenu jusqu'au dernier tour."],
+      conseils:["Baisse nettement la charge (−15 à −20 %), ou augmente-la de 2,5 à 5 kg si elle était trop légère.","Baisse la charge de l'haltéro d'environ 10 %.","Baisse légèrement la charge de l'haltéro (−2,5 kg).","Garde cette charge, ou teste +2,5 kg si l'effort te paraît facile."],
+      calcul:{type:"rythme",source:{champ:C_TOURS,cible:C_TEMPS,tolerance:5},condition:{champ:"realisation.ressenti",valeur:"Trop légère"}}},
+    {id:"reps",afl:"AFL1",label:"Nombre de répétitions",points:[1,2,3,5],
+      descripteurs:["Moins de la moitié des tours dans le temps prévu.","Au moins la moitié des tours dans le temps prévu.","Au moins 2 tours sur 3 dans le temps prévu.","Tous les tours dans le temps prévu."],
+      conseils:["Enlève 1 à 3 répétitions sur l'exercice le plus long si tu dépasses, ajoutes-en si tu finis en avance.","Ajuste de 1 à 3 répétitions l'exercice le plus long pour tenir le temps prévu.","Ajuste de 1 à 3 répétitions l'exercice le plus long pour tenir le temps prévu.","Répétitions bien dosées : garde ce volume."],
+      calcul:{type:"seuils",source:{champ:C_TOURS,mesure:"proportion_dans_cible",cible:C_TEMPS,tolerance:5},sens:"haut",seuils:[1,0.66,0.5]}},
+    {id:"theme",afl:"AFL1",label:"Thème d'entraînement",points:[1,2,3,5],
+      descripteurs:["Les exercices sont hors des repères du thème.","2 exercices hors des repères du thème.","1 exercice hors des repères du thème.","Les 3 exercices respectent les repères du thème (répétitions, % du 1RM)."],
+      conseils:["Relis les repères du thème : nombre de répétitions et % du 1RM pour l'haltéro.","Relis les repères du thème : nombre de répétitions et % du 1RM pour l'haltéro.","Ajuste l'exercice hors repère : nombre de répétitions ou charge.",""],
+      calcul:{type:"reperes",source:{champ:"wod.exos"},min:3}},
+    {id:"adapt",afl:"AFL1",label:"Adaptation",points:[1,2,3,5],
+      descripteurs:["3 paramètres ou plus modifiés pendant le WOD.","2 paramètres modifiés pendant le WOD.","1 paramètre modifié pendant le WOD.","Aucune adaptation nécessaire pendant le WOD."],
+      conseils:["Intègre ces changements dans la conception de ta prochaine séance.","Intègre ces changements dans la conception de ta prochaine séance.","Intègre ce changement dans la conception de ta prochaine séance.",""],
+      calcul:{type:"seuils",source:{champ:C_TOURS,mesure:"adaptations"},sens:"bas",seuils:[0,1,2]}},
+    {id:"gest",afl:"AFL1",label:"Gestuelle technique",points:[1,2,3,5],
+      descripteurs:["Plus de 6 NO REP sur l'ensemble du WOD.","5 ou 6 NO REP.","3 ou 4 NO REP.","2 NO REP ou moins."],
+      conseils:["Ralentis sur l'exercice qui cause les NO REP et demande à ton juge pourquoi.","Ralentis sur l'exercice qui cause les NO REP et demande à ton juge pourquoi.","Demande à ton juge quel mouvement a causé les NO REP.",""],
+      calcul:{type:"seuils",source:{champ:C_TOURS,mesure:"norep"},sens:"bas",seuils:[2,4,6]}},
+    {id:"decal",afl:"AFL1",label:"Décalage avec le temps prévu",points:[1,2,3,5],
+      descripteurs:["Plus de 3 tours décalés de plus de la tolérance.","2 ou 3 tours décalés.","1 tour décalé.","Tous les tours dans la tolérance."],
+      conseils:["Ajuste de 1 à 3 répétitions l'exercice le plus long pour tenir le temps prévu.","Ajuste de 1 à 3 répétitions l'exercice le plus long pour tenir le temps prévu.","Régule ton allure sur le tour qui a décroché.",""],
+      calcul:{type:"seuils",source:{champ:C_TOURS,mesure:"nb_hors_cible",cible:C_TEMPS,tolerance:5},sens:"bas",seuils:[0,1,3]}},
+    {id:"afl2",afl:"AFL2",label:"S'entraîner : échauffement et analyse",points:[1,2,3,4],descripteurs:[1,2,3,4].map(d=>CRITERES.afl2.items[d].join(" ")),calcul:{type:"autoeval"}},
+    {id:"afl3",afl:"AFL3",label:"Coopérer : partenaire, juge et coach",points:[1,2,3,4],descripteurs:[1,2,3,4].map(d=>CRITERES.afl3.items[d].join(" ")),calcul:{type:"autoeval"}}],
+  bareme:{afl1:{max:12,table:Array.from({length:24},(_,i)=>({pts:i+6,note:(i+1)*.5}))}}};
+async function ca5Modele(profId){let d=null;try{d=await fb.getModele(ca5DocId(profId))}catch(e){console.warn(e)}return{doc:d,M:normModele(d&&d.modele||CA5_MODELE)}}
+/** Convertit une séance enregistrée par l'ancien carnet CA5 vers les cases du moteur commun. */
+function ca5Convert(s){if(s.valeurs&&s.valeurs.wod)return s;
+  const P={oui:"Oui",moyen:"Moyennement",non:"Non"},R={legere:"Trop légère",adaptee:"Adaptée",lourde:"Lourde"};
+  const e=s.echauffement||{},w=s.wod||{},r=s.real||{},a=s.analyse||{};
+  s.valeurs={echauffement:{exos:(e.exos||[]).map(x=>({nom:x.nom||"",duree:x.duree??"",cat:WU_CATS[x.cat]||""})),pret:P[e.pret]||""},
+    wod:{tours:w.nbTours??"",temps:w.tempsTour||"",exos:(w.exos||[]).map(x=>({nom:x.nom||"",type:x.type||"haltero",reps:x.reps??"",charge:x.charge??"",niveau:x.niveau||""}))},
+    realisation:{tours:(r.tours||[]).map(t=>({passage:t.passage??null,noRep:t.noRep||0,adapt:t.adapt||null})),ressenti:R[r.ressentiCharge]||"",rpe:r.rpe??""},
+    analyse:{reussite:a.reussite||"",difficulte:a.difficulte||"",regulation:a.regulation||""}};
+  delete s.echauffement;delete s.wod;delete s.real;delete s.analyse;s.autoeval=s.autoeval||{};return s}
+const gTheme=(M,s)=>{const t=M.themes.find(x=>x.id===s.theme);return t?{label:t.label,reps:t.reps||[0,9999],pct:t.pct||[0,1000],has:!!(t.reps||t.pct)}:null};
+function gDatalist(M,s){if(!M.rm)return"";const names=new Set();(data.profil.rms||[]).forEach(r=>r.nom&&names.add(r.nom));
+  data.seances.forEach(x=>M.sections.forEach(S=>S.champs.forEach(f=>{if(f.type==="exercices")((x.valeurs||{})[S.id]||{})[f.id]&&x.valeurs[S.id][f.id].forEach(e=>e&&e.nom&&names.add(e.nom))})));
+  ["Thrusters","Back squat","Front squat","Deadlift","Power clean","Push press","Overhead squat","Snatch"].forEach(n=>names.add(n));
+  return`<datalist id="dl-ex">${[...names].map(n=>`<option value="${esc(n)}">`).join("")}</datalist>`}
+const blankExo=t=>({nom:"",type:t||"gym",reps:"",charge:"",niveau:""});
+function gCoachField(M,s){const p=s.coachChamp||(M.sections.flatMap(S=>S.champs.filter(f=>f.type==="passages"&&f.coach).map(f=>S.id+"."+f.id))[0])||C_TOURS;return p}
+function gCoach(s){const M=MOD;gEnsure(M,s);const p=gCoachField(M,s),[a,b]=p.split("."),S=gSec(M,a),f=S&&S.champs.find(c=>c.id===b),base="seances.0.valeurs",th=M.themes.find(t=>t.id===s.theme);
+  const res=M.sections.flatMap(S2=>S2.champs.filter(x=>x.type==="resume").map(x=>`<section class="card resume">${gFieldHTML(M,s,S2,x,base,true,false)}</section>`)).join("");
+  return`<div class="stack seance" style="--th:var(--accent)">
+  <div class="row"><button class="btn ghost small" data-act="coachBack">← Mes activités</button><span class="spacer"></span><span id="sync" class="sync dark"></span></div>
+  <section class="hero"><div class="hero-top"><span class="eyebrow">📣 Je coache</span><span class="spacer"></span><span class="lock-chip">${s.valide?"🔒 Validée":"En direct"}</span></div>
+    <div class="hero-main"><div><h2 class="hero-t" style="font-size:2rem">${esc(coachCtx.eleveLogin)}</h2><div class="hero-sub">${esc(M.titre)} · séance du ${fmtDate(s.date)}${th?" · "+esc(th.label):""}</div></div></div></section>
+  ${s.valide?`<div class="card"><p style="margin:0">Cette séance a été validée par l'élève : elle n'est plus modifiable.</p></div>`:""}${res}
+  <section class="card sec"><div class="sec-h"><h3>Je relève</h3></div><p class="hint" style="margin:-4px 0 10px">Lance le chrono au départ, appuie sur « Passage » à chaque fin de tour${f&&f.noRep?", compte les NO REP":""}${f&&f.adapt?" et note les adaptations":""}.</p>
+    ${f?gFieldHTML(M,s,S,f,base,!!s.valide,false):'<p class="hint">Cette séance n\'a pas de temps de passage à relever.</p>'}</section></div>`}
+function gModalAdapt(sec,fid,i){const t=curS().valeurs[sec][fid][i],a=t.adapt||{params:[],texte:""};
+  openModal(`<h3>Tour ${i+1} · adaptation</h3><p class="hint" style="margin:0">Quel paramètre as-tu modifié pendant ce tour ?</p>
+  <div class="checks">${Object.entries(PARAMS).map(([k,l])=>`<label><input type="checkbox" id="m-p-${k}" value="${k}" ${(a.params||[]).includes(k)?"checked":""}> ${l}</label>`).join("")}</div>
+  <label class="f">Ce que j'ai changé<textarea id="m-txt" placeholder="ex. charge passée de 25 à 20 kg">${esc(a.texte||"")}</textarea></label>
+  <div class="grid2"><button class="btn primary" data-mact="gSaveAd">Enregistrer</button><button class="btn" data-mact="close">Annuler</button></div>
+  ${adCount(t.adapt)?`<button class="btn danger small" data-mact="gClearAd">Supprimer l'adaptation</button>`:""}`,{type:"gad",sec,fid,i})}
+function gExportCSV(){const L=[["N°","Identifiant","Séances validées","AFL1","AFL1 max","AFL2 auto","AFL3 degré","AFL3","AFL3 max","Total /20"]];
+  suivi.rows.forEach(r=>{const S=gRowStats(r);L.push([r.e.numero,r.e.login,S?S.nv:0,S&&S.res?S.res.n1:"",S&&S.res?S.res.max1:"",S&&S.res?S.res.a2.p:"",r.c&&r.c.afl3Prof||"",S&&S.a3!==null?S.a3:"",S?S.m3:"",S&&S.tot!==null?S.tot:""])});
+  const csv="﻿"+L.map(r=>r.map(v=>`"${typeof v==="number"?String(v).replace(".",","):String(v??"").replace(/"/g,'""')}"`).join(";")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`Notes_${slug(classe.nom)}_${slug(MOD.titre)}.csv`;document.body.appendChild(a);a.click();a.remove()}
+
 
 /** Nettoie et sécurise un modèle produit par l'IA. */
 function normModele(m){m=m&&typeof m==="object"?clone(m):{};
   const out={titre:String(m.titre||"Nouvelle activité").slice(0,60),ca:String(m.ca||"").slice(0,6),apsa:String(m.apsa||"").slice(0,60),description:String(m.description||"").slice(0,300),
-    themes:[],sections:[],criteres:[],bareme:{afl1:{max:12,table:[]}}};
+    rm:!!m.rm,themes:[],sections:[],criteres:[],bareme:{afl1:{max:12,table:[]}}};
+  const pair=x=>{if(!x||typeof x!=="object")return null;const a=[x[0],x[1]].map(v=>v===""||v==null?NaN:+v);return a.every(Number.isFinite)?a:null};
   const seen=new Set(),uniq=(id,set)=>{let b=idOk(id),x=b,i=2;while(set.has(x))x=b+"_"+i++;set.add(x);return x};
-  (Array.isArray(m.themes)?m.themes:[]).slice(0,8).forEach(t=>{if(t&&t.label)out.themes.push({id:uniq(t.id||t.label,seen),label:String(t.label).slice(0,40),desc:String(t.desc||"").slice(0,160)})});
+  (Array.isArray(m.themes)?m.themes:[]).slice(0,8).forEach(t=>{if(t&&t.label){const th={id:uniq(t.id||t.label,seen),label:String(t.label).slice(0,40),desc:String(t.desc||"").slice(0,160)};const r=pair(t.reps),q=pair(t.pct);if(r)th.reps=r;if(q)th.pct=q;out.themes.push(th)}});
   const secIds=new Set();
-  (Array.isArray(m.sections)?m.sections:[]).slice(0,12).forEach(S=>{if(!S)return;const sec={id:uniq(S.id||S.titre,secIds),titre:String(S.titre||"Section").slice(0,60),consigne:String(S.consigne||"").slice(0,300),champs:[]};const cids=new Set();
+  (Array.isArray(m.sections)?m.sections:[]).slice(0,12).forEach(S=>{if(!S)return;const sec={id:uniq(S.id||S.titre,secIds),titre:String(S.titre||"Section").slice(0,60),consigne:String(S.consigne||"").slice(0,300),reprise:!!S.reprise,champs:[]};const cids=new Set();
     (Array.isArray(S.champs)?S.champs:[]).slice(0,20).forEach(C=>{if(!C)return;const type=G_TYPES[C.type]?C.type:"texte";
       const f={id:uniq(C.id||C.label,cids),type,label:String(C.label||"Champ").slice(0,80),aide:String(C.aide||"").slice(0,200),unite:String(C.unite||"").slice(0,12),requis:C.requis!==false};
       if(type==="choix")f.options=(Array.isArray(C.options)?C.options:[]).map(x=>String(x).slice(0,60)).slice(0,12);
       if(type==="echelle"){f.min=Number.isFinite(+C.min)?+C.min:1;f.max=Number.isFinite(+C.max)?+C.max:10;if(f.max<=f.min)f.max=f.min+9}
       if(type==="tableau"){const ccids=new Set();f.colonnes=(Array.isArray(C.colonnes)?C.colonnes:[]).slice(0,6).map(c=>({id:uniq(c.id||c.label,ccids),type:["texte","nombre","temps","choix"].includes(c.type)?c.type:"texte",label:String(c.label||"").slice(0,40),options:(Array.isArray(c.options)?c.options:[]).map(String).slice(0,12)}));if(!f.colonnes.length)f.colonnes=[{id:"valeur",type:"texte",label:"Valeur",options:[]}]}
-      if(type==="passages"){f.nb=Math.max(1,Math.min(30,parseInt(C.nb)||4));if(C.nbChamp)f.nbChamp=String(C.nbChamp);f.noRep=!!C.noRep}
+      if(type==="passages"){f.nb=Math.max(1,Math.min(30,parseInt(C.nb)||4));if(C.nbChamp)f.nbChamp=String(C.nbChamp);f.noRep=!!C.noRep;f.adapt=!!C.adapt;f.coach=!!C.coach}
+      if(type==="exercices")f.nb=Math.max(1,Math.min(10,parseInt(C.nb)||3));
+      if(type==="resume"){const r=C.src&&typeof C.src==="object"?C.src:{};f.src={exos:String(r.exos||""),tours:String(r.tours||""),temps:String(r.temps||"")};f.requis=false}
       sec.champs.push(f)});
     out.sections.push(sec)});
   if(!out.sections.length)out.sections.push({id:"seance",titre:"Ma séance",consigne:"",champs:[{id:"notes",type:"texte_long",label:"Ce que j'ai fait",aide:"",unite:"",requis:true}]});
@@ -827,15 +932,19 @@ function normModele(m){m=m&&typeof m==="object"?clone(m):{};
   const fixSrc=src=>src&&typeof src==="object"&&exists(src.champ)?src:null;
   const crIds=new Set();
   (Array.isArray(m.criteres)?m.criteres:[]).slice(0,20).forEach(K=>{if(!K)return;const afl=["AFL1","AFL2","AFL3"].includes(K.afl)?K.afl:"AFL1";
-    let d=(Array.isArray(K.descripteurs)?K.descripteurs:[]).map(x=>String(x).slice(0,500));while(d.length<4)d.push("");d=d.slice(0,4);
+    let d=(Array.isArray(K.descripteurs)?K.descripteurs:[]).map(x=>String(x).slice(0,1200));while(d.length<4)d.push("");d=d.slice(0,4);
     let pts=(Array.isArray(K.points)?K.points:[]).map(Number).filter(Number.isFinite);if(pts.length!==4)pts=[1,2,3,4];
     let cal=K.calcul&&typeof K.calcul==="object"?K.calcul:{type:"autoeval"};
     if(cal.type==="seuils"||cal.type==="ecart"){const src=fixSrc(cal.source);const sl=(Array.isArray(cal.seuils)?cal.seuils:[]).map(Number);
       if(!src||sl.length!==3||sl.some(x=>!Number.isFinite(x)))cal={type:"autoeval"};
       else cal={type:cal.type,source:src,seuils:sl,sens:cal.sens==="bas"?"bas":"haut",...(cal.type==="ecart"?{cible:typeof cal.cible==="number"?cal.cible:(fixSrc(cal.cible)||0)}:{})}}
     else if(cal.type==="complet"){const ch=(Array.isArray(cal.champs)?cal.champs:[]).filter(exists);const sl=(Array.isArray(cal.seuils)?cal.seuils:[1,.85,.5]).map(Number);cal=ch.length?{type:"complet",champs:ch,seuils:sl.length===3?sl:[1,.85,.5]}:{type:"autoeval"}}
+    else if(cal.type==="rythme"){const src=fixSrc(cal.source);cal=src?{type:"rythme",source:src,...(cal.condition&&exists(cal.condition.champ)?{condition:{champ:cal.condition.champ,valeur:String(cal.condition.valeur||"")}}:{})}:{type:"autoeval"}}
+    else if(cal.type==="reperes"){const src=fixSrc(cal.source);cal=src?{type:"reperes",source:{champ:src.champ},min:Math.max(1,Math.min(10,parseInt(cal.min)||3))}:{type:"autoeval"}}
     else cal={type:"autoeval"};
-    out.criteres.push({id:uniq(K.id||K.label,crIds),afl,label:String(K.label||"Critère").slice(0,120),descripteurs:d,points:pts,calcul:cal})});
+    const cr={id:uniq(K.id||K.label,crIds),afl,label:String(K.label||"Critère").slice(0,120),descripteurs:d,points:pts,calcul:cal};
+    if(Array.isArray(K.conseils)&&K.conseils.some(x=>x&&String(x).trim())){cr.conseils=[0,1,2,3].map(i=>String(K.conseils[i]||"").slice(0,300))}
+    out.criteres.push(cr)});
   ["AFL2","AFL3"].forEach(a=>{if(!out.criteres.some(c=>c.afl===a))out.criteres.push({id:uniq(a.toLowerCase(),crIds),afl:a,label:a==="AFL2"?"S'entraîner, s'échauffer, analyser":"Coopérer : partenaire, juge, coach",descripteurs:["Insuffisant","Partiel","Adapté","Optimal"],points:[1,2,3,4],calcul:{type:"autoeval"}})});
   const b=m.bareme&&m.bareme.afl1||{};out.bareme.afl1.max=Number.isFinite(+b.max)&&+b.max>0?+b.max:12;
   out.bareme.afl1.table=(Array.isArray(b.table)?b.table:[]).map(r=>Array.isArray(r)?{pts:+r[0],note:+r[1]}:{pts:+r.pts,note:+r.note}).filter(r=>Number.isFinite(r.pts)&&Number.isFinite(r.note)).slice(0,60);
@@ -851,7 +960,7 @@ function gRef(M,s,ref){return typeof ref==="number"?ref:ref&&ref.champ?gSource(M
 function gSource(M,s,src){const f=gField(M,src.champ);if(!f)return NaN;const v=gVal(s,src.champ);
   if(f.type==="passages"){const n=gNb(M,s,f),T=(Array.isArray(v)?v:[]).slice(0,n),D=passDur(T),tol=num(src.tolerance)||5,c=src.cible!==undefined?gRef(M,s,src.cible):NaN;
     const inT=D.filter(d=>!isNaN(d)&&!isNaN(c)&&Math.abs(d-c)<=tol).length;
-    switch(src.mesure){case"norep":return T.reduce((a,t)=>a+(num(t&&t.noRep)||0),0);case"termine":return T.length===n&&T.every(t=>num(t&&t.passage)>0)?1:0;
+    switch(src.mesure){case"adaptations":return T.some(t=>num(t&&t.passage)>0)?T.reduce((a,t)=>a+adCount(t&&t.adapt),0):NaN;case"norep":return T.reduce((a,t)=>a+(num(t&&t.noRep)||0),0);case"termine":return T.length===n&&T.every(t=>num(t&&t.passage)>0)?1:0;
       case"temps_total":{const l=[...T].reverse().find(t=>num(t&&t.passage)>0);return l?num(l.passage):NaN}
       case"nb_hors_cible":return isNaN(c)||!T.some(t=>num(t&&t.passage)>0)?NaN:n-inT;
       default:return isNaN(c)||!T.some(t=>num(t&&t.passage)>0)?NaN:inT/n}}
@@ -866,17 +975,25 @@ function gSource(M,s,src){const f=gField(M,src.champ);if(!f)return NaN;const v=g
 function gFilled(M,s,path){const f=gField(M,path),v=gVal(s,path);if(!f)return false;
   if(f.type==="tableau")return Array.isArray(v)&&v.some(r=>r&&Object.values(r).some(x=>x!==""&&x!=null));
   if(f.type==="passages")return Array.isArray(v)&&v.some(t=>num(t&&t.passage)>0);
+  if(f.type==="exercices")return Array.isArray(v)&&v.some(e=>e&&e.nom);
+  if(f.type==="resume")return true;
   if(f.type==="case"||f.type==="compteur")return true;
   return v!==undefined&&v!==null&&String(v).trim()!==""}
-function gDegree(M,s,cr){const c=cr.calcul||{type:"autoeval"};
+function gDegree(M,s,cr,profil){const c=cr.calcul||{type:"autoeval"};
   if(c.type==="autoeval")return(s.autoeval||{})[cr.id]||null;
+  if(c.type==="rythme"){const src=c.source,f=gField(M,src.champ);if(!f||f.type!=="passages")return null;const n=gNb(M,s,f),T=(Array.isArray(gVal(s,src.champ))?gVal(s,src.champ):[]).slice(0,n),D=passDur(T),cb=gRef(M,s,src.cible),tol=num(src.tolerance)||5;
+    const done=T.filter(t=>num(t&&t.passage)>0).length;if(!done)return null;if(done<n)return 1;
+    if(c.condition&&c.condition.champ&&String(gVal(s,c.condition.champ)||"")===c.condition.valeur)return 1;if(isNaN(cb))return null;
+    const fi=D.findIndex(d=>!isNaN(d)&&d-cb>tol);return fi<0?4:fi>=n-2?3:fi>=Math.floor(n/2)?2:1}
+  if(c.type==="reperes"){const th=gTheme(M,s);if(!th)return null;const rows=(Array.isArray(gVal(s,c.source.champ))?gVal(s,c.source.champ):[]).filter(e=>e&&e.nom),min=c.min||3;if(rows.length<min)return null;
+    const ch=rows.slice(0,min).map(e=>exoCheck(e,th,profil||{rms:[]}));if(ch.some(x=>x.ok===null))return null;return[4,3,2,1][Math.min(3,ch.filter(x=>!x.ok).length)]}
   if(c.type==="complet"){const fr=c.champs.filter(p=>gFilled(M,s,p)).length/c.champs.length;return fr>=c.seuils[0]?4:fr>=c.seuils[1]?3:fr>=c.seuils[2]?2:1}
   let x=gSource(M,s,c.source);if(isNaN(x))return null;
   if(c.type==="ecart"){const cb=gRef(M,s,c.cible);if(isNaN(cb))return null;x=Math.abs(x-cb);return x<=c.seuils[0]?4:x<=c.seuils[1]?3:x<=c.seuils[2]?2:1}
   if(c.sens==="bas")return x<=c.seuils[0]?4:x<=c.seuils[1]?3:x<=c.seuils[2]?2:1;
   return x>=c.seuils[0]?4:x>=c.seuils[1]?3:x>=c.seuils[2]?2:1}
 function gCorrect(M,s,profil){const rep=REPART[(profil&&profil.repartition)||"4-4"];
-  const R=M.criteres.map(cr=>({cr,deg:gDegree(M,s,cr)}));
+  const R=M.criteres.map(cr=>({cr,deg:gDegree(M,s,cr,profil)}));
   const a1=R.filter(x=>x.cr.afl==="AFL1"),pts=a1.reduce((a,x)=>a+(x.deg?x.cr.points[x.deg-1]:0),0),pmax=a1.reduce((a,x)=>a+Math.max(...x.cr.points),0);
   const B=M.bareme.afl1;let n1=0;
   if(B.table&&B.table.length){const t=B.table.slice().sort((a,b)=>a.pts-b.pts);t.forEach(r=>{if(pts>=r.pts)n1=r.note})}else n1=pmax?pts/pmax*B.max:0;
@@ -884,15 +1001,22 @@ function gCorrect(M,s,profil){const rep=REPART[(profil&&profil.repartition)||"4-
   const aflPts=(afl,max)=>{const L=R.filter(x=>x.cr.afl===afl);if(!L.length||L.some(x=>!x.deg))return{d:null,p:0};const d=Math.floor(L.reduce((a,x)=>a+x.deg,0)/L.length);return{d,p:max*d/4}};
   const A2=aflPts("AFL2",rep[0]),A3=aflPts("AFL3",rep[1]);
   return{R,pts,pmax,n1,max1:B.max,a2:A2,a3:A3,rep,tot:n1+A2.p+A3.p,complete:R.every(x=>x.deg)}}
-function gMissing(M,s){const m=[];M.sections.forEach(S=>S.champs.forEach(f=>{if(f.requis&&!["case","compteur"].includes(f.type)&&!gFilled(M,s,S.id+"."+f.id))m.push(`${S.titre} : ${f.label}`)}));
+function gMissing(M,s){const m=[];M.sections.forEach(S=>S.champs.forEach(f=>{
+    if(f.type==="exercices"){const rows=(gVal(s,S.id+"."+f.id)||[]).filter(e=>e&&e.nom);if(f.requis&&rows.filter(e=>String(e.reps??"").trim()).length<f.nb)m.push(`${S.titre} : ${f.nb} exercices avec leurs répétitions`);
+      rows.filter(e=>e.type==="haltero").forEach(e=>{if(!(num(e.charge)>0))m.push(`La charge de « ${e.nom} »`);if(M.rm&&!(rmFor(data.profil,e.nom)>0))m.push(`Le 1RM de « ${e.nom} » dans ton profil`)});return}
+    if(f.requis&&!["case","compteur","resume"].includes(f.type)&&!gFilled(M,s,S.id+"."+f.id))m.push(`${S.titre} : ${f.label}`)}));
   M.criteres.filter(c=>c.calcul.type==="autoeval").forEach(c=>{if(!(s.autoeval||{})[c.id])m.push(`Autoévaluation : ${c.label}`)});return m}
 function gEnsure(M,s){s.valeurs=s.valeurs||{};s.autoeval=s.autoeval||{};M.sections.forEach(S=>{const o=s.valeurs[S.id]=s.valeurs[S.id]||{};S.champs.forEach(f=>{
   if(f.type==="tableau"){if(!Array.isArray(o[f.id])||!o[f.id].length)o[f.id]=[Object.fromEntries(f.colonnes.map(c=>[c.id,""]))]}
   else if(f.type==="passages"){if(!Array.isArray(o[f.id]))o[f.id]=[];const n=gNb(M,s,f);while(o[f.id].length<n)o[f.id].push({passage:null,noRep:0})}
   else if(f.type==="compteur"){if(o[f.id]===undefined)o[f.id]=0}
+  else if(f.type==="exercices"){if(!Array.isArray(o[f.id])||!o[f.id].length)o[f.id]=Array.from({length:f.nb||3},(_,i)=>blankExo(["haltero","gym","cardio"][i%3]))}
+  else if(f.type==="resume"){}
   else if(o[f.id]===undefined)o[f.id]=f.type==="case"?false:""})})}
 function gCalcText(M,cr){const c=cr.calcul,src=x=>{if(typeof x==="number")return String(x);const f=gField(M,x.champ);if(!f)return"?";let t=`« ${f.label} »`;if(x.agg)t=`${AGG_FR[x.agg]||x.agg} de ${t}${x.colonne?` (${x.colonne})`:""}`;if(x.mesure)t=`${MES_FR[x.mesure]||x.mesure} de ${t}${x.cible!==undefined?` (cible : ${src(x.cible)}, ± ${x.tolerance||5} s)`:""}`;return t};
   if(c.type==="autoeval")return"Autoévaluation de l'élève";
+  if(c.type==="rythme")return`Décrochage du rythme sur ${src(c.source)} (cible : ${src(c.source.cible??0)}, ± ${c.source.tolerance||5} s)`;
+  if(c.type==="reperes")return`Repères du thème (répétitions, % du 1RM) sur ${src({champ:c.source.champ})}`;
   if(c.type==="complet")return`Remplissage de ${c.champs.length} champ(s) : D4 si ≥ ${Math.round(c.seuils[0]*100)} %, D3 ≥ ${Math.round(c.seuils[1]*100)} %, D2 ≥ ${Math.round(c.seuils[2]*100)} %`;
   if(c.type==="ecart")return`Écart entre ${src(c.source)} et ${src(c.cible)} : D4 si ≤ ${c.seuils[0]}, D3 ≤ ${c.seuils[1]}, D2 ≤ ${c.seuils[2]}`;
   const op=c.sens==="bas"?"≤":"≥";return`${src(c.source)} : D4 si ${op} ${c.seuils[0]}, D3 ${op} ${c.seuils[1]}, D2 ${op} ${c.seuils[2]}`}
@@ -912,37 +1036,76 @@ function gFieldHTML(M,s,S,f,base,L,V,deg){const v=s.valeurs[S.id][f.id],k=`${bas
       inner=`<div class="f"><span style="font-size:.85rem;font-weight:600;color:var(--muted)">${lab}</span><div class="gtab" style="--cols:${f.colonnes.length}">${f.colonnes.map(c=>`<span class="gth">${esc(c.label)}</span>`).join("")}<span></span>
       ${rows.map((r,ri)=>f.colonnes.map(c=>c.type==="choix"?`<select id="${id}-${ri}-${c.id}" data-k="${k}.${ri}.${c.id}" aria-label="${esc(c.label)}"><option value="">—</option>${c.options.map(o=>`<option ${r[c.id]===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`:`<input id="${id}-${ri}-${c.id}" data-k="${k}.${ri}.${c.id}" value="${esc(r[c.id])}" ${c.type!=="texte"?'inputmode="decimal"':""} ${c.type==="temps"?'placeholder="min:s"':""} aria-label="${esc(c.label)}">`).join("")+(L?"<span></span>":`<button class="btn ghost small" data-act="gDelRow" data-sec="${S.id}" data-f="${f.id}" data-i="${ri}" aria-label="Retirer la ligne">✕</button>`)).join("")}</div>
       ${L?"":`<button class="btn small" data-act="gAddRow" data-sec="${S.id}" data-f="${f.id}" style="justify-self:start">+ Ligne</button>`}</div>`;break}
-    case"passages":{const n=gNb(M,s,f),T=(Array.isArray(v)?v:[]).slice(0,n),D=passDur(T),nextI=T.findIndex(t=>!(num(t&&t.passage)>0));
+    case"passages":{const coached=!COACH&&!PREVIEW&&f.coach&&s.coachUid;L=L||coached;const n=gNb(M,s,f),T=(Array.isArray(v)?v:[]).slice(0,n),D=passDur(T),nextI=T.findIndex(t=>!(num(t&&t.passage)>0));
+      const PS=V?gPassStamps(M,S.id+"."+f.id):{},cbv=PS.cible?gRef(M,s,PS.cible.cible):NaN,tolv=PS.cible?num(PS.cible.tolerance)||5:5,inT=D.filter(d=>!isNaN(d)&&!isNaN(cbv)&&Math.abs(d-cbv)<=tolv).length;
+      const fi=isNaN(cbv)?-1:D.findIndex(d=>!isNaN(d)&&d-cbv>tolv),tileS=k=>V&&k in PS?stamp(PS[k]):"";
+      const cols=`24px minmax(0,1fr)${f.noRep?" 106px":""}${f.adapt?" 44px":""}`,nrT=T.reduce((a,t)=>a+(num(t&&t.noRep)||0),0),adT=T.reduce((a,t)=>a+adCount(t&&t.adapt),0),doneT=T.filter(t=>num(t&&t.passage)>0).length;
       const runBtn=chrono.run?`<button class="btn stop" data-act="chStop">Arrêt</button>`:`<button class="btn go" data-act="chGo">${elapsed()>0?"Reprendre":"Départ"}</button>`;
       inner=`<div class="f"><span style="font-size:.85rem;font-weight:600;color:var(--muted)">${lab}</span>
+      ${f.coach&&!COACH&&!PREVIEW?vCoachBox(s,V||RO):""}
       ${L?"":`<div class="chrono" aria-label="Chronomètre"><span class="v" id="chrono-v">${fmtC(elapsed())}</span>${runBtn}<button class="btn rz" data-act="chReset" ${chrono.run?"disabled":""}>Réinit.</button></div>`}
       <div class="tours${L?" ro":""}">${T.map((t,i)=>{const pv=num(t&&t.passage)>0,d=D[i];let cls="pas",inn;
-        if(pv)inn=`<b>${fmtP(num(t.passage))}</b><small>${isNaN(d)?"tour –":`tour ${fmtT(d)}`}</small>`;else if(i===nextI&&!L){cls+=" next";inn="Passage"}else{cls+=" empty";inn="—"}
-        return`<div class="tr" style="grid-template-columns:24px minmax(0,1fr) ${f.noRep?"106px":""}"><div class="tn">${i+1}</div><button class="${cls}" data-act="gPas" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" ${L?"disabled":""}>${inn}</button>
-        ${f.noRep?`<div class="cnt"><button data-act="gNr" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" data-d="-1" ${L?"disabled":""} aria-label="Moins">−</button><span>${num(t&&t.noRep)||0}</span><button data-act="gNr" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" data-d="1" ${L?"disabled":""} aria-label="Plus">+</button></div>`:""}</div>`}).join("")}</div></div>`;break}
+        if(pv)inn=`<b>${fmtP(num(t.passage))}</b><small>${isNaN(d)?"tour –":`tour ${fmtT(d)}`}${V&&!isNaN(d)&&!isNaN(cbv)?` · ${d-cbv>0?"+":""}${Math.round(d-cbv)} s`:""}</small>`;else if(i===nextI&&!L){cls+=" next";inn="Passage"}else{cls+=" empty";inn="—"}
+        const ad=adCount(t&&t.adapt);
+        return`<div class="tr" style="grid-template-columns:${cols}"><div class="tn">${i+1}</div><div class="st"><button class="${cls}" data-act="gPas" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" ${L?"disabled":""}>${inn}</button>${V&&pv&&!isNaN(cbv)?stamp(tourDeg(d,cbv,tolv),true):""}</div>
+        ${f.noRep?`<div class="cnt"><button data-act="gNr" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" data-d="-1" ${L?"disabled":""} aria-label="Moins">−</button><span>${num(t&&t.noRep)||0}</span><button data-act="gNr" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" data-d="1" ${L?"disabled":""} aria-label="Plus">+</button></div>`:""}
+        ${f.adapt?`<button class="adp${ad?" on":""}" data-act="gAdapt" data-sec="${S.id}" data-f="${f.id}" data-i="${i}" ${L?"disabled":""} aria-label="Adaptation tour ${i+1}">✎${ad?`<span class="badge">${ad}</span>`:""}</button>`:""}</div>`}).join("")}</div>
+      ${(()=>{const tl=[];
+        if(!isNaN(cbv)&&V)tl.push(`<div class="tile st"><div class="k">Dans le temps</div><div class="v">${inT}<small> / ${n}</small></div>${tileS("temps")}</div>`);
+        else tl.push(`<div class="tile st"><div class="k">Tours faits</div><div class="v">${doneT}<small> / ${n}</small></div>${tileS("tours")}</div>`);
+        if(V&&"rythme" in PS)tl.push(`<div class="tile st"><div class="k">Rythme</div><div class="v" style="font-size:1.15rem">${doneT<n?"non terminé":fi<0?"tenu":"décroche au tour "+(fi+1)}</div>${tileS("rythme")}</div>`);
+        if(f.noRep)tl.push(`<div class="tile st"><div class="k">NO REP</div><div class="v">${nrT}</div>${tileS("norep")}</div>`);
+        if(f.adapt)tl.push(`<div class="tile st"><div class="k">Adaptations</div><div class="v">${adT}</div>${tileS("adapt")}</div>`);
+        return tl.length>1||V?`<div class="sum" style="grid-template-columns:repeat(${tl.length>2?2:tl.length},minmax(0,1fr))">${tl.join("")}</div>`:""})()}</div>`;break}
+    case"exercices":{const rows=Array.isArray(v)?v:[],th=gTheme(M,s),p=data.profil;
+      inner=`<div class="f"><span class="mlab">${lab}</span>${rows.map((e,ri)=>{const kk=`${k}.${ri}`,rm=rmFor(p,e.nom);let meta="";
+        if(M.rm&&e.type==="haltero"&&e.nom)meta=rm>0?`1RM ${fmtN(rm)} kg${num(e.charge)>0?` · <strong>${Math.round(num(e.charge)/rm*100)} %</strong> du 1RM`:""}`:`<span class="ko">1RM absent du profil</span>${L||COACH?"":` <button class="btn ghost small" data-act="goProfil">Ajouter</button>`}`;
+        let exSt="",chSt="";if(V&&e.nom&&th&&th.has&&GRES&&GRES.R.some(x=>x.cr.calcul.type==="reperes"&&x.cr.calcul.source.champ===S.id+"."+f.id)){const c=exoCheck(e,th,p);exSt=stamp(c.ok===null?null:c.ok?4:1);if(c.ok===false)meta+=`${meta?" · ":""}<span class="ko">${esc(c.why)}</span>`}
+        if(V&&e.type==="haltero"&&GRES){const ry=GRES.R.find(x=>x.cr.calcul.type==="rythme");if(ry)chSt=stamp(ry.deg)}
+        return`<div class="ex"><div class="nm st">${fld(`Exercice ${ri+1}`,kk+".nom",e.nom,'placeholder="ex. Thrusters" list="dl-ex"')}${exSt}</div>
+        <label class="f">Type<select id="f-${kk.replace(/\./g,"-")}-type" data-k="${kk}.type" data-rerender>${Object.entries(TYPES).map(([x,l])=>`<option value="${x}" ${e.type===x?"selected":""}>${l}</option>`).join("")}</select></label>
+        ${fld(e.type==="cardio"?"Cal / m":"Répét.",kk+".reps",e.reps,'inputmode="numeric" data-rerender')}
+        ${e.type==="haltero"?`<div class="st">${fld("Charge kg",kk+".charge",e.charge,'inputmode="decimal" data-rerender')}${chSt}</div>`:fld("Niveau",kk+".niveau",e.niveau||"",`placeholder="${e.type==="cardio"?"ex. damper 5":"ex. genoux au sol"}" data-rerender`)}
+        ${meta||(!L&&rows.length>1)?`<div class="ex-meta">${meta}${!L&&rows.length>1?`<span class="spacer"></span><button class="btn ghost small" data-act="gDelRow" data-sec="${S.id}" data-f="${f.id}" data-i="${ri}" aria-label="Retirer l'exercice">Retirer</button>`:""}</div>`:""}</div>`}).join("")}
+        ${L?"":`<button class="btn small" data-act="gAddRow" data-sec="${S.id}" data-f="${f.id}" style="justify-self:start;margin-top:8px">+ Exercice</button>`}</div>`;break}
+    case"resume":{const r=f.src||{},th=gTheme(M,s),p=data.profil,ex=(Array.isArray(gVal(s,r.exos))?gVal(s,r.exos):[]).filter(e=>e&&e.nom),n=parseInt(num(gVal(s,r.tours)))||0,prev=parseT(gVal(s,r.temps));
+      const lines=ex.map(e=>{let det;if(e.type==="haltero"){const c=num(e.charge),rm=rmFor(p,e.nom);det=c>0?`${fmtN(c)} kg${rm>0?` <span class="hint">· ${Math.round(c/rm*100)} %</span>`:""}`:'<span class="ko">charge ?</span>'}
+        else det=e.niveau?esc(e.niveau):'<span class="hint">niveau non précisé</span>';
+        return`<li><span class="rq">${e.reps!==""&&e.reps!=null?esc(e.reps):"?"}</span><span class="mv">${esc(e.nom)}</span><span class="dt">${det}</span></li>`}).join("");
+      inner=`<div class="sec-h"><h3>${esc(S.titre)}</h3><span class="spacer"></span>${th?`<span class="chip">${esc(th.label)}</span>`:""}</div>
+        ${r.tours||r.temps?`<div class="rs-head">${n||"?"} tour${n>1?"s":""} <span>·</span> ${isNaN(prev)?"? ":fmtT(prev)} par tour</div>`:""}
+        ${lines?`<ol class="rs">${lines}</ol>`:'<p class="hint" style="margin:0">Conçois tes exercices ci-dessus.</p>'}`;return inner}
     default:inner=`<label class="f">${lab}<input id="${id}" data-k="${k}" value="${esc(v)}"></label>`}
   return`<div class="gf st">${inner}${help}${st}</div>`}
-function gStampMap(M,res){const m={};res.R.forEach(x=>{const c=x.cr.calcul;const ps=c.type==="complet"?[]:c.source?[c.source.champ]:[];ps.forEach(p=>{if(x.deg&&(!m[p]||x.deg<m[p]))m[p]=x.deg})});return m}
+let GRES=null;
+/* Où tamponner chaque critère : sur la case mesurée ; pour les temps de passage, sur la tuile de la mesure (NO REP, adaptations, rythme…). */
+function gStampMap(M,res){const m={};res.R.forEach(x=>{const c=x.cr.calcul;if(!x.deg)return;let ps=[];
+    if(c.type==="complet"){const sec=String(c.champs[0]||"").split(".")[0];if(sec)ps=["@"+sec]}
+    else if(c.source){const f=gField(M,c.source.champ);ps=f&&f.type==="passages"?[]:[c.source.champ]}
+    ps.forEach(p=>{if(!m[p]||x.deg<m[p])m[p]=x.deg})});return m}
+function gPassStamps(M,path){const o={};if(!GRES)return o;GRES.R.forEach(x=>{const c=x.cr.calcul;if(!c.source||c.source.champ!==path)return;
+  const k=c.type==="rythme"?"rythme":{norep:"norep",adaptations:"adapt",proportion_dans_cible:"temps",nb_hors_cible:"temps",termine:"tours",temps_total:"tours"}[c.source.mesure]||"tours";
+  o[k]=o[k]?Math.min(o[k],x.deg||0)||null:x.deg;if(c.source.cible!==undefined&&!o.cible)o.cible=c.source});return o}
 function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD;gEnsure(M,s);const V=!!s.valide,L=V||RO,i0=data.seances.indexOf(s),base=`seances.${i0}.valeurs`;
-  const res=gCorrect(M,s,data.profil),sm=gStampMap(M,res),th=M.themes.find(t=>t.id===s.theme);
+  const res=gCorrect(M,s,data.profil),sm=gStampMap(M,res),th=M.themes.find(t=>t.id===s.theme);GRES=V?res:null;
   const auto=M.criteres.filter(c=>c.calcul.type==="autoeval");
-  const secs=M.sections.map((S,si)=>`<section class="card sec" id="gsec-${si}"><div class="sec-h"><span class="num">${si+1}</span><h3>${esc(S.titre)}</h3></div>
+  let no=0;const secs=M.sections.map((S,si)=>S.champs.length&&S.champs.every(f=>f.type==="resume")?`<section class="card resume" id="gsec-${si}">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V)).join("")}</section>`:`<section class="card sec" id="gsec-${si}"><div class="sec-h"><span class="num">${++no}</span><h3>${esc(S.titre)}</h3>${V&&sm["@"+S.id]?`<span class="spacer"></span>${stamp(sm["@"+S.id])}`:""}</div>
     ${S.consigne?`<p class="hint" style="margin:-4px 0 10px">${esc(S.consigne)}</p>`:""}<div class="stack" style="gap:12px">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V,sm[S.id+"."+f.id])).join("")}</div></section>`).join("");
-  const ae=auto.length?`<section class="card sec"><div class="sec-h"><span class="num">${M.sections.length+1}</span><h3>Je m'autoévalue</h3></div><p class="hint" style="margin:-4px 0 10px">Touche un niveau pour lire ses critères.</p>
-    <div class="stack" style="gap:12px">${auto.map(c=>`<div class="ae"><div class="row"><strong>${esc(c.afl)} · ${esc(c.label)}</strong></div><div class="lvls">${[1,2,3,4].map(d=>`<button class="lvl d${d}${s.autoeval[c.id]===d?" on":""}" data-act="gLvl" data-c="${c.id}" data-d="${d}"><b>D${d}</b><span>${esc((c.descripteurs[d-1]||"").slice(0,38))}${(c.descripteurs[d-1]||"").length>38?"…":""}</span></button>`).join("")}</div></div>`).join("")}</div></section>`:"";
+  const ae=auto.length?`<section class="card sec"><div class="sec-h"><span class="num">${no+1}</span><h3>Je m'autoévalue</h3></div><p class="hint" style="margin:-4px 0 10px">Touche un niveau pour lire ses critères.</p>
+    <div class="stack" style="gap:12px">${auto.map(c=>`<div class="ae"><div class="row"><strong>${esc(c.afl)} · ${esc(c.label)}</strong>${V?`<span class="spacer"></span>${stamp(s.autoeval[c.id]||null)}`:""}</div><div class="lvls">${[1,2,3,4].map(d=>`<button class="lvl d${d}${s.autoeval[c.id]===d?" on":""}" data-act="gLvl" data-c="${c.id}" data-d="${d}"><b>D${d}</b><span>${esc((c.descripteurs[d-1]||"").slice(0,38))}${(c.descripteurs[d-1]||"").length>38?"…":""}</span></button>`).join("")}</div></div>`).join("")}</div></section>`:"";
   return`<div class="stack seance" style="--th:var(--accent)">
   ${PREVIEW?"":`<div class="row"><button class="btn ghost small" data-act="back">← ${RO?"Séances":"Mes séances"}</button><span class="spacer"></span>${L?"":`<button class="btn danger small" data-act="delSeance">Supprimer</button>`}</div>`}
   <section class="hero"><div class="hero-top"><span class="eyebrow">${esc(M.ca||"")} · Séance ${i0+1}${s.epreuve?" · Épreuve":""}</span><span class="spacer"></span>${L?`<span class="lock-chip">${V?"🔒 Validée":"En cours"}</span>`:`<label class="hero-date"><span class="sr">Date</span><input type="date" id="g-date" data-k="seances.${i0}.date" value="${esc(s.date)}"></label>`}</div>
-    <div class="hero-main"><div><h2 class="hero-t" style="font-size:2.1rem">${esc(M.titre)}</h2><div class="hero-sub">${th?esc(th.label)+" · ":""}${esc(M.description||"")}</div></div>${V?gRing(res):""}</div>
+    <div class="hero-main"><div><h2 class="hero-t" style="font-size:2.1rem">${esc(M.titre)}</h2><div class="hero-sub">${th?`<strong>${esc(th.label)}</strong> · ${esc(th.desc||"")}${th.reps?`<br>${th.reps[0]}–${th.reps[1]} répétitions`:""}${th.pct?` · haltéro ${th.pct[0]}–${th.pct[1]} % du 1RM`:""}`:esc(M.description||"")}</div></div>${V?gRing(res):""}</div>
     ${M.themes.length&&!L?`<div class="pills" style="grid-template-columns:repeat(${Math.min(3,M.themes.length)},minmax(0,1fr))">${M.themes.map(t=>`<label title="${esc(t.desc)}"><input type="radio" name="gth" data-k="seances.${i0}.theme" data-rerender value="${t.id}" ${s.theme===t.id?"checked":""}>${esc(t.label)}</label>`).join("")}</div>`:""}
     ${L?"":`<label class="hero-ep"><input type="checkbox" id="g-ep" data-k="seances.${i0}.epreuve" data-t="bool" data-rerender ${s.epreuve?"checked":""}> Séance d'épreuve</label>`}</section>
-  <fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${secs}${ae}</div></fieldset>
+  <fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${secs}${ae}</div></fieldset>${gDatalist(M,s)}
   ${V?gCorrHTML(M,res):""}
   ${PREVIEW?`<div class="valid-bar"><button class="btn big" data-act="gTest">${V?"Revenir en saisie":"🧪 Tester la correction"}</button></div>`:V?(RO?`<div class="valid-bar"><button class="btn big" data-act="unlock">🔓 Déverrouiller la séance pour l'élève</button></div>`:""):RO?`<p class="hint" style="text-align:center">Séance pas encore validée par l'élève.</p>`:`<div class="valid-bar"><button class="btn big go-valid" data-act="gValidate"><span>🏁 Valider ma séance</span><small>La séance ne pourra plus être modifiée</small></button></div>`}</div>`}
 function gRing(res){const ok=res.complete,v=ok?res.tot:res.n1,max=ok?20:res.max1,f=Math.max(0,Math.min(1,v/max)),R=34,Lg=2*Math.PI*R;
   return`<div class="ring"><svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><circle cx="42" cy="42" r="${R}" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="8"/><circle cx="42" cy="42" r="${R}" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(Lg*f).toFixed(1)} ${Lg.toFixed(1)}" transform="rotate(-90 42 42)"/></svg><div class="ring-v"><b>${fmtN(v)}</b><small>/ ${max}</small></div><div class="ring-m">${f>=.8?"Séance au top !":f>=.6?"Belle séance":f>=.4?"Ça progresse":"On ajuste et on repart"}</div></div>`}
 function gCorrHTML(M,res){let dom="";const rows=res.R.slice().sort((a,b)=>a.cr.afl.localeCompare(b.cr.afl)).map(x=>{const h=x.cr.afl!==dom?`<div class="dom">${x.cr.afl}</div>`:"";dom=x.cr.afl;
-    return h+`<div class="crit">${stamp(x.deg)}<div><div class="t">${esc(x.cr.label)}</div><div class="m">${x.deg?esc(x.cr.descripteurs[x.deg-1]||""):"À compléter"}</div><div class="tip">${esc(gCalcText(M,x.cr))}</div></div><div class="rx">${x.cr.afl==="AFL1"&&x.deg?fmtN(x.cr.points[x.deg-1])+" pt":""}</div></div>`}).join("");
+    return h+`<div class="crit">${stamp(x.deg)}<div><div class="t">${esc(x.cr.label)}</div><div class="m">${x.deg?esc(x.cr.descripteurs[x.deg-1]||""):"À compléter"}</div>${x.deg&&x.cr.conseils&&x.cr.conseils[x.deg-1]?`<div class="tip">→ ${esc(x.cr.conseils[x.deg-1])}</div>`:""}<div class="hint" style="font-size:.78rem;margin-top:2px">${esc(gCalcText(M,x.cr))}</div></div><div class="rx">${x.cr.afl==="AFL1"&&x.deg?fmtN(x.cr.points[x.deg-1])+" pt":""}</div></div>`}).join("");
   return`<section class="card corr" id="corr"><div class="sec-h"><h2>Ma correction</h2><span class="hint">Référentiel ${esc(M.ca||"")}</span></div>
   <div class="score"><div class="tile"><div class="k">AFL1</div><div class="v">${fmtN(res.n1)}<small> / ${res.max1}</small></div></div>
   <div class="tile"><div class="k">AFL2 + AFL3</div><div class="v">${fmtN(res.a2.p+res.a3.p)}<small> / 8</small></div></div>
@@ -966,8 +1129,12 @@ function gProfil(){const p=data.profil;
   return`<div class="stack"><fieldset class="lock" ${RO?"disabled":""}><legend class="sr">Profil</legend><div class="stack">
   <section class="card"><div class="sec-h"><h2>${RO?"Profil de l'élève":"Mon profil"}</h2><span class="spacer"></span><span class="chip">${esc(RO?(carnetDoc&&carnetDoc._login)||"":me.login||"")}</span></div>
     <label class="f">Mon projet : ce que je veux développer<textarea id="g-projet" data-k="profil.projet">${esc(p.projet||"")}</textarea></label></section>
+  ${MOD&&MOD.rm?`<section class="card"><div class="sec-h"><h2>Mes 1RM</h2><span class="hint">Charge maximale sur 1 répétition</span></div>
+    <div class="stack" style="gap:8px">${(p.rms||[]).map((r,i)=>`<div class="rm">${fld(i?"":"Exercice",`profil.rms.${i}.nom`,r.nom,'placeholder="ex. Back squat" list="dl-ex"')}${fld(i?"":"1RM (kg)",`profil.rms.${i}.kg`,r.kg,'inputmode="decimal"')}${RO?"<span></span>":`<button class="btn ghost small" data-act="delRm" data-i="${i}" aria-label="Retirer ce 1RM">Retirer</button>`}</div>`).join("")}</div>
+    ${RO?"":`<div class="row" style="margin-top:10px"><button class="btn small" data-act="addRm">+ Ajouter un 1RM</button></div>`}
+    <p class="hint" style="margin:8px 0 0">L'appli s'en sert pour calculer le % de charge de tes exercices d'haltérophilie. Écris le nom de l'exercice comme dans ta séance.</p></section>`:""}
   <section class="card"><div class="sec-h"><h2>Répartition AFL2 / AFL3</h2></div>
-    <div class="rep-opts">${Object.entries(REPART).map(([k,[a,b]])=>`<label class="rep-opt"><input type="radio" name="grep" data-k="profil.repartition" data-rerender value="${k}" ${p.repartition===k?"checked":""}><span>${a} / ${b}</span>AFL2 / AFL3</label>`).join("")}</div></section></div></fieldset></div>`}
+    <div class="rep-opts">${Object.entries(REPART).map(([k,[a,b]])=>`<label class="rep-opt"><input type="radio" name="grep" data-k="profil.repartition" data-rerender value="${k}" ${p.repartition===k?"checked":""}><span>${a} / ${b}</span>AFL2 / AFL3</label>`).join("")}</div></section></div></fieldset>${MOD?gDatalist(MOD):""}</div>`}
 function gModalPas(sec,fid,i){const s=curS(),t=s.valeurs[sec][fid][i],el=elapsed();
   openModal(`<h3>Tour ${i+1} · temps de passage</h3><input id="m-pas" class="big-in" inputmode="decimal" value="${num(t.passage)>0?esc(fmtP(num(t.passage))):""}" placeholder="1:30,0"><div class="err" id="m-err"></div>
   <div class="grid2"><button class="btn primary" data-mact="gSavePas">Enregistrer</button>${el>0?`<button class="btn" data-mact="gTakePas">Prendre le chrono (${fmtC(el)})</button>`:`<button class="btn" data-mact="close">Annuler</button>`}</div>
@@ -981,11 +1148,12 @@ function gModalLvl(cid,d){const c=MOD.criteres.find(x=>x.id===cid),s=curS();
 async function loadActs(classeDoc){const ids=(classeDoc&&classeDoc.activites)||[];const list=[];
   for(const id of ids){try{const m=await fb.getModele(id);if(m&&m.modele)list.push({id,titre:m.modele.titre,ca:m.modele.ca,desc:m.modele.description,doc:m})}catch(e){console.warn(e)}}return list}
 async function openCarnetModele(act){go("loading",{msg:"Ouverture du carnet…"});
-  try{const md=actsList.find(a=>a.id===act)||{doc:await fb.getModele(act)};if(!md.doc)throw{code:"not-found"};MODDOC=md.doc;MOD=normModele(md.doc.modele);
+  try{if(act===CA5_ID){const r=await ca5Modele(me.profId);MODDOC=r.doc;MOD=r.M}
+    else{const md=actsList.find(a=>a.id===act)||{doc:await fb.getModele(act)};if(!md.doc)throw{code:"not-found"};MODDOC=md.doc;MOD=normModele(md.doc.modele||md.doc.brouillon)}
     activite=act;RO=false;PREVIEW=false;carnetId=`${me.uid}_${act}`;
     let c=await fb.getCarnet(carnetId);
-    if(!c){const b={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:{projet:"",repartition:"4-4"}};await fb.createCarnet(carnetId,b);c={id:carnetId,...b}}
-    const ss=await fb.listSeances(carnetId);setCarnetData(c,ss);data.seances.forEach(s=>gEnsure(MOD,s));view="seances";cur=null;syncState="ok";go("carnet")}
+    if(!c){const b={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};await fb.createCarnet(carnetId,b);c={id:carnetId,...b}}
+    const ss=await fb.listSeances(carnetId);setCarnetData(c,ss);view="seances";cur=null;syncState="ok";go("carnet")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 
 /* --- Suivi prof (activité générique) --- */
@@ -999,19 +1167,24 @@ function gSuivi(){const rep=getReperes(classe.id);
     return`<tr class="clk" data-act="openEleve" data-i="${i}"><td>${name}</td><td class="n">${S.nv}<span class="hint"> / ${S.n}</span></td><td class="n">${S.res&&S.res.complete?fmtN(S.res.tot):"–"}</td><td class="n">${S.res?fmtN(S.res.n1):"–"}${S.ep?" ★":""}</td>
     <td class="noclk"><select id="a3-${i}" data-a3="${i}" aria-label="AFL3"><option value="">—</option>${[1,2,3,4].map(d=>`<option value="${d}" ${r.c.afl3Prof==d?"selected":""}>D${d}</option>`).join("")}</select><div class="hint">/ ${S.m3}${S.ae3?` · auto D${S.ae3}`:""}</div></td>
     <td class="n"><strong>${S.tot===null?"–":fmtN(S.tot)}</strong></td></tr>`}).join("");
-  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="backClasse">← ${esc(classe.nom)}</button><span class="spacer"></span><button class="btn small" data-act="openModele" data-id="${suivi.act}">Modifier le carnet</button></div>
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="backClasse">← ${esc(classe.nom)}</button><span class="spacer"></span><button class="btn small" data-act="gExport">Exporter (.csv)</button><button class="btn small" data-act="openModele" data-id="${suivi.act}">Modifier le carnet</button></div>
   <div class="class-hero"><span class="eyebrow">${esc(MOD.ca||"")} · ${esc(classe.nom)}</span><h2>${esc(MOD.titre)}</h2></div>
   <section class="card"><div class="sec-h"><h3>Carnets des élèves</h3><span class="hint">Touchez une ligne pour ouvrir le carnet</span></div>
   ${rows?`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Séances validées</th><th class="n">Dernière note /20</th><th class="n">AFL1</th><th>AFL3 prof</th><th class="n">Total /20</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
   <p class="hint" style="margin:8px 0 0">Total = AFL1 et AFL2 de la séance d'épreuve (★) ou de la dernière séance validée + AFL3 fixé par vous.</p></section></div>`}
 
 /* --- Modèles : liste et éditeur avec l'IA --- */
-async function openModeles(){go("loading");try{modeles=(await fb.listModeles(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("modeles")}catch(e){go("error",{msg:authMsg(e)})}}
+let ca5Doc=null;
+async function openModeles(){go("loading");try{const all=await fb.listModeles(me.uid);ca5Doc=all.find(m=>m.id===ca5DocId(me.uid))||null;modeles=all.filter(m=>m.id!==ca5DocId(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("modeles")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openCa5(){go("loading");try{await loadClasses();ca5Doc=await fb.getModele(ca5DocId(me.uid)).catch(()=>null);const d=ca5Doc||{};
+  startEditor({id:ca5Doc?ca5Doc.id:null,fixedId:ca5DocId(me.uid),builtin:true,modele:d.modele||CA5_MODELE,brouillon:d.brouillon||null,statut:d.statut||"publie",publieLe:d.publieLe||null})}catch(e){go("error",{msg:authMsg(e)})}}
 function vModeles(){const st=m=>m.modele&&m.statut!=="brouillon"?'<span class="chip" style="border-color:var(--d4);color:var(--d4)">Publié</span>':m.modele?'<span class="chip" style="border-color:var(--d2);color:#8a6400">Bac à sable · version publiée en ligne</span>':'<span class="chip">Bac à sable</span>';
-  return`<div class="stack"><h2>Carnets créés avec l'IA</h2>
-  <p class="hint" style="margin:-6px 0 0">Importez votre référentiel (et si vous voulez votre fiche d'observation) : l'IA prépare une ébauche. Vous la modifiez librement en bac à sable, puis vous la publiez pour vos élèves.</p>
-  ${modeles.length?`<div class="list-s">${modeles.map(m=>{const M=m.brouillon||m.modele||{};return`<button class="s-item" data-act="openModele" data-id="${m.id}" style="border-left-color:var(--accent)"><div><strong>${esc(m.titre)}</strong><div class="row" style="margin-top:4px;gap:6px">${st(m)}<span class="hint">${(M.sections||[]).length} parties · ${(M.criteres||[]).length} critères</span></div></div><span class="chip">Ouvrir →</span></button>`}).join("")}</div>`:""}
-  <form class="card stack" id="gen-form" style="gap:10px"><h3>Nouveau carnet</h3>
+  const c5=ca5Doc||{modele:CA5_MODELE,statut:"publie"},M5=c5.brouillon||c5.modele||CA5_MODELE;
+  return`<div class="stack"><h2>Mes carnets</h2>
+  <p class="hint" style="margin:-6px 0 0">Chaque carnet se modifie librement en bac à sable, puis se publie pour vos élèves. Pour une nouvelle activité, importez votre référentiel (et si vous voulez votre fiche d'observation) : l'IA prépare une ébauche.</p>
+  <div class="list-s"><button class="s-item" data-act="openCa5" style="border-left-color:var(--accent)"><div><strong>Cross training · CA5</strong><div class="row" style="margin-top:4px;gap:6px">${st(c5)}<span class="hint">${ca5Doc?"Votre version":"Version d'origine"} · ${(M5.sections||[]).length} parties · ${(M5.criteres||[]).length} critères · toutes vos classes</span></div></div><span class="chip">Ouvrir →</span></button>
+  ${modeles.map(m=>{const M=m.brouillon||m.modele||{};return`<button class="s-item" data-act="openModele" data-id="${m.id}" style="border-left-color:var(--accent)"><div><strong>${esc(m.titre)}</strong><div class="row" style="margin-top:4px;gap:6px">${st(m)}<span class="hint">${(M.sections||[]).length} parties · ${(M.criteres||[]).length} critères</span></div></div><span class="chip">Ouvrir →</span></button>`}).join("")}</div>
+  <form class="card stack" id="gen-form" style="gap:10px"><h3>Nouveau carnet avec l'IA</h3>
     <label class="f">1. Référentiel d'évaluation (PDF ou photo)<input type="file" id="gen-file" accept="application/pdf,image/*"></label>
     <label class="f">2. Fiche d'observation / d'évaluation (facultatif)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
     <details><summary class="hint">Pas de fichier ? Coller le texte du référentiel</summary><textarea id="gen-text" placeholder="Texte du référentiel"></textarea></details>
@@ -1025,7 +1198,7 @@ function vModeles(){const st=m=>m.modele&&m.statut!=="brouillon"?'<span class="c
 const newId=p=>p+"_"+Math.random().toString(36).slice(2,7);
 function blankModele(){return{titre:"Nouvelle activité",ca:"",apsa:"",description:"",themes:[],sections:[{id:newId("s"),titre:"Ma séance",consigne:"",champs:[{id:newId("c"),type:"texte_long",label:"Ce que j'ai fait",aide:"",unite:"",requis:true}]}],criteres:[],bareme:{afl1:{max:12,table:[]}}}}
 function startEditor(doc){const pub=doc.modele?normModele(doc.modele):null,draft=normModele(doc.brouillon||doc.modele||blankModele());
-  modeleEdit={id:doc.id||null,draft,pub,statut:pub&&doc.statut!=="brouillon"?"publie":"brouillon",publieLe:doc.publieLe||null,dirty:!doc.id,tab:"seance"};
+  modeleEdit={id:doc.id||null,fixedId:doc.fixedId||null,builtin:!!doc.builtin,draft,pub,statut:pub&&doc.statut!=="brouillon"?"publie":"brouillon",publieLe:doc.publieLe||null,dirty:!doc.id&&!doc.builtin,tab:"seance"};
   modeleHist=[];setPreview();go("modele")}
 function setPreview(){MOD=normModele(modeleEdit.draft);PREVIEW=true;RO=false;carnetId=null;carnetDoc=null;const s={id:"apercu",ordre:1,date:today(),valide:false,epreuve:false,theme:MOD.themes[0]&&MOD.themes[0].id||"",valeurs:{},autoeval:{}};gEnsure(MOD,s);data={profil:{projet:"",repartition:"4-4"},seances:[s]};cur=s.id}
 const SB=()=>modeleEdit&&modeleEdit.statut==="brouillon";
@@ -1037,7 +1210,11 @@ function mFieldEd(M,si,fi,f){const p=`sections.${si}.champs.${fi}`;let extra="";
   if(f.type==="choix")extra=mIn(p+".options",(f.options||[]).join(", "),'data-mt="list"',"Choix proposés (séparés par des virgules)");
   if(f.type==="echelle")extra=`<div class="grid2">${mIn(p+".min",f.min,'data-mt="num" inputmode="numeric"',"De")}${mIn(p+".max",f.max,'data-mt="num" inputmode="numeric"',"À")}</div>`;
   if(f.type==="tableau")extra=`<div class="f"><span class="mlab">Colonnes</span>${(f.colonnes||[]).map((c,ci)=>`<div class="mcol">${mIn(`${p}.colonnes.${ci}.label`,c.label,"","")}${mSel(`${p}.colonnes.${ci}.type`,c.type,[["texte","Texte"],["nombre","Nombre"],["temps","Temps"],["choix","Choix"]],"","data-rerender")}<button class="btn ghost small" data-act="mDelCol" data-si="${si}" data-fi="${fi}" data-ci="${ci}" aria-label="Retirer la colonne">✕</button>${c.type==="choix"?`<div style="grid-column:1/-1">${mIn(`${p}.colonnes.${ci}.options`,(c.options||[]).join(", "),'data-mt="list"',"Choix (virgules)")}</div>`:""}</div>`).join("")}<button class="btn small" data-act="mAddCol" data-si="${si}" data-fi="${fi}" style="justify-self:start">+ Colonne</button></div>`;
-  if(f.type==="passages")extra=`<div class="grid2">${mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric"',"Nombre de tours")}${mSel(p+".nbChamp",f.nbChamp||"",[["","Nombre fixe"],...allFields(M,["nombre"])],"ou lu dans la case","data-rerender")}</div><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.noRep" data-mt="bool" ${f.noRep?"checked":""} style="width:20px;height:20px"> Compteur de NO REP par tour</label>`;
+  if(f.type==="exercices")extra=mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Lignes au départ");
+  if(f.type==="resume"){const sr=f.src||{};extra=`${mSel(p+".src.exos",sr.exos||"",[["","—"],...allFields(M,["exercices"])],"Exercices résumés")}<div class="grid2">${mSel(p+".src.tours",sr.tours||"",[["","—"],...allFields(M,["nombre"])],"Nombre de tours")}${mSel(p+".src.temps",sr.temps||"",[["","—"],...allFields(M,["temps"])],"Temps par tour")}</div>`}
+  if(f.type==="passages")extra=`<div class="grid2">${mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric"',"Nombre de tours")}${mSel(p+".nbChamp",f.nbChamp||"",[["","Nombre fixe"],...allFields(M,["nombre"])],"ou lu dans la case","data-rerender")}</div><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.noRep" data-mt="bool" ${f.noRep?"checked":""} style="width:20px;height:20px"> Compteur de NO REP par tour</label>
+    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.adapt" data-mt="bool" ${f.adapt?"checked":""} style="width:20px;height:20px"> Bouton adaptation par tour</label>
+    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.coach" data-mt="bool" ${f.coach?"checked":""} style="width:20px;height:20px"> Un coach peut remplir depuis son téléphone</label>`;
   return`<div class="mfield"><div class="mf-h"><span class="chip">${esc(G_TYPES[f.type]||f.type)}</span><span class="spacer"></span>
     <button class="btn ghost small" data-act="mUpChamp" data-si="${si}" data-fi="${fi}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownChamp" data-si="${si}" data-fi="${fi}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelChamp" data-si="${si}" data-fi="${fi}" aria-label="Supprimer la case">✕</button></div>
     <div class="grid2">${mIn(p+".label",f.label,"","Intitulé")}${mSel(p+".type",f.type,Object.entries(G_TYPES),"Type de case","data-rerender")}</div>
@@ -1054,14 +1231,21 @@ function mCritEd(M,ci,c){const p=`criteres.${ci}`,cal=c.calcul||{type:"autoeval"
     if(cal.type==="seuils")cfg+=mSel(p+".calcul.sens",cal.sens||"haut",[["haut","Plus c'est haut, mieux c'est"],["bas","Plus c'est bas, mieux c'est"]],"Sens","data-rerender");
     const op=cal.type==="ecart"?"écart ≤":cal.sens==="bas"?"≤":"≥";
     cfg+=`<div class="grid3">${[0,1,2].map(k=>mIn(`${p}.calcul.seuils.${k}`,(cal.seuils||[])[k],'data-mt="num" inputmode="decimal"',`D${4-k} si ${op}`)).join("")}</div><p class="hint" style="margin:0">Sinon : D1.</p>`}
+  if(cal.type==="rythme"){const cb=cal.source&&cal.source.cible,cond=cal.condition||{},cf=cond.champ&&gField(M,cond.champ);
+    cfg=`${mSel(p+".calcul.source.champ",cal.source&&cal.source.champ||"",[["","— choisir —"],...allFields(M,["passages"])],"Temps de passage","data-rerender")}
+    <div class="grid2"><label class="f">Temps visé par tour<select data-mcible="${ci}" data-where="source" data-rerender>${[["num","Valeur fixe"],...allFields(M,["temps","nombre"])].map(([v,l])=>`<option value="${v}" ${(typeof cb==="object"&&cb&&cb.champ===v)||(v==="num"&&typeof cb!=="object")?"selected":""}>${esc(l)}</option>`).join("")}</select></label>${mIn(p+".calcul.source.tolerance",cal.source&&cal.source.tolerance!=null?cal.source.tolerance:5,'data-mt="num" inputmode="numeric"',"Tolérance (s)")}</div>
+    ${typeof cb!=="object"||!cb?mIn(p+".calcul.source.cible",cb??60,'data-mt="num" inputmode="numeric"',"Secondes"):""}
+    <div class="grid2">${mSel(p+".calcul.condition.champ",cond.champ||"",[["","Aucune"],...allFields(M,["choix"])],"D1 aussi si la case…","data-rerender")}${cf?mSel(p+".calcul.condition.valeur",cond.valeur||"",[["",""],...(cf.options||[]).map(o=>[o,o])],"vaut"):"<span></span>"}</div>
+    <p class="hint" style="margin:0">D4 : rythme tenu jusqu'au bout · D3 : décroche sur les 2 derniers tours · D2 : à partir de la moitié · D1 : avant, ou séance non terminée.</p>`}
+  if(cal.type==="reperes")cfg=`<div class="grid2">${mSel(p+".calcul.source.champ",cal.source&&cal.source.champ||"",[["","— choisir —"],...allFields(M,["exercices"])],"Exercices")}${mIn(p+".calcul.min",cal.min||3,'data-mt="num" inputmode="numeric"',"Exercices vérifiés")}</div><p class="hint" style="margin:0">Compare répétitions et % du 1RM aux repères du thème choisi (onglet Infos). D4 : tous conformes, puis un degré de moins par exercice hors repère.</p>`;
   if(cal.type==="complet")cfg=`<div class="f"><span class="mlab">Cases à remplir</span><div class="mchecks">${allFields(M).map(([v,l])=>`<label><input type="checkbox" data-mcomplet="${ci}" value="${v}" ${(cal.champs||[]).includes(v)?"checked":""}> ${esc(l)}</label>`).join("")}</div></div>`;
   return`<div class="mfield"><div class="mf-h"><span class="chip">${esc(c.afl)}</span><strong style="flex:1;min-width:0">${esc(c.label)}</strong><button class="btn ghost small danger" data-act="mDelCrit" data-ci="${ci}" aria-label="Supprimer le critère">✕</button></div>
     <div class="grid2">${mSel(p+".afl",c.afl,[["AFL1","AFL1"],["AFL2","AFL2"],["AFL3","AFL3"]],"AFL","data-rerender")}${mIn(p+".label",c.label,"","Élément évalué")}</div>
-    ${[0,1,2,3].map(d=>`<div class="mdeg"><span class="cell d${d+1}">D${d+1}</span>${mTa(`${p}.descripteurs.${d}`,c.descripteurs[d],"",'rows="2"')}${c.afl==="AFL1"?mIn(`${p}.points.${d}`,c.points[d],'data-mt="num" inputmode="decimal" style="width:70px"',"pts"):""}</div>`).join("")}
-    ${mSel(p+".calcul.type",cal.type,[["autoeval","Autoévaluation de l'élève"],["seuils","Calcul automatique : seuils"],["ecart","Calcul automatique : écart à une valeur"],["complet","Calcul automatique : cases remplies"]],"Correction","data-rerender")}${cfg}</div>`}
+    ${[0,1,2,3].map(d=>`<div class="mdeg"><span class="cell d${d+1}">D${d+1}</span><div class="stack" style="gap:4px">${mTa(`${p}.descripteurs.${d}`,c.descripteurs[d],"",'rows="2"')}${c.afl==="AFL1"?mIn(`${p}.conseils.${d}`,(c.conseils||[])[d]||"",'placeholder="Conseil affiché à l\'élève (facultatif)"',""):""}</div>${c.afl==="AFL1"?mIn(`${p}.points.${d}`,c.points[d],'data-mt="num" inputmode="decimal" style="width:70px"',"pts"):""}</div>`).join("")}
+    ${mSel(p+".calcul.type",cal.type,[["autoeval","Autoévaluation de l'élève"],["seuils","Calcul automatique : seuils"],["ecart","Calcul automatique : écart à une valeur"],["complet","Calcul automatique : cases remplies"],["rythme","Calcul automatique : décrochage du rythme"],["reperes","Calcul automatique : repères du thème"]],"Correction","data-rerender")}${cfg}</div>`}
 function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=E.publieLe&&E.publieLe.toDate?E.publieLe.toDate().toLocaleDateString("fr-FR"):"";
-  const act=classes.map(c=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-actcls="${c.id}" ${E.id&&(c.activites||[]).includes(E.id)?"checked":""} ${E.id?"":"disabled"} style="width:20px;height:20px"> ${esc(c.nom)}</label>`).join("");
-  const head=`<div class="row"><button class="btn ghost small" data-act="backModeles">← Carnets IA</button><span class="spacer"></span>${E.id?`<button class="btn danger small" data-act="delModele">Supprimer</button>`:""}${sb?`<button class="btn small" data-act="saveModele">${E.dirty?"Enregistrer":"Enregistré ✓"}</button>`:""}</div>
+  const act=E.builtin?'<p class="hint" style="margin:0">Le carnet de cross training est disponible pour toutes vos classes.</p>':classes.map(c=>`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-actcls="${c.id}" ${E.id&&(c.activites||[]).includes(E.id)?"checked":""} ${E.id?"":"disabled"} style="width:20px;height:20px"> ${esc(c.nom)}</label>`).join("");
+  const head=`<div class="row"><button class="btn ghost small" data-act="backModeles">← Mes carnets</button><span class="spacer"></span>${E.id?`<button class="btn danger small" data-act="delModele">${E.builtin?"Version d'origine":"Supprimer"}</button>`:""}${sb?`<button class="btn small" data-act="saveModele">${E.dirty?"Enregistrer":"Enregistré ✓"}</button>`:""}</div>
   <section class="class-hero"><span class="eyebrow">${esc(M.ca||"")}${M.apsa?" · "+esc(M.apsa):""}</span><h2>${esc(M.titre)}</h2>
     <div class="row" style="margin-top:8px">${sb?`<span class="chip" style="background:#fff3cd;color:#7a5a00;border-color:#f2d16b">🧪 Bac à sable</span>${E.pub?`<span class="hint" style="color:#cfd6dc">Les élèves utilisent la version publiée${pubDate?" du "+pubDate:""}.</span>`:`<span class="hint" style="color:#cfd6dc">Pas encore visible par les élèves.</span>`}`:`<span class="chip" style="background:#d9f2e4;color:#155c36;border-color:#8fd3ae">✅ Publié${pubDate?" le "+pubDate:""}</span><span class="hint" style="color:#cfd6dc">Les élèves remplissent cette version.</span>`}</div></section>`;
   if(!sb)return`<div class="stack">${head}
@@ -1072,19 +1256,25 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=E.publieLe&&E.pu
   let body="";
   if(E.tab==="seance")body=M.sections.map((S,si)=>`<section class="card sec"><div class="sec-h"><span class="num">${si+1}</span><h3>${esc(S.titre)}</h3><span class="spacer"></span><button class="btn ghost small" data-act="mUpSec" data-si="${si}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownSec" data-si="${si}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelSec" data-si="${si}" aria-label="Supprimer la partie">✕</button></div>
       <div class="grid2">${mIn(`sections.${si}.titre`,S.titre,"","Titre de la partie")}${mIn(`sections.${si}.consigne`,S.consigne,"","Consigne pour l'élève")}</div>
+      <label class="row" style="gap:8px;font-weight:600;margin-top:6px"><input type="checkbox" data-m="sections.${si}.reprise" data-mt="bool" ${S.reprise?"checked":""} style="width:20px;height:20px"> Reprendre les réponses de la séance précédente</label>
       <div class="stack" style="gap:10px;margin-top:10px">${S.champs.map((f,fi)=>mFieldEd(M,si,fi,f)).join("")}</div>
       <button class="btn small" data-act="mAddChamp" data-si="${si}" style="margin-top:10px">+ Ajouter une case</button></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
   if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
     <section class="card"><div class="sec-h"><h3>Barème AFL1</h3></div>${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
     <p class="hint">Table de conversion (facultative) : à partir de tant de points, la note vaut… Sans table, la note est proportionnelle aux points.</p>
     ${M.bareme.afl1.table.map((r,ri)=>`<div class="mcol">${mIn(`bareme.afl1.table.${ri}.pts`,r.pts,'data-mt="num" inputmode="decimal"',"Points ≥")}${mIn(`bareme.afl1.table.${ri}.note`,r.note,'data-mt="num" inputmode="decimal"',"Note")}<button class="btn ghost small" data-act="mDelRow" data-ri="${ri}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddRow">+ Ligne</button></section>`;
-  if(E.tab==="infos")body=`<section class="card stack" style="gap:10px">${mIn("titre",M.titre,"","Nom de l'activité")}<div class="grid2">${mSel("ca",M.ca,[["",""],["CA1","CA1"],["CA2","CA2"],["CA3","CA3"],["CA4","CA4"],["CA5","CA5"]],"Champ d'apprentissage")}${mIn("apsa",M.apsa,"","APSA")}</div>${mTa("description",M.description,"Description pour l'élève")}</section>
-    <section class="card"><div class="sec-h"><h3>Thèmes au choix de l'élève</h3></div>${M.themes.map((t,ti)=>`<div class="mcol">${mIn(`themes.${ti}.label`,t.label,"","Thème")}${mIn(`themes.${ti}.desc`,t.desc,"","Description")}<button class="btn ghost small" data-act="mDelTheme" data-ti="${ti}" aria-label="Retirer">✕</button></div>`).join("")}<button class="btn small" data-act="mAddTheme">+ Thème</button></section>
+  if(E.tab==="infos")body=`<section class="card stack" style="gap:10px">${mIn("titre",M.titre,"","Nom de l'activité")}<div class="grid2">${mSel("ca",M.ca,[["",""],["CA1","CA1"],["CA2","CA2"],["CA3","CA3"],["CA4","CA4"],["CA5","CA5"]],"Champ d'apprentissage")}${mIn("apsa",M.apsa,"","APSA")}</div>${mTa("description",M.description,"Description pour l'élève")}
+    <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="rm" data-mt="bool" ${M.rm?"checked":""} style="width:20px;height:20px"> Les élèves notent leurs 1RM dans leur profil</label></section>
+    <section class="card"><div class="sec-h"><h3>Thèmes au choix de l'élève</h3></div>${M.themes.map((t,ti)=>`<div class="mfield" style="margin-bottom:8px"><div class="mcol" style="margin:0">${mIn(`themes.${ti}.label`,t.label,"","Thème")}${mIn(`themes.${ti}.desc`,t.desc,"","Description")}<button class="btn ghost small" data-act="mDelTheme" data-ti="${ti}" aria-label="Retirer">✕</button></div>
+      <div class="grid4">${mIn(`themes.${ti}.reps.0`,(t.reps||[])[0],'data-mt="num" inputmode="numeric"',"Rép. min")}${mIn(`themes.${ti}.reps.1`,(t.reps||[])[1],'data-mt="num" inputmode="numeric"',"Rép. max")}${mIn(`themes.${ti}.pct.0`,(t.pct||[])[0],'data-mt="num" inputmode="numeric"',"% 1RM min")}${mIn(`themes.${ti}.pct.1`,(t.pct||[])[1],'data-mt="num" inputmode="numeric"',"% 1RM max")}</div></div>`).join("")}
+    <p class="hint" style="margin:0 0 8px">Repères facultatifs, utilisés par le critère « repères du thème ».</p><button class="btn small" data-act="mAddTheme">+ Thème</button></section>
     <section class="card"><div class="sec-h"><h3>Activer pour mes classes</h3></div>${E.id?(act||'<p class="hint">Aucune classe.</p>'):'<p class="hint">Enregistrez d\'abord le carnet.</p>'}<p class="hint" style="margin:6px 0 0">Les élèves le voient une fois publié.</p></section>`;
   if(E.tab==="apercu")body=`<p class="hint" style="margin:0">Remplissez l'aperçu puis « Tester la correction ». Rien n'est enregistré.</p>${gSeance(curS())}`;
   return`<div class="stack">${head}
   <section class="card ia-box"><div class="sec-h"><h3>✨ Demander à l'IA</h3>${modeleHist.length?`<span class="spacer"></span><button class="btn ghost small" data-act="iaUndo">↶ Annuler (${modeleHist.length})</button>`:""}</div>
+    <p class="hint" style="margin:-4px 0 0">Donnez vos consignes de correction : l'IA modifie le bac à sable, vous vérifiez puis vous publiez.</p>
     <textarea id="ia-req" placeholder="ex. Ajoute la fréquence cardiaque à la fin de chaque tour · Le critère de régularité doit tolérer 3 s"></textarea>
+    <label class="f">Joindre un document (facultatif)<input type="file" id="ia-file" accept="application/pdf,image/*"></label>
     <div class="err" id="ia-err"></div><button class="btn primary" data-act="iaEdit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA modifie le carnet…":"Envoyer à l'IA"}</button></section>
   <div class="seg2" style="grid-template-columns:repeat(4,1fr)">${tabs.map(([k,l])=>`<button data-act="mTab" data-t="${k}" aria-current="${E.tab===k}">${l}</button>`).join("")}</div>
   ${body}
@@ -1094,17 +1284,20 @@ async function iaGenerer(){const f1=$("#gen-file").files[0],f2=$("#gen-fiche").f
   if(!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.19-4");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.19-6");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-6");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
+  const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
+  let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.19-4");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-4");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.19-6");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.19-6");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
+    else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
     else E.id=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:null,statut:"brouillon"});
     E.dirty=false;if(!quiet)toast("Brouillon enregistré");rerenderKeep();return true}catch(e){toast(authMsg(e));return false}}
 async function publierModele(){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
@@ -1117,7 +1310,7 @@ function mutDraft(fn,rr=true){const M=modeleEdit.draft;fn(M);modeleEdit.dirty=tr
 function mClick(a,b){if(!modeleEdit)return false;const si=+b.dataset.si,fi=+b.dataset.fi,ci=+b.dataset.ci,mv=(arr,i,d)=>{const j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]]};
   switch(a){
     case"mTab":modeleEdit.tab=b.dataset.t;if(modeleEdit.tab==="apercu")setPreview();render();return true;
-    case"mSandbox":modeleEdit.statut="brouillon";fb.updateModele(modeleEdit.id,{statut:"brouillon"}).catch(x=>toast(authMsg(x)));modeleEdit.tab="seance";render();toast("Bac à sable : les élèves gardent la version publiée");return true;
+    case"mSandbox":modeleEdit.statut="brouillon";(modeleEdit.id?fb.updateModele(modeleEdit.id,{statut:"brouillon"}):saveModele(true)).catch(x=>toast(authMsg(x)));modeleEdit.tab="seance";render();toast("Bac à sable : les élèves gardent la version publiée");return true;
     case"mPublish":publierModele();return true;
     case"mAddSec":mutDraft(M=>M.sections.push({id:newId("s"),titre:"Nouvelle partie",consigne:"",champs:[]}));return true;
     case"mDelSec":confirmBox("Supprimer cette partie ?","Ses cases ne seront plus affichées. Les réponses déjà saisies restent enregistrées.","Supprimer",async()=>{closeModal();mutDraft(M=>M.sections.splice(si,1))},true);return true;
@@ -1145,9 +1338,10 @@ function mField(el,e){if(!modeleEdit||route.name!=="modele")return false;const M
   if(t==="num")v=el.value===""?"":num(el.value);if(t==="list")v=el.value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
   setPath(M,path,v);modeleEdit.dirty=true;
   if(/\.type$/.test(path)&&/^sections\.\d+\.champs\.\d+\.type$/.test(path)&&e.type==="change"){const[, si,fi]=path.match(/sections\.(\d+)\.champs\.(\d+)/);const f=M.sections[+si].champs[+fi];
-    if(v==="tableau"&&!(f.colonnes&&f.colonnes.length))f.colonnes=[{id:newId("k"),type:"texte",label:"Colonne",options:[]}];if(v==="passages"&&!f.nb)f.nb=4;if(v==="echelle"){f.min=f.min||1;f.max=f.max||10}if(v==="choix"&&!f.options)f.options=[]}
+    if(v==="tableau"&&!(f.colonnes&&f.colonnes.length))f.colonnes=[{id:newId("k"),type:"texte",label:"Colonne",options:[]}];if(v==="passages"&&!f.nb)f.nb=4;if(v==="exercices"&&!f.nb)f.nb=3;if(v==="resume")f.src=f.src||{exos:(allFields(normModele(M),["exercices"])[0]||[""])[0],tours:"",temps:""};if(v==="echelle"){f.min=f.min||1;f.max=f.max||10}if(v==="choix"&&!f.options)f.options=[]}
   if(/^criteres\.\d+\.calcul\.type$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci],first=(allFields(normModele(M),["nombre","temps","compteur","echelle"])[0]||[""])[0];
-    c.calcul=v==="seuils"?{type:"seuils",source:{champ:first},sens:"haut",seuils:[3,2,1]}:v==="ecart"?{type:"ecart",source:{champ:first},cible:0,seuils:[1,2,3]}:v==="complet"?{type:"complet",champs:[],seuils:[1,.85,.5]}:{type:"autoeval"}}
+    c.calcul=v==="seuils"?{type:"seuils",source:{champ:first},sens:"haut",seuils:[3,2,1]}:v==="ecart"?{type:"ecart",source:{champ:first},cible:0,seuils:[1,2,3]}:v==="complet"?{type:"complet",champs:[],seuils:[1,.85,.5]}:v==="rythme"?{type:"rythme",source:{champ:(allFields(normModele(M),["passages"])[0]||[""])[0],cible:60,tolerance:5}}:v==="reperes"?{type:"reperes",source:{champ:(allFields(normModele(M),["exercices"])[0]||[""])[0]},min:3}:{type:"autoeval"}}
+  if(/calcul\.condition\.champ$/.test(path)&&e.type==="change"){const c=M.criteres[+path.split(".")[1]].calcul;if(!v)delete c.condition;else c.condition={champ:v,valeur:""}}
   if(/calcul\.source\.champ$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci].calcul,f=gField(normModele(M),v);
     if(f&&f.type==="passages"){c.source.mesure=c.source.mesure||"proportion_dans_cible";if(c.source.cible===undefined)c.source.cible=60;c.source.tolerance=c.source.tolerance??5}
     if(f&&f.type==="tableau"){c.source.colonne=c.source.colonne||(f.colonnes[0]&&f.colonnes[0].id);c.source.agg=c.source.agg||"moyenne"}}
@@ -1161,9 +1355,10 @@ async function toggleActivite(cid,on){const c=classes.find(x=>x.id===cid);if(!c|
 function gClick(a,b,s){const sec=b.dataset.sec,fid=b.dataset.f,i=+b.dataset.i;
   if(a==="gLvl"){if(!RO&&s&&!s.valide)gModalLvl(b.dataset.c,+b.dataset.d);return true}
   if(a==="gTest"){if(s){s.valide=!s.valide;rerenderKeep();if(s.valide){const c=$("#corr");if(c)c.scrollIntoView({behavior:"smooth",block:"start"})}}return true}
-  if(RO||!s||s.valide)return["gCnt","gAddRow","gDelRow","gPas","gNr","gValidate"].includes(a);
+  if(RO||!s||s.valide)return["gCnt","gAddRow","gDelRow","gPas","gNr","gAdapt","gValidate"].includes(a);
   if(a==="gCnt"){s.valeurs[sec][fid]=Math.max(0,(num(s.valeurs[sec][fid])||0)+(+b.dataset.d));save();rerenderKeep();return true}
-  if(a==="gAddRow"){const f=gField(MOD,sec+"."+fid);s.valeurs[sec][fid].push(Object.fromEntries(f.colonnes.map(c=>[c.id,""])));save();rerenderKeep();return true}
+  if(a==="gAddRow"){const f=gField(MOD,sec+"."+fid);s.valeurs[sec][fid].push(f.type==="exercices"?blankExo("gym"):Object.fromEntries(f.colonnes.map(c=>[c.id,""])));save();rerenderKeep();return true}
+  if(a==="gAdapt"){gModalAdapt(sec,fid,i);return true}
   if(a==="gDelRow"){s.valeurs[sec][fid].splice(i,1);gEnsure(MOD,s);save();rerenderKeep();return true}
   if(a==="gPas"){const t=s.valeurs[sec][fid][i];if(!(num(t.passage)>0)&&b.classList.contains("next")&&elapsed()>0){t.passage=Math.round(elapsed()*10)/10;save();rerenderKeep()}else gModalPas(sec,fid,i);return true}
   if(a==="gNr"){const t=s.valeurs[sec][fid][i];t.noRep=Math.max(0,(num(t.noRep)||0)+(+b.dataset.d));save();rerenderKeep();return true}
@@ -1174,8 +1369,9 @@ function gClick(a,b,s){const sec=b.dataset.sec,fid=b.dataset.f,i=+b.dataset.i;
 function gModalAction(a,b,c,s){
   if(a==="gLvlTab"){gModalLvl(b.dataset.c,+b.dataset.d);return true}
   if(a==="gPickLvl"){if(s&&!s.valide&&!RO){s.autoeval[b.dataset.c]=+b.dataset.d;save();rerenderKeep()}closeModal();return true}
-  if(!["gSavePas","gTakePas","gClearPas"].includes(a))return false;
+  if(!["gSavePas","gTakePas","gClearPas","gSaveAd","gClearAd"].includes(a))return false;
   if(!s||RO||s.valide||!c){closeModal();return true}const t=s.valeurs[c.sec][c.fid][c.i];
+  if(a==="gSaveAd"||a==="gClearAd"){if(a==="gClearAd")t.adapt=null;else{const params=[...$("#sheet").querySelectorAll(".checks input:checked")].map(x=>x.value),texte=$("#m-txt").value.trim();t.adapt=params.length||texte?{params,texte}:null}save();closeModal();rerenderKeep();return true}
   if(a==="gTakePas")t.passage=Math.round(elapsed()*10)/10;
   else if(a==="gClearPas")t.passage=null;
   else{const v=parseT($("#m-pas").value);if(isNaN(v)||v<=0){$("#m-err").textContent="Écris le temps au format min:s, par exemple 3:05.";return true}t.passage=Math.round(v*10)/10}

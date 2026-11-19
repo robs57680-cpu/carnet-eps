@@ -58,6 +58,10 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.profId == request.auth.uid;
 
       match /seances/{sid} {
+        function coachCase(p) {
+          return request.resource.data.valeurs.diff(resource.data.valeurs).affectedKeys().hasOnly([p[0]])
+            && request.resource.data.valeurs[p[0]].diff(resource.data.valeurs[p[0]]).affectedKeys().hasOnly([p[1]]);
+        }
         function carnet() { return get(/databases/$(database)/documents/carnets/$(carnetId)).data; }
         allow read: if signedIn() && (resource.data.coachUid == request.auth.uid
           || carnet().eleveUid == request.auth.uid || carnet().profId == request.auth.uid || isDev());
@@ -69,7 +73,11 @@ service cloud.firestore {
           // Le coach choisi par l'élève ne peut écrire que les tours (passages, NO REP, adaptations).
           || (resource.data.coachUid == request.auth.uid && resource.data.valide != true
               && onlyKeys(['real', 'coachMaj'])
-              && request.resource.data.real.diff(resource.data.real).affectedKeys().hasOnly(['tours'])));
+              && request.resource.data.real.diff(resource.data.real).affectedKeys().hasOnly(['tours']))
+          // Carnets modifiables : le coach n'écrit que la case de temps de passage choisie par l'élève.
+          || (resource.data.coachUid == request.auth.uid && resource.data.valide != true
+              && onlyKeys(['valeurs', 'coachMaj'])
+              && coachCase(resource.data.get('coachChamp', 'realisation.tours').split('[.]'))));
         allow delete: if signedIn() && (
           (carnet().eleveUid == request.auth.uid && resource.data.valide != true)
           || carnet().profId == request.auth.uid);

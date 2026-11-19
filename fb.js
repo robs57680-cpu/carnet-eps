@@ -9,7 +9,7 @@ import {
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-4";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-6";
 
 // Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
 export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);
@@ -95,6 +95,8 @@ export const listCoachings = async uid => list(await getDocs(query(collection(db
 /* ---------- Modèles de carnets (créés avec l'IA) ---------- */
 export const listModeles = async profId => list(await getDocs(query(collection(db, "modeles"), where("profId", "==", profId))));
 export const getModele = async id => snap(await getDoc(doc(db, "modeles", id)));
+export const setModele = (id, data) => setDoc(doc(db, "modeles", id), { ...clean(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export const coachSaveVals = (cid, sid, path, val) => updateDoc(doc(db, "carnets", cid, "seances", sid), { ["valeurs." + path]: clean(val), coachMaj: serverTimestamp() });
 export const createModele = async data => (await addDoc(collection(db, "modeles"), { ...clean(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() })).id;
 export const updateModele = (id, patch) => updateDoc(doc(db, "modeles", id), { ...clean(patch), updatedAt: serverTimestamp() });
 export const deleteModele = id => deleteDoc(doc(db, "modeles", id));
