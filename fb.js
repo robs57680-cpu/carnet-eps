@@ -1,30 +1,33 @@
 // Couche d'accès Firebase (Auth + Firestore). Toute l'appli passe par ce fichier.
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut as fbSignOut, sendPasswordResetEmail, updatePassword
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc,
+  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc,
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-1";
 
-export const app = initializeApp(firebaseConfig);
+// Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
+export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);
 // App Check protège l'IA (Gemini) contre les usages extérieurs à l'appli.
-if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.includes("A_REMPLACER")) {
+if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.includes("A_REMPLACER") && !globalThis.__carnetAppCheck) {
+  globalThis.__carnetAppCheck = true;
   try { initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
   catch (e) { console.warn("App Check", e); }
 }
 const auth = getAuth(app);
 let db;
 try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
-catch (e) { db = initializeFirestore(app, {}); }
+catch (e) { db = getFirestore(app); }
 
 // Application secondaire : sert à créer des comptes (élèves, profs) sans déconnecter la personne connectée.
-const app2 = initializeApp(firebaseConfig, "creation-comptes");
-const auth2 = initializeAuth(app2, { persistence: inMemoryPersistence });
+const app2 = getApps().find(a => a.name === "creation-comptes") || initializeApp(firebaseConfig, "creation-comptes");
+let auth2;
+try { auth2 = initializeAuth(app2, { persistence: inMemoryPersistence }); } catch (e) { auth2 = getAuth(app2); }
 
 const clean = o => JSON.parse(JSON.stringify(o, (k, v) => (k.startsWith("_") ? undefined : v)));
 const snap = d => (d.exists() ? { id: d.id, ...d.data() } : null);

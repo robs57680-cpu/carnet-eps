@@ -1,6 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js";
+import * as fb from "./fb.js?v=2026.11.18-3";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.18-3";
+const APP_VERSION="2026.11.18-3";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -664,7 +665,7 @@ function confirmBox(title,text,label,run,danger){openModal(`<h3>${esc(title)}</h
 /* ---------- Événements ---------- */
 document.addEventListener("click",async e=>{const n=e.target.closest("[data-nav]");if(!n)return;const v=n.dataset.nav;
   if(v==="logout"){await flush();if(watchUnsub){watchUnsub();watchUnsub=null;watchKey=null}RO=false;COACH=false;MOD=null;PREVIEW=false;carnetId=null;data=null;await fb.signOut();return}
-  if(v==="home"){location.reload();return}
+  if(v==="home"){location.replace(location.pathname+"?r="+Date.now());return}
   if(v==="acts"){await flush();openActs();return}
   if(v==="suivi"){RO=false;carnetId=null;cur=null;go("suivi");return}
   if(v==="modeles"){PREVIEW=false;openModeles();return}
@@ -693,7 +694,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.18-3");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -786,7 +787,7 @@ else{render();
   fb.onAuth(async u=>{
     if(!u){me=null;RO=false;carnetId=null;data=null;go("login");return}
     go("loading");
-    try{const lent=setTimeout(()=>{if(route.name==="loading")go("error",{msg:"Le chargement est bloqué. Ferme les autres onglets ouverts sur le Carnet d'entraînement (ou redémarre le navigateur), puis recharge la page."})},15000);
+    try{const lent=setTimeout(()=>{if(route.name==="loading")go("error",{msg:"Le chargement est bloqué, sans doute par un autre onglet resté ouvert sur une ancienne version de l'appli. Ferme les autres onglets du Carnet d'entraînement (ou redémarre le navigateur), puis touche « Réessayer »."})},15000);
       let d=await fb.getUser(u.uid);clearTimeout(lent);
       if(!d&&u.email&&u.email.toLowerCase()===String(DEV_EMAIL).toLowerCase()){await fb.setUser(u.uid,{role:"dev",email:u.email});d={role:"dev",email:u.email}}
       if(!d){me={uid:u.uid,role:""};go("noaccount");return}
@@ -1034,13 +1035,13 @@ async function iaGenerer(){const file=$("#gen-file").files[0],texte=$("#gen-text
   if(!file&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
   if(file&&file.size>15*1024*1024){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js");const fichier=file?{mime:file.type||"application/pdf",base64:await fileToB64(file)}:null;
+  try{const ia=await import("./ia.js?v=2026.11.18-3");const fichier=file?{mime:file.type||"application/pdf",base64:await fileToB64(file)}:null;
     const m=await ia.genererModele({fichier,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:m});toast("Ébauche prête : vérifiez-la puis enregistrez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.18-3");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js");const m=await ia.modifierModele(modeleEdit.modele,req,IAKEY);modeleHist.push(clone(modeleEdit.modele));modeleEdit.modele=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié : vérifiez l'aperçu")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.18-3");const m=await ia.modifierModele(modeleEdit.modele,req,IAKEY);modeleHist.push(clone(modeleEdit.modele));modeleEdit.modele=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié : vérifiez l'aperçu")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.18-3");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(){const M=modeleEdit.modele;
   try{if(modeleEdit.id)await fb.updateModele(modeleEdit.id,{titre:M.titre,ca:M.ca,modele:M});else modeleEdit.id=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,modele:M});
     modeleEdit.dirty=false;toast("Carnet enregistré");rerenderKeep()}catch(e){toast(authMsg(e))}}
@@ -1070,3 +1071,17 @@ function gModalAction(a,b,c,s){
   else if(a==="gClearPas")t.passage=null;
   else{const v=parseT($("#m-pas").value);if(isNaN(v)||v<=0){$("#m-err").textContent="Écris le temps au format min:s, par exemple 3:05.";return true}t.passage=Math.round(v*10)/10}
   save();closeModal();rerenderKeep();return true}
+
+/* ---------- Mises à jour de l'appli ---------- */
+let majVersion=null;
+const newer=v=>v&&v!==APP_VERSION&&String(v)>String(APP_VERSION);
+function showMaj(v){if(!newer(v))return;majVersion=v;let b=$("#maj");
+  if(!b){b=document.createElement("div");b.id="maj";b.className="maj";b.setAttribute("role","status");document.body.prepend(b)}
+  b.innerHTML=`<span>🔄 Une nouvelle version de l'appli est disponible.</span><button class="btn small" id="maj-go">Mettre à jour</button>`;
+  $("#maj-go").onclick=majNow;
+  if(document.visibilityState==="hidden")majNow()}
+async function majNow(){try{await Promise.race([flush(),new Promise(r=>setTimeout(r,3000))])}catch(e){}location.replace(location.pathname+"?v="+encodeURIComponent(majVersion||Date.now()))}
+async function checkVersion(){try{const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;const j=await r.json();showMaj(j.version)}catch(e){}}
+let bc=null;try{bc=new BroadcastChannel("carnet-eps");bc.onmessage=e=>{const d=e.data||{};if(d.type==="hello"&&newer(d.v))showMaj(d.v);else if(d.type==="hello"&&d.v&&String(d.v)<String(APP_VERSION))bc.postMessage({type:"hello",v:APP_VERSION})};bc.postMessage({type:"hello",v:APP_VERSION})}catch(e){}
+checkVersion();setInterval(checkVersion,5*60*1000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkVersion();else if(majVersion)majNow()});

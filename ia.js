@@ -1,11 +1,11 @@
 // Assistant IA (Gemini via Firebase AI Logic) : lit un référentiel et produit / modifie un modèle de carnet.
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
-import { app } from "./fb.js?v=2026.11.18-3";
+import { getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
 // Modèles du palier gratuit, essayés dans l'ordre (repli si l'un est indisponible ou saturé).
 const MODELES = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 let ai = null;
-function getAi() { if (!ai) ai = getAI(app, { backend: new GoogleAIBackend() }); return ai; }
+function getAi() { if (!ai) ai = getAI(getApp(), { backend: new GoogleAIBackend() }); return ai; }
 
 const SCHEMA = `
 FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en minuscules ascii sans espace ni accent : a-z, 0-9, _) :
