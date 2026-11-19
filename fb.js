@@ -9,7 +9,7 @@ import {
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-6";
+import { firebaseConfig, RECAPTCHA_SITE_KEY } from "./config.js?v=2026.11.19-9";
 
 // Idempotent : si ce fichier est chargé deux fois (versions en cache différentes), on réutilise la même appli.
 export const app = getApps().some(a => a.name === "[DEFAULT]") ? getApp() : initializeApp(firebaseConfig);
@@ -95,6 +95,38 @@ export const listCoachings = async uid => list(await getDocs(query(collection(db
 /* ---------- Modèles de carnets (créés avec l'IA) ---------- */
 export const listModeles = async profId => list(await getDocs(query(collection(db, "modeles"), where("profId", "==", profId))));
 export const getModele = async id => snap(await getDoc(doc(db, "modeles", id)));
+// Stock : activités partagées entre profs
+export const listStock = async () => list(await getDocs(collection(db, "stock")));
+export const getStock = async id => snap(await getDoc(doc(db, "stock", id)));
+export const createStock = async data => (await addDoc(collection(db, "stock"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const setStock = (id, data) => setDoc(doc(db, "stock", id), { ...clean(data), createdAt: serverTimestamp() });
+export const deleteStock = id => deleteDoc(doc(db, "stock", id));
+// Dossiers d'activité : carnets et fiches rangés comme des documents dans un dossier
+export const listDossiers = async profId => list(await getDocs(query(collection(db, "dossiers"), where("profId", "==", profId))));
+export const getDossier = async id => snap(await getDoc(doc(db, "dossiers", id)));
+export const createDossier = async data => (await addDoc(collection(db, "dossiers"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const updateDossier = (id, patch) => updateDoc(doc(db, "dossiers", id), clean(patch));
+export const deleteDossier = id => deleteDoc(doc(db, "dossiers", id));
+// Carnet partagé par un groupe d'élèves
+export const findGroupeCarnet = async (uid, activite) => list(await getDocs(query(collection(db, "carnets"), where("membres", "array-contains", uid), where("activite", "==", activite))))[0] || null;
+// Mise à jour champ par champ (pages partagées : évite d'écraser le travail d'un camarade)
+export const updateSeance = (cid, sid, patch) => updateDoc(doc(db, "carnets", cid, "seances", sid), clean(patch));
+export const getFiche = async id => snap(await getDoc(doc(db, "fiches", id)));
+export const listFichesProf = async profId => list(await getDocs(query(collection(db, "fiches"), where("profId", "==", profId))));
+// Fiches ressources : métadonnées dans fiches/{id}, contenu (images JPEG ou PDF découpé) dans fiches/{id}/parts/{n}
+export const listFiches = async (profId, activite) => list(await getDocs(query(collection(db, "fiches"), where("profId", "==", profId), where("activite", "==", activite))));
+export async function addFiche(meta, parts) {
+  const ref = await addDoc(collection(db, "fiches"), { ...clean(meta), nb: 0, createdAt: serverTimestamp() });
+  for (let i = 0; i < parts.length; i++) await setDoc(doc(db, "fiches", ref.id, "parts", String(i)), { n: i, ...parts[i] });
+  await updateDoc(doc(db, "fiches", ref.id), { nb: parts.length });
+  return ref.id;
+}
+export const getFicheParts = async id => list(await getDocs(collection(db, "fiches", id, "parts"))).sort((a, b) => a.n - b.n);
+export const updateFiche = (id, patch) => updateDoc(doc(db, "fiches", id), clean(patch));
+export async function deleteFiche(id, nb) {
+  for (let i = 0; i < Math.max(nb || 0, 40); i++) { try { await deleteDoc(doc(db, "fiches", id, "parts", String(i))); } catch (e) { if (i >= (nb || 0)) break; throw e; } }
+  await deleteDoc(doc(db, "fiches", id));
+}
 export const setModele = (id, data) => setDoc(doc(db, "modeles", id), { ...clean(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 export const coachSaveVals = (cid, sid, path, val) => updateDoc(doc(db, "carnets", cid, "seances", sid), { ["valeurs." + path]: clean(val), coachMaj: serverTimestamp() });
 export const createModele = async data => (await addDoc(collection(db, "modeles"), { ...clean(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() })).id;

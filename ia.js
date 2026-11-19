@@ -14,6 +14,11 @@ FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en mi
   "ca": "CA1 | CA2 | CA3 | CA4 | CA5",
   "apsa": "APSA du référentiel",
   "description": "1 phrase pour l'élève",
+  "pages": "seance",          // "seance" : une page par séance (cross training) ; "plusieurs" : une page complétée sur plusieurs séances ; "cycle" : une seule page pour tout le cycle (construction d'un enchaînement d'acrosport)
+  "partage": "aucun",         // "aucun" ; "coach" : un camarade remplit les champs "coach": true depuis son téléphone (CA1, CA5) ; "groupe" : les élèves d'un groupe remplissent les mêmes pages (acrosport, feuille de poule CA4)
+  "noteGroupe": true,         // en groupe : les critères des parties collectives sont notés (même note pour le groupe)
+  // en groupe, chaque section peut avoir "portee": "individuelle" (chaque élève remplit la sienne, note individuelle) ou "collective"
+  // tout champ peut avoir "coach": true (rempli par le coach)
   "rm": false,                                                             // true : le profil de l'élève contient ses 1RM (musculation, cross training)
   "themes": [ { "id": "...", "label": "...", "desc": "...", "reps": [8, 15], "pct": [40, 60] } ],  // thèmes au choix de l'élève (peut être vide) ; reps/pct facultatifs : repères de répétitions et de % du 1RM
   "sections": [ { …, "reprise": true } ]  // reprise : les valeurs de cette section sont reprises de la séance précédente

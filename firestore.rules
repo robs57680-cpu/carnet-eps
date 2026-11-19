@@ -45,41 +45,48 @@ service cloud.firestore {
     // ---------- Carnets d'entraînement ----------
     match /carnets/{carnetId} {
       allow read: if signedIn() && (resource.data.eleveUid == request.auth.uid
+        || request.auth.uid in resource.data.get('membres', [])
         || resource.data.profId == request.auth.uid || isDev());
       allow create: if isEleve()
         && request.resource.data.eleveUid == request.auth.uid
         && request.resource.data.profId == me().profId
         && request.resource.data.classeId == me().classeId
         && carnetId == request.auth.uid + '_' + request.resource.data.activite
-        && !('afl3Prof' in request.resource.data);
+        && !('afl3Prof' in request.resource.data)
+        // Carnet de groupe : créé par un élève qui en fait partie
+        || isEleve()
+        && carnetId.matches('g_[a-z0-9]+')
+        && request.resource.data.groupe == true
+        && request.auth.uid in request.resource.data.membres
+        && request.resource.data.profId == me().profId
+        && request.resource.data.classeId == me().classeId
+        && !('afl3Prof' in request.resource.data) && !('afl3Profs' in request.resource.data);
       allow update: if signedIn() && (
         (resource.data.eleveUid == request.auth.uid && onlyKeys(['profil', 'updatedAt']))
-        || (resource.data.profId == request.auth.uid && onlyKeys(['afl3Prof', 'updatedAt'])));
+        || (request.auth.uid in resource.data.get('membres', []) && onlyKeys(['profil', 'membres', 'logins', 'updatedAt']))
+        || (resource.data.profId == request.auth.uid && onlyKeys(['afl3Prof', 'afl3Profs', 'updatedAt'])));
       allow delete: if signedIn() && resource.data.profId == request.auth.uid;
 
       match /seances/{sid} {
-        function coachCase(p) {
-          return request.resource.data.valeurs.diff(resource.data.valeurs).affectedKeys().hasOnly([p[0]])
-            && request.resource.data.valeurs[p[0]].diff(resource.data.valeurs[p[0]]).affectedKeys().hasOnly([p[1]]);
-        }
         function carnet() { return get(/databases/$(database)/documents/carnets/$(carnetId)).data; }
+        // Propriétaire du carnet, ou membre du groupe pour un carnet partagé
+        function owner() { return carnet().get('eleveUid', '') == request.auth.uid || request.auth.uid in carnet().get('membres', []); }
         allow read: if signedIn() && (resource.data.coachUid == request.auth.uid
-          || carnet().eleveUid == request.auth.uid || carnet().profId == request.auth.uid || isDev());
-        allow create: if signedIn() && carnet().eleveUid == request.auth.uid;
+          || owner() || carnet().profId == request.auth.uid || isDev());
+        allow create: if signedIn() && owner();
         // Une séance validée est verrouillée pour l'élève ; seul le prof peut la déverrouiller.
         allow update: if signedIn() && (
-          (carnet().eleveUid == request.auth.uid && resource.data.valide != true)
+          (owner() && resource.data.valide != true)
           || (carnet().profId == request.auth.uid && onlyKeys(['valide']))
           // Le coach choisi par l'élève ne peut écrire que les tours (passages, NO REP, adaptations).
           || (resource.data.coachUid == request.auth.uid && resource.data.valide != true
               && onlyKeys(['real', 'coachMaj'])
               && request.resource.data.real.diff(resource.data.real).affectedKeys().hasOnly(['tours']))
-          // Carnets modifiables : le coach n'écrit que la case de temps de passage choisie par l'élève.
+          // Carnets modifiables : le coach n'écrit que dans les réponses (cases « remplies par le coach »).
           || (resource.data.coachUid == request.auth.uid && resource.data.valide != true
-              && onlyKeys(['valeurs', 'coachMaj'])
-              && coachCase(resource.data.get('coachChamp', 'realisation.tours').split('[.]'))));
+              && onlyKeys(['valeurs', 'coachMaj'])));
         allow delete: if signedIn() && (
-          (carnet().eleveUid == request.auth.uid && resource.data.valide != true)
+          (owner() && resource.data.valide != true)
           || carnet().profId == request.auth.uid);
       }
     }
@@ -101,7 +108,39 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.eleveUid == request.auth.uid;
     }
 
-    // ---------- Modèles de carnets créés avec l'IA ----------
+    // ---------- Dossiers d'activité (carnets + fiches), lus par les élèves ----------
+    match /dossiers/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+
+    // ---------- Stock : activités partagées entre profs ----------
+    match /stock/{id} {
+      allow read: if isProf();
+      allow create: if isProf() && request.resource.data.auteurId == request.auth.uid
+        && request.resource.data.principe is string && request.resource.data.principe.size() >= 30;
+      allow update: if isProf() && resource.data.auteurId == request.auth.uid
+        && request.resource.data.auteurId == request.auth.uid && request.resource.data.principe.size() >= 30;
+      allow delete: if isProf() && resource.data.auteurId == request.auth.uid;
+    }
+
+    // ---------- Fiches ressources (déposées par le prof, lues par ses élèves) ----------
+    match /fiches/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+      match /parts/{n} {
+        allow read: if signedIn();
+        allow write: if isProf() && get(/databases/$(database)/documents/fiches/$(id)).data.profId == request.auth.uid;
+      }
+    }
+
+    // ---------- Modèles de carnets ----------
     match /modeles/{id} {
       allow read: if signedIn();
       allow create: if isProf() && request.resource.data.profId == request.auth.uid;
