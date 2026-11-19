@@ -237,6 +237,12 @@ ul.miss{margin:0;padding-left:20px}
 
 
 /* ---------- Appli en ligne ---------- */
+.gtab{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr)) 40px;gap:6px;align-items:center}
+.gtab input,.gtab select{padding:8px}
+.gth{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.gf .tours .tr{gap:7px}
+.ia-box{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--panel))}
+.ia-box textarea{min-height:70px}
 html{color-scheme:light}
 .coach-box{display:flex;gap:10px;align-items:flex-start;border:1px dashed var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--panel2)}
 .coach-box.on{border-style:solid;border-color:var(--th,var(--accent));background:color-mix(in srgb,var(--th,var(--accent)) 8%,var(--panel))}
@@ -248,7 +254,8 @@ html{color-scheme:light}
 .sync{font-size:.75rem;font-weight:700;opacity:.85;white-space:nowrap}
 .sync.error{color:#ff8a7a;opacity:1}.sync.offline{color:#ffd166;opacity:1}
 nav.tabs[hidden]{display:none}
-nav.tabs button{white-space:nowrap}
+nav.tabs button{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:420px){nav.tabs button{font-size:.9rem;letter-spacing:.02em}}
 nav.tabs .back{flex:0 0 46px;font-size:1.3rem;color:var(--ink)}
 .center-msg{display:grid;justify-items:center;gap:10px;padding:60px 0;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite}

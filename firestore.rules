@@ -102,6 +102,11 @@ service cloud.firestore {
       allow delete: if isProf() && resource.data.profId == request.auth.uid;
     }
 
+    // ---------- Préférences privées du prof (clé Gemini personnelle) ----------
+    match /prefs/{uid} {
+      allow read, write: if uidIs(uid) && isProf();
+    }
+
     // ---------- Demandes d'accès prof ----------
     match /demandes/{id} {
       allow create: if request.resource.data.keys().hasOnly(['email', 'etablissement', 'message', 'statut', 'createdAt'])

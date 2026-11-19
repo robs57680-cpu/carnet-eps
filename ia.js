@@ -1,6 +1,6 @@
 // Assistant IA (Gemini via Firebase AI Logic) : lit un référentiel et produit / modifie un modèle de carnet.
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
-import { app } from "./fb.js";
+import { app } from "./fb.js?v=2026.11.18-3";
 
 // Modèles du palier gratuit, essayés dans l'ordre (repli si l'un est indisponible ou saturé).
 const MODELES = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
@@ -58,8 +58,45 @@ function parse(txt) {
   return JSON.parse(t.slice(a, b + 1));
 }
 
-async function call(parts) {
+// Appel direct avec la clé Gemini personnelle d'un prof (son propre quota gratuit).
+async function callCle(parts, cle, name) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`, {
+    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle },
+    body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", temperature: 0.3, maxOutputTokens: 32768 } })
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`${r.status} ${(j.error && j.error.message) || r.statusText}`);
+  const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(p => p.text || "").join("");
+  return parse(txt);
+}
+
+/** Vérifie une clé personnelle avec une requête minuscule. */
+export async function testerCle(cle) {
   let lastErr;
+  for (const name of MODELES) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`, {
+        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Réponds OK" }] }], generationConfig: { maxOutputTokens: 5 } })
+      });
+      if (r.ok) return name;
+      const j = await r.json().catch(() => ({}));
+      lastErr = new Error(`${r.status} ${(j.error && j.error.message) || r.statusText}`);
+      if (r.status === 400 || r.status === 401 || r.status === 403) break;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+async function call(parts, cle) {
+  let lastErr;
+  if (cle) {
+    for (const name of MODELES) {
+      try { return await callCle(parts, cle, name); }
+      catch (e) { lastErr = e; if (/^(400|401|403) /.test(String(e.message)) && !/model/i.test(String(e.message))) break; }
+    }
+    throw lastErr;
+  }
   for (const name of MODELES) {
     try {
       const model = getGenerativeModel(getAi(), {
@@ -79,7 +116,8 @@ async function call(parts) {
 
 export function iaMessage(e) {
   const m = String((e && e.message) || e || "");
-  if (/429|quota|exhausted|rate/i.test(m)) return "L'IA gratuite est saturée pour le moment (quota atteint). Réessayez dans quelques minutes.";
+  if (/API key not valid|API_KEY_INVALID|^40[13] /i.test(m)) return "Votre clé Gemini personnelle est refusée. Vérifiez-la dans « Compte ».";
+  if (/429|quota|exhausted|rate/i.test(m)) return "L'IA gratuite est saturée pour le moment (quota atteint). Réessayez plus tard, ou ajoutez votre clé Gemini personnelle dans « Compte ».";
   if (/app.?check/i.test(m)) return "L'IA refuse la requête (vérification App Check). Rechargez la page et réessayez.";
   if (/network|fetch/i.test(m)) return "Pas de connexion internet.";
   if (/illisible|JSON/i.test(m)) return "L'IA a renvoyé une réponse incomplète. Réessayez.";
@@ -87,22 +125,22 @@ export function iaMessage(e) {
 }
 
 /** Crée une ébauche de modèle à partir d'un référentiel (fichier PDF/image en base64 et/ou texte). */
-export async function genererModele({ fichier, texte, consignes }) {
+export async function genererModele({ fichier, texte, consignes, cle }) {
   const parts = [{ text: `Tu es un expert de l'EPS au lycée (référentiels du baccalauréat, France). À partir du référentiel d'évaluation fourni, conçois le carnet d'entraînement numérique que l'élève remplira à chaque séance, avec une correction automatique fidèle au référentiel.
 ${SCHEMA}
 ${consignes ? "CONSIGNES DU PROFESSEUR : " + consignes : ""}` }];
   if (fichier) parts.push({ inlineData: { mimeType: fichier.mime, data: fichier.base64 } });
   if (texte) parts.push({ text: "RÉFÉRENTIEL (texte) :\n" + texte });
-  return call(parts);
+  return call(parts, cle);
 }
 
 /** Applique une demande du prof à un modèle existant. */
-export async function modifierModele(modele, demande) {
+export async function modifierModele(modele, demande, cle) {
   return call([{ text: `Tu modifies un carnet d'entraînement EPS existant à la demande du professeur.
 ${SCHEMA}
 - Garde les identifiants existants inchangés (les élèves ont déjà des données), sauf pour ce qui est supprimé.
 - Ne change que ce qui est demandé.
 MODÈLE ACTUEL :
 ${JSON.stringify(modele)}
-DEMANDE DU PROFESSEUR : ${demande}` }]);
+DEMANDE DU PROFESSEUR : ${demande}` }], cle);
 }

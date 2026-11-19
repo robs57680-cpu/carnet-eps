@@ -625,7 +625,13 @@ function vCompte(){return`<div class="stack"><h2>Mon compte</h2>
   <form class="card stack" id="chg-pwd" style="gap:10px"><h3>Changer mon mot de passe</h3>
     <label class="f">Nouveau mot de passe<input id="cp-1" type="password" minlength="8" autocomplete="new-password" required></label>
     <label class="f">Confirmer<input id="cp-2" type="password" minlength="8" autocomplete="new-password" required></label>
-    <div class="err" id="cp-err"></div><button class="btn primary" type="submit">Enregistrer</button></form></div>`}
+    <div class="err" id="cp-err"></div><button class="btn primary" type="submit">Enregistrer</button></form>
+  <form class="card stack" id="ia-key" style="gap:10px"><div class="row"><h3>Mon quota IA personnel</h3><span class="spacer"></span><span class="chip" style="${IAKEY?"border-color:var(--d4);color:var(--d4)":""}">${IAKEY?"✓ Clé personnelle active":"Quota partagé"}</span></div>
+    <p class="hint" style="margin:0">Par défaut, l'IA utilise un quota gratuit partagé entre tous les profs de l'appli. Avec votre propre clé Gemini (gratuite, sans carte bancaire), vous avez votre quota rien qu'à vous.</p>
+    <ol class="hint" style="margin:0;padding-left:20px"><li>Ouvrez <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> avec votre compte Google.</li><li>Cliquez sur « Create API key » et copiez la clé.</li><li>Collez-la ci-dessous. Elle est enregistrée dans votre compte, visible de vous seul.</li></ol>
+    <label class="f">Clé Gemini<input id="ik-val" type="password" autocomplete="off" placeholder="${IAKEY?"•••••••• (clé enregistrée)":"AIza…"}"></label>
+    <div class="err" id="ik-err"></div>
+    <div class="row"><button class="btn primary" type="submit">Vérifier et enregistrer</button>${IAKEY?`<button class="btn danger" type="button" data-act="delIaKey">Retirer ma clé</button>`:""}</div></form></div>`}
 
 /* ---------- Fenêtres ---------- */
 $("#modal").addEventListener("click",async e=>{if(e.target.id==="modal"){closeModal();return}
@@ -685,6 +691,10 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
     try{const id=await fb.createClasse({profId:me.uid,nom,annee,nbEleves:0,reglages:{}});await loadClasses();await openClasse(id,"eleves");toast("Classe créée : ajoutez les comptes élèves")}catch(x){toast(authMsg(x))}return}
   if(f.id==="add-eleves"){const n=Math.max(1,Math.min(40,parseInt($("#ae-n").value)||0));addEleves(n);return}
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
+  if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
+    btn.disabled=true;btn.textContent="Vérification…";
+    try{const ia=await import("./ia.js");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
     try{await fb.changePassword(a);f.reset();err.textContent="";toast("Mot de passe modifié")}catch(x){err.textContent=authMsg(x)}return}});
@@ -714,6 +724,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
       catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="delClasse"){confirmBox("Supprimer la classe ?",`La classe ${esc(classe.nom)} sera supprimée.`,"Supprimer",async()=>{try{await fb.deleteClasse(classe.id);closeModal();await loadClasses();go("classes")}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="exportCSV"){exportCSV();return}
+  if(a==="delIaKey"){fb.setPrefs(me.uid,{geminiKey:""}).then(()=>{IAKEY="";toast("Clé retirée : retour au quota partagé");render()}).catch(x=>toast(authMsg(x)));return}
   if(a==="resetSettings"){settings=clone(DEF_SETTINGS);saveReglages();render();return}
   if(a==="setA3"){setAfl3(+b.dataset.d);return}
   if(a==="unlock"){const s=curS();confirmBox("Déverrouiller la séance ?","L'élève pourra de nouveau la modifier, puis devra la valider à nouveau.","Déverrouiller",async()=>{
@@ -775,17 +786,18 @@ else{render();
   fb.onAuth(async u=>{
     if(!u){me=null;RO=false;carnetId=null;data=null;go("login");return}
     go("loading");
-    try{let d=await fb.getUser(u.uid);
+    try{const lent=setTimeout(()=>{if(route.name==="loading")go("error",{msg:"Le chargement est bloqué. Ferme les autres onglets ouverts sur le Carnet d'entraînement (ou redémarre le navigateur), puis recharge la page."})},15000);
+      let d=await fb.getUser(u.uid);clearTimeout(lent);
       if(!d&&u.email&&u.email.toLowerCase()===String(DEV_EMAIL).toLowerCase()){await fb.setUser(u.uid,{role:"dev",email:u.email});d={role:"dev",email:u.email}}
       if(!d){me={uid:u.uid,role:""};go("noaccount");return}
       me={uid:u.uid,...d};
-      if(me.role==="eleve"){openActs()}else{await loadClasses();go("classes")}}
+      if(me.role==="eleve"){openActs()}else{try{const pr=await fb.getPrefs(u.uid);IAKEY=(pr&&pr.geminiKey)||""}catch(e){IAKEY=""}await loadClasses();go("classes")}}
     catch(e){console.error(e);go("error",{msg:authMsg(e)})}})}
 
 /* ====================================================================
    Carnets génériques (modèles créés avec l'IA à partir d'un référentiel)
    ==================================================================== */
-let MOD=null,MODDOC=null,PREVIEW=false,modeles=[],modeleEdit=null,modeleHist=[],iaBusy=false,actsList=[];
+let IAKEY="",MOD=null,MODDOC=null,PREVIEW=false,modeles=[],modeleEdit=null,modeleHist=[],iaBusy=false,actsList=[];
 const G_TYPES={texte:"Texte",texte_long:"Texte long",nombre:"Nombre",temps:"Temps",choix:"Choix",case:"Case à cocher",echelle:"Échelle",compteur:"Compteur",tableau:"Tableau",passages:"Temps de passage"};
 const AGG_FR={moyenne:"moyenne",somme:"somme",max:"maximum",min:"minimum",nombre:"nombre de lignes",dernier:"dernière valeur",ecart_premier_dernier:"écart entre première et dernière valeur"};
 const MES_FR={proportion_dans_cible:"part des tours dans le temps visé",nb_hors_cible:"tours hors du temps visé",norep:"total des NO REP",termine:"séance terminée",temps_total:"temps total"};
@@ -1001,7 +1013,7 @@ function vModeles(){return`<div class="stack"><h2>Carnets créés avec l'IA</h2>
     <label class="f">Vos consignes (facultatif)<textarea id="gen-cons" placeholder="ex. Séances de 1 h, 4 tours de 8 min, fréquence cardiaque en fin de tour, niveau terminale"></textarea></label>
     <div class="err" id="gen-err"></div>
     <button class="btn primary big" type="submit" ${iaBusy?"disabled":""}>${iaBusy?"L'IA lit le référentiel…":"✨ Créer l'ébauche avec l'IA"}</button>
-    <p class="hint" style="margin:0">Gemini (gratuit, quota limité). La génération prend environ 30 secondes à 2 minutes. Vérifiez toujours l'ébauche avant de l'activer pour une classe.</p></form></div>`}
+    <p class="hint" style="margin:0">${IAKEY?"Gemini avec votre clé personnelle (votre propre quota gratuit).":"Gemini, quota gratuit partagé entre les profs de l'appli. Pour avoir votre propre quota, ajoutez votre clé Gemini dans « Compte »."} La génération prend environ 30 secondes à 2 minutes. Vérifiez toujours l'ébauche avant de l'activer pour une classe.</p></form></div>`}
 function startEditor(doc){modeleEdit={id:doc.id||null,modele:normModele(doc.modele),dirty:!doc.id};modeleHist=[];setPreview();go("modele")}
 function setPreview(){MOD=modeleEdit.modele;PREVIEW=true;RO=false;carnetId=null;carnetDoc=null;const s={id:"apercu",ordre:1,date:today(),valide:false,epreuve:false,theme:MOD.themes[0]&&MOD.themes[0].id||"",valeurs:{},autoeval:{}};gEnsure(MOD,s);data={profil:{projet:"",repartition:"4-4"},seances:[s]};cur=s.id}
 function vModele(){const M=modeleEdit.modele;const myClasses=classes;
@@ -1023,11 +1035,11 @@ async function iaGenerer(){const file=$("#gen-file").files[0],texte=$("#gen-text
   if(file&&file.size>15*1024*1024){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   iaBusy=true;render();
   try{const ia=await import("./ia.js");const fichier=file?{mime:file.type||"application/pdf",base64:await fileToB64(file)}:null;
-    const m=await ia.genererModele({fichier,texte:texte.slice(0,60000),consignes});iaBusy=false;startEditor({modele:m});toast("Ébauche prête : vérifiez-la puis enregistrez")}
+    const m=await ia.genererModele({fichier,texte:texte.slice(0,60000),consignes,cle:IAKEY});iaBusy=false;startEditor({modele:m});toast("Ébauche prête : vérifiez-la puis enregistrez")}
   catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js");const m=await ia.modifierModele(modeleEdit.modele,req);modeleHist.push(clone(modeleEdit.modele));modeleEdit.modele=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié : vérifiez l'aperçu")}
+  try{const ia=await import("./ia.js");const m=await ia.modifierModele(modeleEdit.modele,req,IAKEY);modeleHist.push(clone(modeleEdit.modele));modeleEdit.modele=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié : vérifiez l'aperçu")}
   catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(){const M=modeleEdit.modele;
   try{if(modeleEdit.id)await fb.updateModele(modeleEdit.id,{titre:M.titre,ca:M.ca,modele:M});else modeleEdit.id=await fb.createModele({profId:me.uid,titre:M.titre,ca:M.ca,modele:M});

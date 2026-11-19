@@ -40,6 +40,9 @@ Sur la page de connexion : **Initialiser le compte développeur** → choisir un
 - **Élève** : se connecte avec son identifiant → Cross training → son carnet. Une séance validée est verrouillée ; seul le prof peut la déverrouiller depuis le carnet de l'élève.
 - **Coach** : dans la partie « Je réalise », l'élève entre l'identifiant d'un camarade de sa classe. Ce camarade retrouve la séance dans « Séances à coacher » et relève depuis son propre téléphone les temps de passage, les NO REP et les adaptations, qui s'affichent en direct chez l'élève. Le coach n'a accès qu'à cette partie de cette séance, et plus rien une fois la séance validée.
 
+## Publier une nouvelle version
+Changer le numéro de version au même endroit partout (`version.json`, `APP_VERSION` et les `?v=` dans `index.html`, `app.js`, `fb.js`, `ia.js`), puis déposer les fichiers sur GitHub. Les appareils qui ont l'appli ouverte affichent alors un bandeau « Mettre à jour » (vérification toutes les 5 minutes et à chaque retour sur l'appli), et les onglets en arrière-plan se mettent à jour seuls.
+
 ## Si Firestore demande un index
 Si l'écran « Carnets des élèves » affiche une erreur d'index, ouvrez la console du navigateur : Firebase fournit un lien qui crée l'index en un clic.
 
@@ -47,7 +50,8 @@ Si l'écran « Carnets des élèves » affiche une erreur d'index, ouvrez la con
 - Onglet **Carnets IA** (profs) : importer un référentiel (PDF, photo ou texte) → l'IA Gemini prépare une ébauche de carnet (parties, champs, critères, barème, correction automatique).
 - Le prof la vérifie dans l'aperçu (« Tester la correction »), la modifie en écrivant ses demandes à l'IA (avec annulation), l'enregistre puis l'active pour ses classes.
 - Les élèves de ces classes voient l'activité à côté du CA5 ; le prof suit les carnets comme pour le CA5.
-- IA : Firebase AI Logic, API Gemini Developer (palier gratuit, quota limité par jour), protégée par App Check (Fraud Defense / reCAPTCHA Enterprise, clé de site dans config.js).
+- IA : Firebase AI Logic, API Gemini Developer (palier gratuit, quota limité par jour et partagé entre les profs), protégée par App Check (Fraud Defense / reCAPTCHA Enterprise, clé de site dans config.js).
+- Quota personnel : un prof peut coller sa propre clé Gemini gratuite (aistudio.google.com/apikey) dans « Compte » ; elle est stockée dans `prefs/{uid}` (lisible par lui seul) et ses demandes IA utilisent alors son propre quota.
 
 ## Sécurité (firestore.rules)
 - Un élève ne lit et n'écrit que son propre carnet, et ne peut plus modifier une séance validée.

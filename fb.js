@@ -96,6 +96,10 @@ export const createModele = async data => (await addDoc(collection(db, "modeles"
 export const updateModele = (id, patch) => updateDoc(doc(db, "modeles", id), { ...clean(patch), updatedAt: serverTimestamp() });
 export const deleteModele = id => deleteDoc(doc(db, "modeles", id));
 
+/* ---------- Préférences privées du prof (clé Gemini personnelle) ---------- */
+export const getPrefs = async uid => snap(await getDoc(doc(db, "prefs", uid)));
+export const setPrefs = (uid, data) => setDoc(doc(db, "prefs", uid), clean(data), { merge: true });
+
 /* ---------- Demandes d'accès prof ---------- */
 export const createDemande = data => addDoc(collection(db, "demandes"), { ...clean(data), statut: "nouvelle", createdAt: serverTimestamp() });
 export const listDemandes = async () => list(await getDocs(collection(db, "demandes")));
