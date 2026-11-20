@@ -33,7 +33,11 @@ FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en mi
           "colonnes": [ { "id": "...", "type": "texte|nombre|temps|choix", "label": "...", "options": [] } ],  // type tableau
           "nb": 4, "nbChamp": "section.champ", "noRep": true, "adapt": true, "coach": true,  // type passages : nombre de tours fixe ou lu dans un champ nombre ; noRep : compteur par tour ; adapt : bouton adaptation par tour ; coach : un camarade peut remplir depuis son téléphone
           "nb": 3,                                  // type exercices : nombre de lignes au départ
-          "src": { "exos": "section.exercices", "tours": "section.nombre", "temps": "section.temps" }  // type resume
+          "src": { "exos": "section.exercices", "tours": "section.nombre", "temps": "section.temps" },  // type resume
+          // type grille (TABLEAU À DOUBLE ENTRÉE du référentiel, calculé automatiquement, jamais rempli par l'élève) :
+          "lignes":   { "titre": "Acros", "src": [ { "champ": "section.tableau", "colonne": "id" }, { "champ": "section.nombre" } ], "seuils": [0, 4, 7, 10] },
+          "colonnes": { "titre": "Étoiles", "src": [ { "champ": "section.choix1" }, { "champ": "section.choix2" } ], "seuils": [0, 4, 7, 10] },
+          "notes": [ [1, 2, 3, 4], [3, 4, 5, 6], [5, 6, 8, 9], [7, 9, 11, 12] ]   // notes[ligne][colonne], recopiées EXACTEMENT du référentiel
         } ] } ],
   "criteres": [
     { "id": "...", "afl": "AFL1|AFL2|AFL3", "label": "élément évalué du référentiel",
@@ -43,17 +47,19 @@ FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en mi
       "calcul": CALCUL } ],
   "bareme": { "afl1": { "max": 12, "table": [ { "pts": 6, "note": 0.5 } ] } }   // table facultative : conversion points → note si le référentiel en donne une
 }
-TYPES de champ : texte, texte_long, nombre, temps (format min:s), choix, case (oui/non), echelle, compteur (+/-), tableau (lignes ajoutables), passages (chronomètre + temps de passage par tour), exercices (lignes exercice / type haltéro-gym-cardio / répétitions / charge ou niveau, avec % du 1RM), resume (récapitulatif lisible d'un champ exercices).
+TYPES de champ : texte, texte_long, nombre, temps (format min:s), choix, case (oui/non), echelle, compteur (+/-), tableau (lignes ajoutables), passages (chronomètre + temps de passage par tour), exercices (lignes exercice / type haltéro-gym-cardio / répétitions / charge ou niveau, avec % du 1RM), resume (récapitulatif lisible d'un champ exercices), grille (tableau à double entrée calculé : note lue au croisement de deux grandeurs).
 CALCUL (correction automatique) — choisir le plus fidèle au référentiel :
   { "type": "seuils", "source": SOURCE, "sens": "haut|bas", "seuils": [s4, s3, s2] }   // sens haut : >= s4 → degré 4, >= s3 → 3, >= s2 → 2, sinon 1 ; sens bas : <= s4 → 4 …
   { "type": "ecart", "source": SOURCE, "cible": SOURCE ou nombre, "seuils": [e4, e3, e2] }  // |source - cible| <= e4 → degré 4 …
   { "type": "complet", "champs": ["section.champ", …], "seuils": [1, 0.85, 0.5] }      // proportion de champs remplis
   { "type": "rythme", "source": { "champ": "section.passages", "cible": SOURCE ou nombre, "tolerance": 5 }, "condition": { "champ": "section.choix", "valeur": "option" } }  // charge : D4 rythme tenu jusqu'au bout, D3 décroche sur les 2 derniers tours, D2 à partir de la moitié, D1 avant ou non terminé (ou condition vraie)
   { "type": "reperes", "source": { "champ": "section.exercices" }, "min": 3 }   // exercices conformes aux repères du thème (répétitions, % 1RM) : D4 tous, D3 un hors repère, D2 deux, D1 plus
+  { "type": "grille", "champ": "section.grille" }   // la note lue dans un champ grille compte directement en AFL1 (sur le maximum du tableau)
   { "type": "autoeval" }                                                                 // l'élève se positionne avec les descripteurs (obligatoire si rien n'est mesurable, et pour AFL2/AFL3)
 SOURCE : { "champ": "section.champ" } pour un champ nombre/temps/echelle/compteur/case/choix ;
          { "champ": "section.tableau", "colonne": "id", "agg": "moyenne|somme|max|min|nombre|dernier|ecart_premier_dernier" } ;
          { "champ": "section.passages", "mesure": "proportion_dans_cible|nb_hors_cible|norep|adaptations|termine|temps_total", "cible": SOURCE ou nombre (secondes), "tolerance": 5 }.
+TABLEAU À DOUBLE ENTRÉE : si le référentiel donne une note au croisement de deux grandeurs (ex. points acros en lignes × étoiles en colonnes, difficulté × exécution), crée des champs pour saisir ces grandeurs, puis UN champ "grille" qui les additionne (src = liste de champs : nombre, compteur, échelle, choix — un choix vaut le dernier nombre de son texte, ex. « Tous les éléments (3 étoiles) » = 3 —, ou colonne d'un tableau) ; "seuils" = valeur minimale de chaque ligne / colonne, dans l'ordre croissant ; "notes" = toutes les cases du tableau, sans en inventer. Puis un critère AFL1 { "type": "grille", "champ": "section.grille" }. Ne demande jamais à l'élève de lire lui-même le tableau.
 RÈGLES :
 - Tout « section.champ » cité doit exister. Les champs mesurés par un calcul doivent être des nombres/temps/compteurs, pas du texte.
 - Reprendre fidèlement les AFL, éléments évalués, degrés et barèmes du référentiel (points, conversion). AFL1 sur 12 points ; AFL2 et AFL3 se partagent 8 points (répartition choisie par l'élève).

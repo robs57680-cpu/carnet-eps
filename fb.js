@@ -186,3 +186,10 @@ export const getVigie = async uid => snap(await getDoc(doc(db, "vigie", uid)));
 export const setVigie = (uid, data) => setDoc(doc(db, "vigie", uid), clean(data), { merge: true });
 export const updateVigie = (uid, patch) => updateDoc(doc(db, "vigie", uid), clean(patch));
 export const listVigie = async (profId, classeId) => list(await getDocs(query(collection(db, "vigie"), where("profId", "==", profId), where("classeId", "==", classeId))));
+/* ---------- Corrections du prof (une par page de carnet : id = carnetId__sid) ---------- */
+// Le prof lit toutes ses corrections ; l'élève ne lit que celles envoyées et rendues visibles.
+export const listCorrections = async (profId, classeId, activite) => list(await getDocs(query(collection(db, "corrections"), where("profId", "==", profId), where("classeId", "==", classeId), ...(activite ? [where("activite", "==", activite)] : []))));
+export const listCorrectionsEleve = async (uid, carnetId) => list(await getDocs(query(collection(db, "corrections"), where("eleves", "array-contains", uid), where("carnetId", "==", carnetId), where("visible", "==", true))));
+export const setCorrection = (id, data) => setDoc(doc(db, "corrections", id), { ...clean(data), maj: serverTimestamp() });
+export const updateCorrection = (id, patch) => updateDoc(doc(db, "corrections", id), { ...clean(patch), maj: serverTimestamp() });
+export const deleteCorrection = id => deleteDoc(doc(db, "corrections", id));

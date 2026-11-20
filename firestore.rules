@@ -91,6 +91,22 @@ service cloud.firestore {
       }
     }
 
+    // ---------- Corrections du prof (id = carnetId__sid) ----------
+    // Le prof corrige les pages de ses élèves ; l'élève (ou chaque membre du groupe) ne lit la correction
+    // qu'une fois envoyée ET rendue visible par le prof (visible == true).
+    match /corrections/{id} {
+      allow read: if signedIn() && (resource.data.profId == request.auth.uid
+        || (request.auth.uid in resource.data.get('eleves', []) && resource.data.visible == true));
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid
+        && id == request.resource.data.carnetId + '__' + request.resource.data.sid
+        && get(/databases/$(database)/documents/carnets/$(request.resource.data.carnetId)).data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid
+        && request.resource.data.carnetId == resource.data.carnetId
+        && request.resource.data.sid == resource.data.sid;
+      allow delete: if signedIn() && resource.data.profId == request.auth.uid;
+    }
+
     // ---------- Identifiants élèves (pour choisir un coach de sa classe) ----------
     match /logins/{login} {
       allow read: if signedIn() && (resource.data.profId == request.auth.uid
