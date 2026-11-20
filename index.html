@@ -593,7 +593,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.21-6) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.21-7) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -904,6 +904,16 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 .ff-t-case label.row{justify-content:center;gap:0!important}.ff-t-case input{width:28px!important;height:28px!important}
 .ff-cell .ps-auto{min-height:30px;padding:4px 8px;font-size:14px}.ff-cell .calc-v{min-height:30px;padding:3px 8px;font-size:1.1rem}
 .ff-coach .gf :is(input:not([type=checkbox]),select,textarea,.cnt){outline:2px solid #ffd6a8;outline-offset:-1px}.ff-t-case input{accent-color:#1f6feb;min-width:0!important;-webkit-appearance:checkbox!important;appearance:auto!important;opacity:1!important}.ff-cell select{-webkit-appearance:menulist!important;appearance:auto!important}.ff-t-case label.row{display:flex!important}.ff-cell .calc-v~.hint{display:none}
+/* Choix en cases colorées, comme la fiche papier (2026.11.21-7) */
+.ff-tiles{display:inline-flex;gap:6px;flex-wrap:nowrap;vertical-align:middle}
+.ff-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:46px;padding:5px 6px 4px;border:1.5px solid #1f2937;border-radius:8px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1.1;color:#111;user-select:none;-webkit-tap-highlight-color:transparent}
+.ff-tile input{position:absolute;opacity:0;width:1px!important;height:1px!important;min-width:0!important;min-height:0!important;pointer-events:none}
+.ff-tile .ff-box{width:18px;height:18px;border:1.5px solid #1f2937;border-radius:3px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;color:#0a7a3f;font-weight:900}
+.ff-tile.on{box-shadow:0 0 0 3px #1f6feb;border-color:#1f6feb}
+.ff-tile.fonce .ff-opt{color:#fff}
+.ff-tile:has(input:focus-visible){outline:2px solid #1f6feb;outline-offset:2px}
+fieldset[disabled] .ff-tile,.ff-tile:has(input:disabled){cursor:default}
+.ff-coach .ff-tile{outline:none}
 .ff-more{margin-top:10px;border-top:1px dashed #d5d9e2;padding-top:6px}
 body.carnet .ff-fiche,body.carnet .ff-fiche *{color-scheme:light}
 /* QCM (2026.11.20-10) */
@@ -969,6 +979,6 @@ div.hn2-go{background:none;padding:0}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.21-6"></script>
+<script type="module" src="app.js?v=2026.11.21-7"></script>
 </body>
 </html>
