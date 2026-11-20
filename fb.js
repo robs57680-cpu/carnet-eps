@@ -142,6 +142,7 @@ export const listSessionsActives = async (classeId, profId) => list(await getDoc
 export const listLoginsClasse = async (profId, classeId) => list(await getDocs(query(collection(db, "logins"), where("profId", "==", profId), where("classeId", "==", classeId))));
 export const getSession = async id => snap(await getDoc(doc(db, "sessions", id)));
 export const createSession = async data => (await addDoc(collection(db, "sessions"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const deleteSession = id => deleteDoc(doc(db, "sessions", id));
 export const updateSession = (id, patch) => updateDoc(doc(db, "sessions", id), clean(patch));
 export const setMatch = (sid, key, data) => setDoc(doc(db, "sessions", sid, "matchs", key), clean(data), { merge: true });
 export const watchMatchs = (sid, cb) => onSnapshot(collection(db, "sessions", sid, "matchs"), s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.warn(e));

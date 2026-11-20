@@ -1,6 +1,6 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.21-2";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-2";
+import * as fb from "./fb.js?v=2026.11.21-3";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-3";
 const APP_VERSION="2026.11.21-2";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
@@ -782,7 +782,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.21-2");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.21-3");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -888,7 +888,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="toolFeuille"){openFeuilleLocale();return}
   if(a==="flBack"){FE=null;openActs();return}
   if(a==="flAdd"){if(FL.joueurs.length<8){FL.joueurs.push("");lsSet("feuilleLocale",FL);rerenderKeep()}return}
-  if(a==="flDel"){if(FL.joueurs.length>3){const n=FL.joueurs.length;FL.joueurs.splice(i,1);FL.M={};lsSet("feuilleLocale",FL);rerenderKeep();if(Object.keys(FL.M).length===0&&n)toast("Liste des joueurs modifiée")}return}
+  if(a==="flDel"){if(FL.joueurs.length>3){const n=FL.joueurs.length;FL.joueurs.splice(i,1);if(Array.isArray(FL.src))FL.src.splice(i,1);FL.M={};lsSet("feuilleLocale",FL);rerenderKeep();if(Object.keys(FL.M).length===0&&n)toast("Liste des joueurs modifiée")}return}
   if(a==="flStart"){FL.etape="feuille";lsSet("feuilleLocale",FL);render();window.scrollTo(0,0);return}
   if(a==="flEdit"){FL.etape="reglages";lsSet("feuilleLocale",FL);render();return}
   if(a==="flReset"){confirmBox("Nouveau tournoi ?","Les scores de cette feuille seront effacés.","Effacer",async()=>{closeModal();FL.M={};FL.etape="reglages";lsSet("feuilleLocale",FL);render()},true);return}
@@ -1813,19 +1813,19 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.21-2");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.21-3");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;m.partage=m.partage==="groupe"?"groupe":"coach";
       try{const pr=/pdf/i.test(f2.type)||/\.pdf$/i.test(f2.name)?await pdfParts(f2,()=>{}):{type:"images",parts:await imageParts(f2)};m.gabarit.ficheId=await fb.addFiche({profId:me.uid,activite:dossier?dossier.id:"",titre:"Fiche d'origine · "+String(m.titre||f2.name).slice(0,60),type:pr.type,origine:true},pr.parts)}catch(x){console.warn("fiche d'origine",x)}}
     else m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-3");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.21-2");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.21-3");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-3");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -2061,7 +2061,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-2" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-3" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?qResItems(its)+coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -2230,7 +2230,7 @@ function vFeuille(S,M,edit){const myPi=S.poules.findIndex(p=>p.joueurs.includes(
         ${edit?`<button class="btn small arb" data-act="arbitrer" data-pi="${pi}" data-a="${x.a}" data-b="${x.b}" aria-label="J'arbitre ce match">⚖️ J'arbitre</button>`:""}
         ${s&&s.d.arbitre?`<span class="hint arb-by">arbitré par ${esc(s.d.arbitre)}</span>`:""}</div>`}).join("");
     return`<details class="card poule" ${mine||S.poules.length===1?"open":""}><summary><strong>${esc(P.nom)}</strong>${mine?' <span class="chip">Ma poule</span>':""}<span class="spacer"></span><span class="hint">${faits} / ${nb} matchs</span></summary>
-      <div class="row" style="margin:8px 0"><label class="f" style="max-width:160px">Terrains<select data-ter="${pi}" ${edit?"":"disabled"}>${[1,2,3,4].map(n=>`<option value="${n}" ${n===T?"selected":""}>${n} terrain${n>1?"s":""}</option>`).join("")}</select></label><span class="hint">${P.joueurs.length} joueurs · ${pl.length?pl[pl.length-1].rot:0} rotations</span></div>
+      <div class="row" style="margin:8px 0"><label class="f" style="max-width:160px">Terrains<select data-ter="${pi}" ${edit?"":"disabled"}>${[1,2,3,4].map(n=>`<option value="${n}" ${n===T?"selected":""}>${n} terrain${n>1?"s":""}</option>`).join("")}</select></label><span class="hint">${P.joueurs.length} joueurs · ${pl.length?pl[pl.length-1].rot:0} rotations</span><span class="spacer"></span><button class="btn ghost small" data-fm="detail" data-pi="${pi}">🔍 Détail de la poule</button></div>
       ${(()=>{const ev=cfgFor({},null,S).bonusMode==="eval"&&cfgFor({},null,S).bonus.length;return`<table class="classt"><thead><tr><th>#</th><th>Joueur</th><th>V</th><th>N</th><th>D</th><th>Diff</th>${ev?"<th>Bonus</th>":""}</tr></thead><tbody>${cl.map((r,i)=>`<tr${r.u===me.uid?' class="me"':""}><td>${i+1}</td><td>${esc(nomDe(r.u,S.noms))}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.pm-r.pe>0?"+":""}${r.pm-r.pe}</td>${ev?`<td>${r.bo}</td>`:""}</tr>`).join("")}</tbody></table>`})()}
       <div class="matchs">${rows}</div></details>`}).join("")}
 async function saveScore(el){if(!FE)return;const k=el.dataset.ms,a=el.dataset.a,b=el.dataset.b,row=el.closest(".mrow"),[ia,ib]=row.querySelectorAll("input.sc");
@@ -2271,8 +2271,8 @@ function scRender(){const el=$("#scoreur");if(!el||!SC)return;
   <div class="sc-actions"><button class="sc-reset" data-scx="reset">↻ Réinitialiser</button>${SC.ctx?`<button class="sc-valid" data-scx="valid">✅ Valider le score</button>`:""}</div>`}
 function scClick(e){const b=e.target.closest("button");if(!b||!SC)return;
   if(b.dataset.sc){const T=SC[b.dataset.sc],v=parseInt(b.dataset.v)||1,l=b.dataset.l||"Point";
-    if(b.dataset.bonus&&SC.cfg.bonusMode==="eval"){T.b[l]=(T.b[l]||0)+1;T.h.push({v:0,l,bonus:true})}else{T.pts+=v;T.h.push({v,l})}if(navigator.vibrate)navigator.vibrate(15);scRender();return}
-  if(b.dataset.scu){const T=SC[b.dataset.scu],x=T.h.pop();if(x){if(x.bonus)T.b[x.l]=Math.max(0,(T.b[x.l]||0)-1);else T.pts-=x.v}scRender();return}
+    if(b.dataset.bonus&&SC.cfg.bonusMode==="eval"){T.b[l]=(T.b[l]||0)+1;T.h.push({v:0,l,bonus:true})}else if(b.dataset.bonus){T.pts+=v;T.b[l]=(T.b[l]||0)+1;T.h.push({v,l,bonus2:true})}else{T.pts+=v;T.h.push({v,l})}if(navigator.vibrate)navigator.vibrate(15);scRender();return}
+  if(b.dataset.scu){const T=SC[b.dataset.scu],x=T.h.pop();if(x){if(x.bonus)T.b[x.l]=Math.max(0,(T.b[x.l]||0)-1);else{T.pts-=x.v;if(x.bonus2)T.b[x.l]=Math.max(0,(T.b[x.l]||0)-1)}}scRender();return}
   const x=b.dataset.scx;
   if(x==="cfg"){SC.cfgOpen=true;scRender();return}
   if(x==="cfgDone"){SC.cfgOpen=false;scRender();return}
@@ -2308,20 +2308,21 @@ function editCfg(c,k,v){if(k==="nb"){const n=parseInt(v)||0;while(c.bonus.length
   else if(k[1]==="l")c.bonus[+k.slice(2)].label=String(v).slice(0,14)||"Bonus";else if(k[1]==="v")c.bonus[+k.slice(2)].val=Math.max(1,parseInt(v)||1);return normCfg(c)}
 function poulesOf(dr){const P=Array.from({length:dr.nbP},(_,i)=>({nom:`Poule ${i+1}`,joueurs:[]}));OP.eleves.forEach(e=>{const p=dr.aff[e.id];if(p>=1&&p<=dr.nbP)P[p-1].joueurs.push(e.id)});return P}
 function vOutilProf(){const it=OP.item,O=OUTILS[it.kind],S=FE&&FE.S,dr=OP.draft;
-  const hist=OP.sessions.filter(s=>!s.active);
+  const hist=OP.sessions.filter(s=>!s.active&&!s.prep);
   let body="";
   if(S){body=`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>${S.active?"🟢 Séance ouverte aux élèves":"Séance du "+fmtDate(S.date)}</h3><span class="spacer"></span>${S.active?`<button class="btn danger small" data-act="opClose">Clôturer la séance</button>`:`<button class="btn small" data-act="opReopen">Rouvrir</button>`}</div>
       <p class="hint" style="margin:0">Réglages de cette séance : ils s'appliquent tout de suite sur les téléphones des élèves.</p>${vCfgEd(cfgFor(it,null,S),"sess")}</section>
+      ${it.kind==="feuille"&&!S.active?vResumePoules(S,FE.M):""}
       ${it.kind==="feuille"?vFeuille(S,FE.M,true):`<section class="card"><p style="margin:0">Les élèves ouvrent le scoreur depuis l'activité avec ces réglages.</p><button class="btn" data-act="scoreLibre" style="margin-top:8px">⏱️ Tester le scoreur</button></section>`}
-      <button class="btn ghost small" data-act="opNew">+ Préparer une nouvelle séance</button>`}
+      <button class="btn ghost small" data-act="opNew">+ Préparer une nouvelle séance</button>${vPrepList()}`}
   else{const P=it.kind==="feuille"?poulesOf(dr):[],bad=P.filter(p=>p.joueurs.length<3||p.joueurs.length>8);
     body=`<section class="card stack" style="gap:10px"><h3>Préparer la séance</h3><label class="f" style="max-width:200px">Date<input type="date" id="op-date" value="${dr.date}"></label>${vCfgEd(dr.reglages,"draft")}</section>
     ${it.kind==="feuille"?`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>Poules</h3><span class="spacer"></span><span class="hint">3 à 8 joueurs par poule</span></div>
       <div class="row" style="align-items:end"><label class="f" style="max-width:160px">Nombre de poules<input id="op-nbp" inputmode="numeric" value="${dr.nbP}"></label><button class="btn small" data-act="opAuto">Répartir automatiquement</button><button class="btn ghost small" data-act="opMix">Mélanger</button></div>
       <div class="pchips">${P.map(p=>`<span class="chip${p.joueurs.length<3||p.joueurs.length>8?" ko":""}">${esc(p.nom)} : ${p.joueurs.length}</span>`).join("")}<span class="chip">Sans poule : ${OP.eleves.filter(e=>!(dr.aff[e.id]>=1&&dr.aff[e.id]<=dr.nbP)).length}</span></div>
-      <div class="aff">${OP.eleves.map(e=>`<label class="aff-r"><span><b>N°${e.numero}</b> ${esc(pseudoCache[e.id]||e.login)}${pseudoCache[e.id]?` <span class="hint">${esc(e.login)}</span>`:""}</span><select data-aff="${e.id}"><option value="0">—</option>${P.map((p,i)=>`<option value="${i+1}" ${dr.aff[e.id]===i+1?"selected":""}>${esc(p.nom)}</option>`).join("")}</select></label>`).join("")}</div>
+      ${vPoulesEdit(P)}
       ${bad.length?`<p class="err" style="margin:0">${bad.map(p=>esc(p.nom)).join(", ")} : il faut entre 3 et 8 joueurs.</p>`:""}</section>`:""}
-    <button class="btn primary big" data-act="opOpen" ${it.kind==="feuille"&&(bad.length||!P.length)?"disabled":""}>Ouvrir la séance aux élèves</button>`}
+    ${dr.prepId?`<p class="hint" style="margin:0">✏️ Vous modifiez une séance préparée.</p>`:""}<div class="grid2"><button class="btn big" data-fm="savePrep">💾 Enregistrer pour plus tard</button><button class="btn primary big" data-act="opOpen" ${it.kind==="feuille"&&(bad.length||!P.length)?"disabled":""}>Ouvrir la séance aux élèves</button></div>${vPrepList()}`}
   return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="opBack">← ${esc(OP.cls.nom)}</button></div>
   <section class="class-hero"><span class="eyebrow">${esc(OP.d.titre)} · ${esc(OP.cls.nom)}</span><h2>${O.ic} ${esc(it.titre||O.nom)}</h2></section>
   <details class="card"><summary><strong>Réglages de la classe</strong> <span class="hint">· par défaut pour chaque nouvelle séance</span></summary><div class="stack" style="gap:10px;margin-top:10px">${vCfgEd(OP.cfgCls,"cls")}<button class="btn small" data-act="opSaveCls" style="justify-self:start">Enregistrer pour la classe</button></div></details>
@@ -2334,8 +2335,8 @@ async function opOpen(){const it=OP.item,dr=OP.draft;dr.date=($("#op-date")||{va
   const poules=it.kind==="feuille"?poulesOf(dr):[];if(poules.some(p=>p.joueurs.length<3||p.joueurs.length>8))return;
   const noms={};OP.eleves.forEach(e=>{if(poules.some(p=>p.joueurs.includes(e.id)))noms[e.id]={login:e.login,pseudo:pseudoCache[e.id]||""}});
   try{for(const s of OP.sessions.filter(s=>s.active)){await fb.updateSession(s.id,{active:false});s.active=false}
-    const S={profId:me.uid,classeId:OP.cls.id,dossierId:OP.d.id,outilId:it.id,kind:it.kind,titre:it.titre||OUTILS[it.kind].nom,date:dr.date,active:true,reglages:normCfg(dr.reglages),poules,noms};
-    S.id=await fb.createSession(S);OP.sessions.unshift(S);toast("Séance ouverte : les élèves y ont accès");openFeuilleProf(S)}catch(e){toast(authMsg(e))}}
+    const S={profId:me.uid,classeId:OP.cls.id,dossierId:OP.d.id,outilId:it.id,kind:it.kind,titre:it.titre||OUTILS[it.kind].nom,date:dr.date,active:true,prep:false,reglages:normCfg(dr.reglages),poules,noms};
+    if(dr.prepId){await fb.updateSession(dr.prepId,S);S.id=dr.prepId;OP.sessions=OP.sessions.filter(x=>x.id!==S.id)}else S.id=await fb.createSession(S);OP.sessions.unshift(S);toast("Séance ouverte : les élèves y ont accès");openFeuilleProf(S)}catch(e){toast(authMsg(e))}}
 function feuilleCfgChange(pre,k,v){if(pre==="draft"){OP.draft.reglages=editCfg(OP.draft.reglages,k,v);rerenderKeep();return}
   if(pre==="cls"){OP.cfgCls=editCfg(OP.cfgCls,k,v);rerenderKeep();return}
   if(pre==="sess"&&FE){const c=editCfg(cfgFor(OP.item,null,FE.S),k,v);FE.S.reglages=c;fb.updateSession(FE.S.id,{reglages:c}).then(()=>toast("Réglage appliqué à la séance")).catch(x=>toast(authMsg(x)));rerenderKeep()}}
@@ -2365,7 +2366,7 @@ function vFeuilleLocale(){
   if(FL.etape==="reglages")return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="flBack">← Mes activités</button></div>
     <section class="class-hero"><span class="eyebrow">Outil</span><h2>🏆 Feuille de match</h2></section>
     <section class="card stack" style="gap:10px"><h3>Joueurs (3 à 8)</h3>
-      ${FL.joueurs.map((n,i)=>`<div class="row" style="flex-wrap:nowrap"><input data-flj="${i}" value="${esc(n)}" maxlength="20" placeholder="Joueur ${i+1} (pseudo)" aria-label="Joueur ${i+1}" style="flex:1;min-width:0">${FL.joueurs.length>3?`<button class="btn ghost small danger" data-act="flDel" data-i="${i}" aria-label="Retirer le joueur ${i+1}">✕</button>`:""}</div>`).join("")}
+      ${flHintListe()}${FL.joueurs.map((n,i)=>`<div class="row" style="flex-wrap:nowrap">${flJoueurField(n,i)}${FL.joueurs.length>3?`<button class="btn ghost small danger" data-act="flDel" data-i="${i}" aria-label="Retirer le joueur ${i+1}">✕</button>`:""}</div>`).join("")}
       ${FL.joueurs.length<8?`<button class="btn small" data-act="flAdd" style="justify-self:start">+ Joueur</button>`:""}
       <label class="f" style="max-width:200px">Terrains<select data-flt>${[1,2,3,4].map(n=>`<option value="${n}" ${FL.cfg.terrains===n?"selected":""}>${n} terrain${n>1?"s":""}</option>`).join("")}</select></label></section>
     <section class="card stack" style="gap:10px"><h3>Scoreur</h3>${vCfgLibre(FL.cfg,"flc")}</section>
@@ -2454,7 +2455,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-2" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-3" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2554,7 +2555,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-2" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-3" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2587,14 +2588,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-2" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-3" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisH();DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-2" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-3" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -3069,7 +3070,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-2");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-3");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
@@ -3454,10 +3455,10 @@ async function qeIa(){const err=t=>{QE.ia.err=t;QE.ia.busy=false;if(route.name==
     if(fid){const f=dossierItems.find(x=>x.id===fid).f;if(f.type==="texte")txt=(txt?txt+"\n\n":"")+(f.texte||"");
       else{const parts=await fb.getFicheParts(fid);if(f.type==="pdf")fichiers.push({mime:"application/pdf",base64:parts.map(p=>p.data).join("")});else parts.forEach(p=>fichiers.push({mime:p.mime||"image/jpeg",base64:p.data}))}}
     for(const f of files)fichiers.push({mime:f.type||"application/pdf",base64:await fileToB64(f)});
-    const ia=await import("./ia.js?v=2026.11.21-2");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
+    const ia=await import("./ia.js?v=2026.11.21-3");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
     const add=qNorm({questions:(r.questions||[])}).questions;(r.questions||[]).forEach((x,k)=>{const q=add[k];if(!q)return;QE.cle[q.id]=(x.bonnes||[]).map(Number).filter(n=>n>=0&&n<q.reponses.length)});
     if(!add.length)throw new Error("Réponse de l'IA illisible.");QE.Q.questions.push(...add);QE.dirty=true;QE.ia={busy:false,err:""};toast(`${add.length} question${add.length>1?"s":""} ajoutée${add.length>1?"s":""} : vérifiez-les`);if(route.name==="qcmEd")rerenderKeep()}
-  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");m=ia.iaMessage(e)}catch(x){}err(m)}}
+  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-3");m=ia.iaMessage(e)}catch(x){}err(m)}}
 function qeField(t){const k=t.dataset.qe,i=+t.dataset.i,Q=QE.Q,q=Q.questions[i];let re=false;
   if(k==="titre")Q.titre=t.value;else if(k==="sur"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)Q.sur=v;re=true}
   else if(["afl","carnet","garder"].includes(k)){Q[k]=t.value;if(k==="afl")Q.sur=QAFL_DEF[t.value];re=true}
@@ -3809,3 +3810,99 @@ function vEtabAccueil(){const E=ET.etab;if(!E)return ET.dem?`<section class="car
     <div class="grid2" style="border-top:1px solid var(--line);padding-top:10px"><label class="f">Objectif<input id="edf-v" maxlength="20" placeholder="ex. 10 000 pas"></label><label class="f">Défi<input id="edf-t" maxlength="60" placeholder="ex. chaque jour cette semaine"></label></div>
     <button class="btn primary" data-et="etDefiAdd" style="justify-self:start">＋ Ajouter pour tout l'établissement</button></section>
   ${(PA.etActus||[]).length?`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>🏫 Actualités de vos collègues</h3></div><div class="list-s">${PA.etActus.map(x=>`<div class="s-item" style="cursor:default"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${esc(em[x.profId]||"un collègue")}${String(x.date)<today()?" · passée":""}</div></div>${x.inscription?`<button class="btn ghost small" data-et="etInscrits" data-id="${x.id}">👥 Mes inscrits</button>`:""}</div>`).join("")}</div></section>`:""}`}
+
+
+/* ====================================================================
+   Feuille de match (2026.11.21-3) : joueurs en liste déroulante, séances préparées
+   à l'avance, résumé des classements avec montées / descentes, détail des poules
+   ==================================================================== */
+/* --- Outil libre (élève) : choisir les joueurs dans la liste de la classe --- */
+const flListeOK=()=>me&&me.role==="eleve"&&me.classeId&&me.profId;
+const flNomR=r=>r.pseudo||r.login;
+function flHintListe(){return flListeOK()?`<p class="hint" style="margin:-4px 0 0">Touche chaque case pour choisir un joueur dans la liste de ta classe.</p>`:""}
+function flJoueurField(n,i){const src=(FL.src||[])[i];
+  if(!flListeOK()||src==="libre")return`<input data-flj="${i}" value="${esc(n)}" maxlength="20" placeholder="Joueur ${i+1} (pseudo)" aria-label="Joueur ${i+1}" style="flex:1;min-width:0">${flListeOK()?`<button class="btn ghost small" data-fm="flListe" data-i="${i}" aria-label="Revenir à la liste">📋</button>`:""}`;
+  if(!ROSTER){loadRoster().then(()=>{if(route.name==="feuilleLocale")rerenderKeep()});return`<select disabled style="flex:1;min-width:0"><option>Chargement de la classe…</option></select>`}
+  const pris=FL.joueurs.filter((x,j)=>j!==i&&x),moi={...(ROSTER.find(r=>r.login===me.login)||{login:me.login}),...(me.pseudo?{pseudo:me.pseudo}:{})};
+  const L=[moi,...ROSTER.filter(r=>r.login!==me.login)].filter(r=>!pris.includes(flNomR(r)));
+  const inL=!n||L.some(r=>flNomR(r)===n);
+  return`<select data-fmj="${i}" aria-label="Joueur ${i+1}" style="flex:1;min-width:0"><option value="">— Joueur ${i+1} : choisir —</option>
+    ${inL?"":`<option value="${esc(n)}" selected>${esc(n)}</option>`}
+    ${L.map(r=>`<option value="${esc(flNomR(r))}" ${flNomR(r)===n?"selected":""}>${r.login===me.login?"Moi · ":""}${esc(r.pseudo?`${r.pseudo} (${r.login})`:r.login)}</option>`).join("")}
+    <option value="__autre">✏️ Autre joueur (écrire)</option></select>`}
+/* --- Prof : noms des élèves (pseudo + nom gardé sur cet appareil) --- */
+function fmNomProf(uid){const e=(OP&&OP.eleves||[]).find(x=>x.id===uid),r=OP?getReperes(OP.cls.id)[uid]:"";
+  const base=pseudoCache[uid]||(e&&e.login)||(FE&&FE.S?nomDe(uid,FE.S.noms):"?");return r?`${base} · ${r}`:base}
+const fmNom=uid=>OP&&me.role!=="eleve"?fmNomProf(uid):nomDe(uid,FE&&FE.S&&FE.S.noms);
+/* --- Préparation des poules : ajout des élèves par liste déroulante --- */
+function vPoulesEdit(P){const dr=OP.draft,sans=OP.eleves.filter(e=>!(dr.aff[e.id]>=1&&dr.aff[e.id]<=dr.nbP));
+  const opt=sans.map(e=>`<option value="${e.id}">N°${e.numero} · ${esc(fmNomProf(e.id))}</option>`).join("");
+  return`<p class="hint" style="margin:0">Poule 1 = la plus forte. Ajoutez les élèves avec la liste déroulante de chaque poule, ou utilisez « Répartir automatiquement ».</p>
+  <div class="fm-poules">${P.map((p,i)=>{const ko=p.joueurs.length<3||p.joueurs.length>8;
+    return`<div class="fm-pb${ko?" ko":""}"><div class="fm-pbh"><b>${esc(p.nom)}</b><span class="hint">${p.joueurs.length} joueur${p.joueurs.length>1?"s":""}</span></div>
+      <div class="fm-chips">${p.joueurs.map(u=>`<span class="fm-chip">${esc(fmNomProf(u))}<button data-fm="unaff" data-u="${u}" aria-label="Retirer ${esc(fmNomProf(u))} de la poule">✕</button></span>`).join("")||'<span class="hint">Aucun joueur</span>'}</div>
+      ${sans.length&&p.joueurs.length<8?`<select data-fmadd="${i+1}" aria-label="Ajouter un élève à ${esc(p.nom)}"><option value="">+ Ajouter un élève…</option>${opt}</select>`:""}</div>`}).join("")}</div>
+  ${sans.length?`<p class="hint" style="margin:0"><b>Sans poule (${sans.length}) :</b> ${sans.map(e=>esc(fmNomProf(e.id))).join(", ")}</p>`:`<p class="hint" style="margin:0">✓ Tous les élèves sont placés.</p>`}`}
+/* --- Séances préparées à l'avance --- */
+function vPrepList(){const L=(OP.sessions||[]).filter(s=>s.prep&&!s.active).sort((a,b)=>String(a.date).localeCompare(String(b.date)));if(!L.length)return"";
+  return`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>📅 Séances préparées</h3><span class="hint">invisibles pour les élèves</span></div>
+    ${L.map(s=>`<div class="s-item" style="cursor:default"><div><strong>${fmtDate(s.date)}</strong><div class="hint">${(s.poules||[]).map(p=>`${esc(p.nom)} : ${p.joueurs.length}`).join(" · ")||"Pas de poule"}</div></div>
+      <div class="row" style="gap:6px"><button class="btn ghost small" data-fm="prepEdit" data-id="${s.id}">Modifier</button><button class="btn small primary" data-fm="prepOpen" data-id="${s.id}">Ouvrir</button><button class="btn ghost small danger" data-fm="prepDel" data-id="${s.id}" aria-label="Supprimer">✕</button></div></div>`).join("")}</section>`}
+function draftFromSession(s,prepId){const aff={};(s.poules||[]).forEach((p,i)=>p.joueurs.forEach(u=>aff[u]=i+1));
+  return{date:s.date||today(),reglages:normCfg(clone(s.reglages||OP.cfgCls)),nbP:Math.max(1,(s.poules||[]).length),aff,...(prepId?{prepId}:{})}}
+function fmLeaveSession(){if(matchUnsub){matchUnsub();matchUnsub=null}FE=null}
+async function savePrep(){const it=OP.item,dr=OP.draft;dr.date=($("#op-date")||{value:dr.date}).value||today();
+  const poules=it.kind==="feuille"?poulesOf(dr):[];const noms={};OP.eleves.forEach(e=>{if(poules.some(p=>p.joueurs.includes(e.id)))noms[e.id]={login:e.login,pseudo:pseudoCache[e.id]||""}});
+  const S={profId:me.uid,classeId:OP.cls.id,dossierId:OP.d.id,outilId:it.id,kind:it.kind,titre:it.titre||OUTILS[it.kind].nom,date:dr.date,active:false,prep:true,reglages:normCfg(dr.reglages),poules,noms};
+  try{if(dr.prepId){await fb.updateSession(dr.prepId,S);S.id=dr.prepId;OP.sessions=OP.sessions.map(x=>x.id===S.id?S:x)}else{S.id=await fb.createSession(S);OP.sessions.unshift(S)}
+    toast(`Séance du ${fmtDate(S.date)} enregistrée : ouvrez-la le jour venu`);OP.draft=newDraft();render();window.scrollTo(0,0)}catch(e){toast(authMsg(e))}}
+/* --- Résumé des classements + montées / descentes --- */
+function fmMoves(S,M){if(OP.mv&&OP.mv.sid===S.id)return OP.mv.m;const m={},n=S.poules.length;
+  S.poules.forEach((P,pi)=>{const cl=classement(P.joueurs,pi,M);if(!cl.some(r=>r.j))return;if(pi>0)m[cl[0].u]="up";if(pi<n-1&&cl.length>1)m[cl[cl.length-1].u]="down"});
+  OP.mv={sid:S.id,m};return m}
+function vResumePoules(S,M){if(!S.poules||!S.poules.length)return"";const m=fmMoves(S,M),n=S.poules.length,cfg=cfgFor({},null,S),bo=cfg.bonus.length;
+  const nu=Object.values(m).filter(v=>v==="up").length,nd=Object.values(m).filter(v=>v==="down").length;
+  return`<section class="card stack fm-res" style="gap:10px"><div class="sec-h"><h3>📊 Résumé des classements</h3><span class="spacer"></span><span class="hint">Poule 1 = la plus forte</span></div>
+  <p class="hint" style="margin:0">Choisissez les élèves qui montent ⬆ ou descendent ⬇ (proposition : le 1er monte, le dernier descend), puis préparez la séance suivante.</p>
+  ${S.poules.map((P,pi)=>{const cl=classement(P.joueurs,pi,M),T=Math.max(1,Math.min(4,parseInt((M["cfg_"+pi]||{}).terrains)||cfg.terrains)),pl=planning(P.joueurs,T),faits=pl.filter(x=>scoresOf(M,pi,x.a,x.b)).length;
+    return`<div class="fm-rp"><div class="fm-pbh"><b>${esc(P.nom)}</b><span class="hint">${faits} / ${pl.length} matchs</span><span class="spacer"></span><button class="btn ghost small" data-fm="detail" data-pi="${pi}">🔍 Détail</button></div>
+    <div class="scroll"><table class="classt"><thead><tr><th>#</th><th>Joueur</th><th>V</th><th>N</th><th>D</th><th>Diff</th>${bo?"<th>Bonus</th>":""}<th>Poule suivante</th></tr></thead><tbody>
+    ${cl.map((r,i)=>{const v=m[r.u]||"";return`<tr class="${v?"fm-"+v:""}"><td>${i+1}</td><td>${esc(fmNom(r.u))}</td><td>${r.v}</td><td>${r.n}</td><td>${r.d}</td><td>${r.pm-r.pe>0?"+":""}${r.pm-r.pe}</td>${bo?`<td>${r.bo}</td>`:""}
+      <td><div class="fm-seg" role="group" aria-label="Poule suivante de ${esc(fmNom(r.u))}"><button data-fm="mv" data-u="${r.u}" data-v="up" class="${v==="up"?"on":""}" ${pi===0?"disabled":""} aria-label="Monte">⬆</button><button data-fm="mv" data-u="${r.u}" data-v="" class="${!v?"on":""}" aria-label="Reste">=</button><button data-fm="mv" data-u="${r.u}" data-v="down" class="${v==="down"?"on":""}" ${pi===n-1?"disabled":""} aria-label="Descend">⬇</button></div></td></tr>`}).join("")}
+    </tbody></table></div></div>`}).join("")}
+  <div class="row" style="align-items:center"><button class="btn primary" data-fm="next">➡️ Préparer la séance suivante</button><span class="hint">${nu} montée${nu>1?"s":""} · ${nd} descente${nd>1?"s":""}</span></div></section>`}
+function fmNext(){const S=FE&&FE.S;if(!S)return;const m=fmMoves(S,FE.M),n=S.poules.length,aff={};
+  S.poules.forEach((P,pi)=>P.joueurs.forEach(u=>{let t=pi+(m[u]==="up"?-1:m[u]==="down"?1:0);t=Math.max(0,Math.min(n-1,t));aff[u]=t+1}));
+  fmLeaveSession();OP.draft={date:today(),reglages:normCfg(clone(S.reglages||OP.cfgCls)),nbP:n,aff};OP.mv=null;render();window.scrollTo(0,0);
+  toast("Poules de la séance suivante prêtes : vérifiez-les, puis ouvrez ou enregistrez pour plus tard")}
+/* --- Détail d'une poule : points, bonus, matchs --- */
+function fmDetail(pi){if(!FE)return;const S=FE.S,M=FE.M,P=S.poules[pi];if(!P)return;const cfg=cfgFor({},null,S),ids=P.joueurs;
+  const labs=[...cfg.bonus.map(b=>b.label)];const t={};ids.forEach(u=>t[u]={u,j:0,v:0,n:0,d:0,pm:0,pe:0,b:{},arb:0});const mt=[];
+  for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const a=ids[i],b=ids[j],s=scoresOf(M,pi,a,b);if(!s)continue;const A=t[a],B=t[b],dt=s.d.detail||{},ba=s.d.a===a?dt.ba:dt.bb,bb=s.d.a===a?dt.bb:dt.ba;
+    [[A,ba],[B,bb]].forEach(([X,o])=>Object.entries(o||{}).forEach(([l,c])=>{X.b[l]=(X.b[l]||0)+(+c||0);if(!labs.includes(l))labs.push(l)}));
+    A.j++;B.j++;A.pm+=s.sa;A.pe+=s.sb;B.pm+=s.sb;B.pe+=s.sa;if(s.sa>s.sb){A.v++;B.d++}else if(s.sa<s.sb){B.v++;A.d++}else{A.n++;B.n++}mt.push({a,b,s,sc:!!s.d.detail})}
+  const cl=classement(ids,pi,M).map(r=>t[r.u]),val=l=>(cfg.bonus.find(b=>b.label===l)||{}).val,ev=cfg.bonusMode==="eval";
+  const tot=X=>labs.reduce((x,l)=>x+(X.b[l]||0),0),sansSc=mt.filter(x=>!x.sc).length;
+  openModal(`<h3>🔍 ${esc(P.nom)} · détail</h3>
+  <div class="scroll"><table class="classt fm-det"><thead><tr><th>#</th><th>Joueur</th><th>J</th><th>V</th><th>N</th><th>D</th><th>Pour</th><th>Contre</th><th>Diff</th>${labs.map(l=>`<th>${esc(l)}${val(l)&&!ev?` <small>(+${val(l)})</small>`:""}</th>`).join("")}${labs.length?"<th>Bonus</th>":""}</tr></thead><tbody>
+  ${cl.map((X,i)=>`<tr><td>${i+1}</td><td>${esc(fmNom(X.u))}</td><td>${X.j}</td><td>${X.v}</td><td>${X.n}</td><td>${X.d}</td><td>${X.pm}</td><td>${X.pe}</td><td>${X.pm-X.pe>0?"+":""}${X.pm-X.pe}</td>${labs.map(l=>`<td>${X.b[l]||0}</td>`).join("")}${labs.length?`<td><b>${tot(X)}</b>${!ev&&tot(X)?` <small class="hint">(${labs.reduce((x,l)=>x+(X.b[l]||0)*(val(l)||0),0)} pts)</small>`:""}</td>`:""}</tr>`).join("")}</tbody></table></div>
+  ${labs.length?`<p class="hint" style="margin:0">Bonus : nombre de fois obtenu${ev?" (comptés pour l'évaluation, hors score)":" (déjà inclus dans le score)"}.${sansSc?` ${sansSc} match${sansSc>1?"s":""} saisi${sansSc>1?"s":""} sans le scoreur : bonus inconnus.`:""}</p>`:""}
+  <h4 style="margin:6px 0 0">Matchs (${mt.length})</h4>
+  <div class="fm-mlist">${mt.length?mt.map(x=>`<div><span>${esc(fmNom(x.a))}</span><b>${x.s.sa} – ${x.s.sb}</b><span>${esc(fmNom(x.b))}</span>${x.s.d.arbitre?`<small class="hint">⚖️ ${esc(x.s.d.arbitre)}</small>`:""}</div>`).join(""):'<p class="hint" style="margin:0">Aucun match joué.</p>'}</div>
+  <button class="btn" data-mact="close">Fermer</button>`,{type:"fmDetail"})}
+/* --- Actions --- */
+document.addEventListener("click",e=>{const b=e.target.closest("[data-fm]");if(!b||b.disabled)return;const a=b.dataset.fm;
+  if(a==="detail"){e.preventDefault();fmDetail(+b.dataset.pi);return}
+  if(a==="flListe"){FL.src=FL.src||[];FL.src[+b.dataset.i]="liste";FL.joueurs[+b.dataset.i]="";lsSet("feuilleLocale",FL);rerenderKeep();return}
+  if(!OP)return;
+  if(a==="unaff"){if(OP.draft){OP.draft.aff[b.dataset.u]=0;rerenderKeep()}return}
+  if(a==="savePrep"){if(apercuBloque())return;savePrep();return}
+  if(a==="prepEdit"){const s=OP.sessions.find(x=>x.id===b.dataset.id);if(!s)return;fmLeaveSession();OP.draft=draftFromSession(s,s.id);render();window.scrollTo(0,0);return}
+  if(a==="prepOpen"){const s=OP.sessions.find(x=>x.id===b.dataset.id);if(!s)return;fmLeaveSession();OP.draft=draftFromSession(s,s.id);OP.draft.date=today();render();
+    const bad=OP.item.kind==="feuille"&&poulesOf(OP.draft).some(p=>p.joueurs.length<3||p.joueurs.length>8);if(bad){toast("Vérifiez les poules (3 à 8 joueurs) puis ouvrez la séance");return}opOpen();return}
+  if(a==="prepDel"){confirmBox("Supprimer cette séance préparée ?","Les poules préparées seront perdues.","Supprimer",async()=>{try{await fb.deleteSession(b.dataset.id);OP.sessions=OP.sessions.filter(x=>x.id!==b.dataset.id);if(OP.draft&&OP.draft.prepId===b.dataset.id)OP.draft=newDraft();closeModal();rerenderKeep()}catch(x){closeModal();toast(authMsg(x))}},true);return}
+  if(a==="mv"){if(!FE)return;const m=fmMoves(FE.S,FE.M);if(b.dataset.v)m[b.dataset.u]=b.dataset.v;else delete m[b.dataset.u];rerenderKeep();return}
+  if(a==="next"){fmNext();return}});
+document.addEventListener("change",e=>{const el=e.target;
+  if(el.dataset&&el.dataset.fmadd!==undefined){if(OP&&OP.draft&&el.value){OP.draft.aff[el.value]=+el.dataset.fmadd;rerenderKeep()}return}
+  if(el.dataset&&el.dataset.fmj!==undefined&&FL){const i=+el.dataset.fmj;FL.src=FL.src||[];if(el.value==="__autre"){FL.src[i]="libre";FL.joueurs[i]=""}else{FL.src[i]="liste";FL.joueurs[i]=el.value.slice(0,20)}lsSet("feuilleLocale",FL);rerenderKeep();return}});
