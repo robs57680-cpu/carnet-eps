@@ -593,7 +593,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-8) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-9) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -753,7 +753,7 @@ details.ia-box:not([open])>summary h3::after{content:" ▾";color:var(--muted,#6
 .tuto-dots{display:flex;justify-content:center;gap:6px;margin:8px 0}.tuto-dots button{width:8px;height:8px;border-radius:50%;border:0;background:#d1d5db;padding:0;cursor:pointer}.tuto-dots button[aria-current="true"]{background:#111827;width:20px;border-radius:4px}
 .tuto-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 body.tuto-on .pad,body.tuto-on #pad{display:none!important}
-/* Course d'orientation (2026.11.20-8) */
+/* Course d'orientation (2026.11.20-9) */
 .co-hero{background:linear-gradient(135deg,#0f3d2e,#14532d);}
 .co-list{display:grid;gap:8px}
 .co-k{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-left:5px solid #16a34a;border-radius:12px;padding:12px;font:inherit;color:inherit;cursor:pointer}
@@ -814,7 +814,7 @@ body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 .vg-info{margin:0 4px;color:#94a3b8;font-size:.8rem}
 
 
-/* Correction du prof et bac à sable (2026.11.20-8) */
+/* Correction du prof et bac à sable (2026.11.20-9) */
 .gf.cd-on{border-left:4px solid #f59e0b;padding-left:10px;border-radius:2px}
 .cdiff{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.84rem;background:#fff7e6;border:1px solid #f6c56b;color:#5c3b00;border-radius:9px;padding:6px 9px}
 .cdiff.juge{background:#fdecec;border-color:#f2a3a3;color:#6b1717}
@@ -830,7 +830,7 @@ body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 .ok-chip{background:#d9f2e4;color:#155c36;border-color:#8fd3ae}
 .sbx-bar{border:2px dashed #e0a400;background:#fffbea}
 
-/* Tableau à double entrée (2026.11.20-8) */
+/* Tableau à double entrée (2026.11.20-9) */
 .gri-res{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.95rem}
 .gri-n{font:700 1.05rem var(--font-display);text-transform:uppercase}
 .gri-n b{font-size:1.5rem;color:var(--accent)}
@@ -845,7 +845,7 @@ table.grille td.hit{background:var(--accent);color:#fff;font-weight:800;font-siz
 table.grille.ed td{padding:2px}
 table.grille.ed input{width:52px;padding:4px;text-align:center}
 
-/* Colonne « partenaires » (2026.11.20-8) */
+/* Colonne « partenaires » (2026.11.20-9) */
 .mb-dd{position:relative;min-width:0}
 .mb-dd>summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px 26px 9px 10px;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
 .mb-dd>summary::-webkit-details-marker{display:none}
@@ -856,7 +856,7 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 .mb-pan label:has(input:checked){background:color-mix(in srgb,var(--accent) 12%,#fff)}
 .mb-pan input{width:20px;height:20px}
 .mb-ro{display:block;padding:9px 4px;font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
-/* Mode paysage (2026.11.20-8) : téléphone tourné. Toute la largeur sert, les parties du carnet passent sur deux colonnes,
+/* Mode paysage (2026.11.20-9) : téléphone tourné. Toute la largeur sert, les parties du carnet passent sur deux colonnes,
    le bandeau se compacte et le pavé numérique se range sur le côté droit pour garder la case visible. */
 @media (orientation:landscape) and (max-height:600px){
   .wrap{max-width:none;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
@@ -909,6 +909,6 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.20-8"></script>
+<script type="module" src="app.js?v=2026.11.20-9"></script>
 </body>
 </html>
