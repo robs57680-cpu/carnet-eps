@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
 import * as fb from "./fb.js?v=2026.11.21-3";
 import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-3";
-const APP_VERSION="2026.11.21-2";
+const APP_VERSION="2026.11.21-3";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
