@@ -14,6 +14,10 @@ service cloud.firestore {
     function isEleve() { return hasUser() && me().role == 'eleve'; }
     function isDevEmail() { return signedIn() && request.auth.token.email == 'robs_57680@hotmail.fr'; }
     function onlyKeys(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    // Établissements (2026.11.21-2)
+    function etabPath(id) { return /databases/$(database)/documents/etablissements/$(id); }
+    function etabProf(id) { return signedIn() && id is string && id != '' && exists(etabPath(id)) && request.auth.uid in get(etabPath(id)).data.profs; }
+    function etabAdmin(id) { return etabProf(id) && request.auth.uid in get(etabPath(id)).data.admins; }
 
     // ---------- Comptes ----------
     match /users/{uid} {
@@ -32,8 +36,12 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.profId == request.auth.uid || isDev()
         || (isEleve() && me().classeId == cid));
       allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      // etabId : seulement un établissement dont le prof est membre (ou vide)
       allow update: if isProf() && resource.data.profId == request.auth.uid
-        && request.resource.data.profId == request.auth.uid;
+        && request.resource.data.profId == request.auth.uid
+        && (request.resource.data.get('etabId', '') == resource.data.get('etabId', '')
+          || request.resource.data.get('etabId', '') == ''
+          || etabProf(request.resource.data.get('etabId', '')));
       allow delete: if isProf() && resource.data.profId == request.auth.uid;
 
       match /eleves/{eid} {
@@ -171,11 +179,14 @@ service cloud.firestore {
       allow create, update: if uidIs(uid) && isEleve() && request.resource.data.profId == me().profId;
     }
     // Actualités : compétitions, AS, informations
+    // portee 'etab' : visible de tous les élèves de l'établissement, publiée par un prof membre.
     match /actus/{id} {
       allow read: if signedIn();
-      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid
+        && (request.resource.data.get('portee', 'classes') != 'etab' || etabProf(request.resource.data.get('etabId', '')));
       allow update: if isProf() && resource.data.profId == request.auth.uid
-        && request.resource.data.profId == request.auth.uid;
+        && request.resource.data.profId == request.auth.uid
+        && (request.resource.data.get('portee', 'classes') != 'etab' || etabProf(request.resource.data.get('etabId', '')));
       allow delete: if isProf() && resource.data.profId == request.auth.uid;
     }
 
@@ -298,6 +309,77 @@ service cloud.firestore {
       allow read, delete: if signedIn() && resource.data.profId == request.auth.uid;
       allow create: if isProf() && request.resource.data.profId == request.auth.uid;
       allow update: if isProf() && resource.data.profId == request.auth.uid && request.resource.data.profId == request.auth.uid;
+    }
+
+    // ---------- Établissements (2026.11.21-2) ----------
+    // Créé par un prof qui en devient administrateur ; les admins acceptent les demandes, nomment d'autres admins,
+    // choisissent la phrase secrète (sel + vérificateur chiffré, jamais la phrase). Un membre peut seulement partir.
+    match /etablissements/{id} {
+      allow read: if isProf();
+      allow create: if isProf() && request.resource.data.createur == request.auth.uid
+        && request.resource.data.admins == [request.auth.uid] && request.resource.data.profs == [request.auth.uid]
+        && request.resource.data.nom is string && request.resource.data.nom.size() > 1 && request.resource.data.nom.size() <= 80
+        && request.resource.data.emails.keys().hasOnly([request.auth.uid]);
+      allow update: if isProf() && (
+        (request.auth.uid in resource.data.admins
+          && request.resource.data.createur == resource.data.createur
+          && request.resource.data.admins.size() > 0
+          && request.resource.data.profs.hasAll(request.resource.data.admins))
+        || (request.auth.uid in resource.data.profs
+          && onlyKeys(['profs', 'admins', 'emails'])
+          && request.resource.data.profs == resource.data.profs.removeAll([request.auth.uid])
+          && request.resource.data.admins == resource.data.admins.removeAll([request.auth.uid])
+          && request.resource.data.admins.size() > 0
+          && request.resource.data.emails.diff(resource.data.emails).affectedKeys().hasOnly([request.auth.uid])));
+      allow delete: if isProf() && request.auth.uid in resource.data.admins && resource.data.profs.size() <= 1;
+    }
+    // Demandes pour rejoindre un établissement (id = etabId__uid), validées par un administrateur
+    match /etabdemandes/{id} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || etabAdmin(resource.data.etabId));
+      allow create: if isProf() && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.etabId + '__' + request.auth.uid
+        && exists(etabPath(request.resource.data.etabId));
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || etabAdmin(resource.data.etabId));
+    }
+    // Défis communs à l'établissement : seul l'auteur les modifie ou les supprime
+    match /etabdefis/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid && etabProf(request.resource.data.etabId);
+      allow update: if isProf() && resource.data.profId == request.auth.uid
+        && request.resource.data.profId == request.auth.uid && request.resource.data.etabId == resource.data.etabId;
+      allow delete: if signedIn() && resource.data.profId == request.auth.uid;
+    }
+    // Inscriptions aux compétitions (id = actuId__uid) : identifiant et classe seulement, jamais de nom.
+    // Lues par l'élève, son prof et l'organisateur (auteur de l'actualité).
+    function actuDe(a) { return get(/databases/$(database)/documents/actus/$(a)).data; }
+    match /inscriptions/{id} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid
+        || resource.data.profId == request.auth.uid || resource.data.organisateur == request.auth.uid);
+      allow create: if isEleve()
+        && id == request.resource.data.actuId + '__' + request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.profId == me().profId
+        && request.resource.data.classeId == me().classeId
+        && request.resource.data.login == me().login
+        && actuDe(request.resource.data.actuId).get('inscription', false) == true
+        && request.resource.data.organisateur == actuDe(request.resource.data.actuId).profId
+        && (actuDe(request.resource.data.actuId).profId == me().profId
+          || (actuDe(request.resource.data.actuId).get('portee', '') == 'etab'
+            && actuDe(request.resource.data.actuId).get('etabId', '') == get(/databases/$(database)/documents/classes/$(me().classeId)).data.get('etabId', '-')));
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid
+        || resource.data.profId == request.auth.uid || resource.data.organisateur == request.auth.uid);
+    }
+    // Noms des élèves chiffrés sur l'appareil du prof (AES-GCM, clé tirée de la phrase secrète) : id = classeId.
+    // Lisibles par les profs de l'établissement ; écrits par le prof de la classe (ou un admin qui re-chiffre).
+    match /nomsChiffres/{cid} {
+      allow read: if signedIn() && (resource == null || etabProf(resource.data.etabId));
+      allow create, update: if isProf() && etabProf(request.resource.data.etabId)
+        && ((request.resource.data.profId == request.auth.uid
+            && get(/databases/$(database)/documents/classes/$(cid)).data.profId == request.auth.uid)
+          || (resource != null && etabAdmin(request.resource.data.etabId)
+            && resource.data.etabId == request.resource.data.etabId
+            && request.resource.data.profId == resource.data.profId));
+      allow delete: if signedIn() && resource.data.profId == request.auth.uid;
     }
 
     // ---------- Préférences privées du prof (clé Gemini personnelle) ----------

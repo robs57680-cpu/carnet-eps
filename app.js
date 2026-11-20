@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.21-1";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-1";
-const APP_VERSION="2026.11.21-1";
+import * as fb from "./fb.js?v=2026.11.21-2";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-2";
+const APP_VERSION="2026.11.21-2";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -563,7 +563,7 @@ async function delCoach(s){const id=`${carnetId}__${s.id}`;s.coachLogin=null;s.c
 /* ---------- Écrans : prof ---------- */
 async function loadClasses(){classes=(await fb.listClasses(me.uid)).sort((a,b)=>String(a.nom).localeCompare(String(b.nom),"fr",{numeric:true}))}
 function vClasses(){const year=(()=>{const d=new Date(),y=d.getFullYear();return d.getMonth()>=7?`${y}-${y+1}`:`${y-1}-${y}`})();
-  return`<div class="stack"><div class="row"><h2>Mes classes</h2></div>
+  return`<div class="stack"><div class="row"><h2>Mes classes</h2></div>${vEtabNudge()}
   ${classes.length?`<div class="grid-cards">${classes.map(c=>`<button class="class-card" data-act="openClasse" data-id="${c.id}"><span class="cc-n">${esc(c.nom)}</span><span class="hint">${esc(c.annee||"")}</span><span class="chip">${c.nbEleves||0} élève${(c.nbEleves||0)>1?"s":""}</span></button>`).join("")}</div>`:`<div class="card"><p style="margin:0">Aucune classe pour l'instant. Créez votre première classe ci-dessous.</p></div>`}
   <form class="card" id="new-classe"><div class="sec-h"><h3>Nouvelle classe</h3></div>
     <div class="grid2"><label class="f">Nom de la classe<input id="nc-nom" required maxlength="20" placeholder="ex. 1G2"></label><label class="f">Année scolaire<input id="nc-annee" value="${year}" maxlength="12"></label></div>
@@ -582,10 +582,11 @@ function vClasse(){const c=classe,rep=getReperes(c.id);
   else if(classeTab==="vigie")body=vVgProf();
   else if(classeTab==="correction")body=vCorrTab();
   else body=`<section class="card"><div class="sec-h"><h3>Comptes élèves</h3><span class="spacer"></span>${eleves.length?`<button class="btn small" data-act="copyIds">Copier</button><button class="btn small" data-act="printIds">Imprimer les fiches</button>`:""}</div>
-    <p class="hint" style="margin:-4px 0 10px">Distribuez les identifiants aux élèves. La colonne « Repère » (initiales, prénom…) reste uniquement sur cet appareil : elle n'est jamais envoyée en ligne.</p>
-    ${eleves.length?`<div class="scroll"><table class="ids"><thead><tr><th>N°</th><th>Identifiant</th><th>Mot de passe</th><th>Repère (cet appareil)</th><th></th></tr></thead><tbody>${eleves.map(e=>`<tr><td>${e.numero}</td><td><code>${esc(e.login)}</code></td><td><code>${esc(e.password)}</code></td><td><input id="rep-${e.id}" data-repere="${e.id}" value="${esc(rep[e.id]||"")}" maxlength="30" style="min-width:110px"></td><td><button class="btn ghost small" data-act="delEleve" data-id="${e.id}" aria-label="Supprimer le compte">✕</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
+    <p class="hint" style="margin:-4px 0 10px">Distribuez les identifiants aux élèves. La colonne « Nom » reste sur cet appareil : elle n'est jamais envoyée en clair (voir « Noms des élèves » ci-dessous).</p>
+    ${eleves.length?`<div class="scroll"><table class="ids"><thead><tr><th>N°</th><th>Identifiant</th><th>Mot de passe</th><th>Nom (cet appareil)</th><th></th></tr></thead><tbody>${eleves.map(e=>`<tr><td>${e.numero}</td><td><code>${esc(e.login)}</code></td><td><code>${esc(e.password)}</code></td><td><input id="rep-${e.id}" data-repere="${e.id}" value="${esc(rep[e.id]||"")}" maxlength="40" style="min-width:140px"></td><td><button class="btn ghost small" data-act="delEleve" data-id="${e.id}" aria-label="Supprimer le compte">✕</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
     <form id="add-eleves" class="row" style="margin-top:12px;align-items:end"><label class="f" style="width:150px">Nombre de comptes<input id="ae-n" type="number" min="1" max="40" value="${eleves.length?1:30}"></label><button class="btn primary" type="submit">Créer les comptes</button></form>
     <div id="ae-prog" class="hint" style="margin-top:8px"></div></section>
+    ${eleves.length?vNomsCard():""}
     ${eleves.length?"":`<button class="btn danger small" data-act="delClasse">Supprimer la classe</button>`}`;
   return`<div class="stack"><div class="row"><button class="btn ghost small" data-nav="classes">← Mes classes</button><span class="spacer"></span><button class="btn small" data-act="vueEleve">👁 Vue élève</button></div>
   <div class="class-hero"><span class="eyebrow">${esc(c.annee||"")}</span><h2>${esc(c.nom)}</h2></div>${tabs}${body}</div>`}
@@ -653,7 +654,7 @@ function exportCSV(){const L=[["N°","Identifiant","Séances validées","AFL1 /1
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`Notes_${slug(classe.nom)}_${suivi.act}.csv`;document.body.appendChild(a);a.click();a.remove()}
 
 /* ---------- Écrans : développeur et compte ---------- */
-async function openDev(){RETRY=()=>openDev();go("loading");try{[demandes,profs]=await Promise.all([fb.listDemandes(),fb.listProfs()]);go("dev")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openDev(){RETRY=()=>openDev();go("loading");try{[demandes,profs,ET.tous]=await Promise.all([fb.listDemandes(),fb.listProfs(),fb.listEtabs().catch(()=>[])]);go("dev")}catch(e){go("error",{msg:authMsg(e)})}}
 const tsDate=t=>{try{const d=t&&t.toDate?t.toDate():t?new Date(t):null;return d?d.toLocaleDateString("fr-FR"):""}catch(e){return""}};
 function vDev(){const nv=demandes.filter(d=>d.statut==="nouvelle");
   return`<div class="stack"><h2>Espace développeur</h2>
@@ -663,7 +664,9 @@ function vDev(){const nv=demandes.filter(d=>d.statut==="nouvelle");
   <form class="card" id="new-prof"><div class="sec-h"><h3>Créer un compte prof</h3></div>
     <div class="row" style="align-items:end"><label class="f" style="flex:1;min-width:200px">E-mail du professeur<input id="np-email" type="email" required></label><button class="btn primary" type="submit">Créer</button></div></form>
   <section class="card"><div class="sec-h"><h3>Professeurs</h3><span class="chip">${profs.length}</span></div>
-    ${profs.map(p=>`<div class="dem"><div><strong>${esc(p.email||"")}</strong> <span class="hint">· ${ROLE_LABEL[p.role]} · ${esc(tsDate(p.createdAt))}</span></div></div>`).join("")}</section></div>`}
+    ${profs.map(p=>`<div class="dem"><div><strong>${esc(p.email||"")}</strong> <span class="hint">· ${ROLE_LABEL[p.role]} · ${esc(tsDate(p.createdAt))}</span></div></div>`).join("")}</section>
+  <section class="card"><div class="sec-h"><h3>🏫 Établissements</h3><span class="chip">${(ET.tous||[]).length}</span></div>
+    ${(ET.tous||[]).map(x=>`<div class="dem"><div><strong>${esc(x.nom)}</strong> <span class="hint">· ${esc(x.commune||"")} · ${(x.profs||[]).length} prof${(x.profs||[]).length>1?"s":""} · admin : ${esc((x.admins||[]).map(u=>(x.emails||{})[u]).filter(Boolean).join(", "))}</span></div></div>`).join("")||'<p class="hint" style="margin:0">Aucun établissement.</p>'}</section></div>`}
 async function createProf(email,demId){email=String(email||"").trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast("E-mail invalide");return}
   const pwd=genPwdProf();go("loading",{msg:"Création du compte…"});
   try{const uid=await fb.createAccount(email,pwd);await fb.setUser(uid,{role:"prof",email});if(demId)await fb.updateDemande(demId,{statut:"traitee"});
@@ -673,6 +676,7 @@ async function createProf(email,demId){email=String(email||"").trim().toLowerCas
   catch(e){console.error(e);await openDev();toast(authMsg(e))}}
 function vCompte(){return`<div class="stack"><h2>Mon compte</h2>
   <section class="card"><div class="row"><span class="chip">${ROLE_LABEL[me.role]}</span><strong>${esc(me.email||"")}</strong></div></section>
+  ${vEtabCard()}
   <form class="card stack" id="chg-pwd" style="gap:10px"><h3>Changer mon mot de passe</h3>
     <label class="f">Nouveau mot de passe<input id="cp-1" type="password" minlength="8" autocomplete="new-password" required></label>
     <label class="f">Confirmer<input id="cp-2" type="password" minlength="8" autocomplete="new-password" required></label>
@@ -734,7 +738,7 @@ function onField(e){const el=e.target;
   if(el.dataset.co!==undefined||el.dataset.cc!==undefined){coField(el,e);return}
   if(el.dataset.vg!==undefined){vgField(el,e);return}
   if(corrField(el,e)||sbxField(el,e)||mbField(el,e))return;
-  if(el.dataset.repere!==undefined){const r=getReperes(classe.id);r[el.dataset.repere]=el.value.slice(0,30);store(reperesKey(classe.id),r);return}
+  if(el.dataset.repere!==undefined){const r=getReperes(classe.id);r[el.dataset.repere]=el.value.slice(0,40);store(reperesKey(classe.id),r);etPushSoon(classe.id);return}
   if(el.dataset.a3!==undefined){if(e.type==="change")setAfl3(el.value?+el.value:null,+el.dataset.a3);return}
   if(el.dataset.set){if(route.name!=="suivi")return;const st=settings;if(el.dataset.set==="tol")st.tol=num(el.value)||5;else{const[t,p,i]=el.dataset.set.split(".");const v=num(el.value);if(!isNaN(v))st.themes[t][p][+i]=v}
     if(e.type==="change"){saveReglages();rerenderKeep()}return}
@@ -769,7 +773,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
     try{const id=await fb.createClasse({profId:me.uid,nom,annee,nbEleves:0,reglages:{}});await loadClasses();await openClasse(id,"eleves");toast("Classe créée : ajoutez les comptes élèves")}catch(x){toast(authMsg(x))}return}
   if(f.id==="add-eleves"){const n=Math.max(1,Math.min(40,parseInt($("#ae-n").value)||0));addEleves(n);return}
   if(f.id==="fiche-form"){if(!ficheBusy)deposerFiches();return}
-  if(f.id==="actu-form"){const d={profId:me.uid,type:$("#au-type").value,titre:$("#au-t").value.trim().slice(0,60),date:$("#au-date").value,lieu:$("#au-lieu").value.trim().slice(0,60),lien:$("#au-lien").value.trim().slice(0,300),classes:[...document.querySelectorAll(".au-cls:checked")].map(x=>x.value)};
+  if(f.id==="actu-form"){const d={profId:me.uid,type:$("#au-type").value,titre:$("#au-t").value.trim().slice(0,60),date:$("#au-date").value,lieu:$("#au-lieu").value.trim().slice(0,60),lien:$("#au-lien").value.trim().slice(0,300),classes:[...document.querySelectorAll(".au-cls:checked")].map(x=>x.value),inscription:!!($("#au-ins")||{}).checked,portee:($("#au-portee")||{}).value==="etab"&&ET.etab?"etab":"classes",etabId:ET.etab?ET.etab.id:""};if(d.portee==="etab")d.classes=[];
     if(!d.titre||!d.date)return;if(d.lien&&!/^https?:\/\//.test(d.lien)){toast("Le lien doit commencer par https://");return}
     try{if(PA.edit){await fb.updateActu(PA.edit,d);d.id=PA.edit;PA.actus=PA.actus.map(x=>x.id===d.id?d:x);PA.edit=null;toast("Actualité modifiée")}
       else{d.id=await fb.createActu(d);PA.actus.push(d);toast("Actualité publiée — vous pouvez en ajouter une autre")}
@@ -778,7 +782,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.21-1");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.21-2");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -971,14 +975,14 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
 if(!fb.configured){route={name:"setup"};render()}
 else{render();
   fb.onAuth(async u=>{
-    if(!u){me=null;RO=false;carnetId=null;data=null;go("login");return}
+    if(!u){me=null;RO=false;carnetId=null;data=null;ET={etab:null,dem:null,loaded:false,loading:null,demandes:[],sugg:null,form:{nom:"",commune:""}};go("login");return}
     go("loading");
     try{const lent=setTimeout(()=>{if(route.name==="loading")go("error",{msg:"Le chargement est bloqué, sans doute par un autre onglet resté ouvert sur une ancienne version de l'appli. Ferme les autres onglets du Carnet d'entraînement (ou redémarre le navigateur), puis touche « Réessayer »."})},15000);
       let d=await fb.getUser(u.uid);clearTimeout(lent);
       if(!d&&u.email&&u.email.toLowerCase()===String(DEV_EMAIL).toLowerCase()){await fb.setUser(u.uid,{role:"dev",email:u.email});d={role:"dev",email:u.email}}
       if(!d){me={uid:u.uid,role:""};go("noaccount");return}
       me={uid:u.uid,...d};
-      if(me.role==="eleve"){try{const l=await fb.getLogin(me.login);me.pseudo=(l&&l.pseudo)||"";me.avatar=(l&&l.avatar)||""}catch(e){me.pseudo=""}openHome()}else{try{const pr=await fb.getPrefs(u.uid);IAKEY=(pr&&pr.geminiKey)||""}catch(e){IAKEY=""}await loadClasses();go("classes")}}
+      if(me.role==="eleve"){try{const l=await fb.getLogin(me.login);me.pseudo=(l&&l.pseudo)||"";me.avatar=(l&&l.avatar)||""}catch(e){me.pseudo=""}openHome()}else{try{const pr=await fb.getPrefs(u.uid);IAKEY=(pr&&pr.geminiKey)||""}catch(e){IAKEY=""}await loadClasses();go("classes");etLoad().then(etRefresh)}}
     catch(e){console.error(e);go("error",{msg:authMsg(e)})}})}
 
 /* ====================================================================
@@ -1246,7 +1250,7 @@ function gCalcText(M,cr){const c=cr.calcul,src=x=>{if(typeof x==="number")return
   if(c.type==="ecart")return`Écart entre ${src(c.source)} et ${src(c.cible)} : D4 si ≤ ${c.seuils[0]}, D3 ≤ ${c.seuils[1]}, D2 ≤ ${c.seuils[2]}`;
   const op=c.sens==="bas"?"≤":"≥";return`${src(c.source)} : D4 si ${op} ${c.seuils[0]}, D3 ${op} ${c.seuils[1]}, D2 ${op} ${c.seuils[2]}`}
 
-/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.21-1) */
+/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.21-2) */
 function mbList(){const moi=me&&String(me.login||"").toLowerCase();let L;
   if(carnetDoc&&carnetDoc.groupe)L=(carnetDoc.logins||[]).filter(l=>String(l).toLowerCase()!==moi);
   else{if(!ROSTER&&me&&me.role==="eleve"){loadRoster().then(()=>rerenderKeep());return null}L=(ROSTER||[]).map(x=>x.login).filter(l=>l!==moi)}
@@ -1263,7 +1267,7 @@ function mbField(el,e){if(el.dataset.mb===undefined)return false;if(e.type!=="ch
   if(lim!==null&&sel.length>lim){el.checked=false;sel=sel.filter(x=>x!==el.value);toast(lim?`${lim} partenaire${lim>1?"s":""} au plus pour cette figure`:"Indique d'abord combien de personnes il y a dans la figure");return true}
   if(/^seances\.\d+\./.test(k)){const si=+k.split(".")[1];if(data.seances[si]&&data.seances[si].valide)return true}
   setPath(data,k,sel);save();const sm=el.closest("details").querySelector("summary");if(sm)sm.textContent=sel.length?sel.join(", "):"Choisir…";return true}
-/* ===================== Tableau à double entrée (2026.11.21-1) =====================
+/* ===================== Tableau à double entrée (2026.11.21-2) =====================
    Champ calculé « grille » : deux axes (ex. points acros × étoiles collectives), chacun alimenté par une ou plusieurs cases additionnées
    (nombre, compteur, échelle, choix, colonne d'un tableau…). La note est lue au croisement. Un critère « grille » la compte directement en AFL1. */
 const numsOf=a=>(Array.isArray(a)?a:String(a??"").split(/[,;\s]+/)).map(x=>parseFloat(String(x).replace(",","."))).filter(Number.isFinite);
@@ -1500,7 +1504,7 @@ function gSuivi(){const rep=getReperes(classe.id),JG=MOD.partage==="coach"&&MOD.
   ${rows?`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Séances validées</th><th class="n">Dernière note /20</th><th class="n">AFL1</th><th>AFL3 prof</th><th class="n">Total /20</th>${QA.map(a=>`<th class="n">📝 ${a} retenu</th>`).join("")}${JG?'<th class="n">⚖️ Note de juge</th>':""}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
   <p class="hint" style="margin:8px 0 0">Total = AFL1 et AFL2 de la séance d'épreuve (★) ou de la dernière séance validée + AFL3 fixé par vous. Les pages que vous avez corrigées (✏️) sont notées avec vos choix.${QA.length?` 📝 ${QA.join(", ")} retenu : note du QCM + reste venant du carnet ; tapez une note pour la remplacer (vide = calcul automatique), elle compte dans le Total.`:""}${JG?` Note de juge : moyenne des pages jugées par l'élève, − ${fmtN(jugeCfg(MOD).perte)} pt par écart avec votre correction.`:""}</p></section></div>`}
 
-/* ===================== Correction du prof (2026.11.21-1) =====================
+/* ===================== Correction du prof (2026.11.21-2) =====================
    Le prof ouvre la page d'un élève et déplace les marqueurs (réponses de l'élève, cases du juge / observateur, autoévaluation).
    Ses choix sont rangés à part (corrections/{carnetId__sid}) : la page de l'élève n'est jamais écrasée.
    Chaque case du juge modifiée par le prof = un écart : la note de juge baisse automatiquement.
@@ -1612,7 +1616,7 @@ function corrField(el,e){
 function jugeDe(uid){const L=Object.values(CORRS).filter(c=>c.coachUid===uid&&c.jugeNote!=null);if(!L.length)return null;
   return{n:L.length,note:Math.round(L.reduce((a,c)=>a+c.jugeNote,0)/L.length*10)/10,max:L[0].jugeMax,ec:L.reduce((a,c)=>a+(c.ecarts||0),0)}}
 
-/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.21-1) =====================
+/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.21-2) =====================
    Données d'exemple, groupe factice déjà formé, vue observateur avec choix de l'observateur. Rien n'est enregistré. */
 let SBXOBS=false;
 const sbxOn=()=>PREVIEW&&!!SBX&&!!modeleEdit&&modeleEdit.tab==="apercu";
@@ -1809,19 +1813,19 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.21-1");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.21-2");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;m.partage=m.partage==="groupe"?"groupe":"coach";
       try{const pr=/pdf/i.test(f2.type)||/\.pdf$/i.test(f2.name)?await pdfParts(f2,()=>{}):{type:"images",parts:await imageParts(f2)};m.gabarit.ficheId=await fb.addFiche({profId:me.uid,activite:dossier?dossier.id:"",titre:"Fiche d'origine · "+String(m.titre||f2.name).slice(0,60),type:pr.type,origine:true},pr.parts)}catch(x){console.warn("fiche d'origine",x)}}
     else m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.21-1");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.21-2");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -2057,7 +2061,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-1" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-2" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?qResItems(its)+coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -2392,7 +2396,8 @@ const defisSem=P=>(P.defis||[]).filter(d=>!d.semaine||d.semaine===semaineId());
 const defiFait=(a,d)=>{const s=semaineId(),m=a&&a.defis||{};return!!(m[s+":"+d.id]||(d.id==="d0"&&m[s]===true))};
 let DI=0;
 function semaineId(d=new Date()){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=t.getUTCFullYear(),w=Math.ceil(((t-Date.UTC(y,0,1))/864e5+1)/7);return`${y}-S${String(w).padStart(2,"0")}`}
-let H={pc:normPC(),ac:null,actus:[],cls:null,sessions:[]};
+let H={pc:normPC(),ac:null,actus:[],cls:null,sessions:[],ins:[],edefis:[]};
+const defisH=()=>[...defisSem(H.pc),...(H.edefis||[])];
 const lvl3=(v,s)=>v<=s[0]?0:v<=s[1]?1:2;
 function scoreAct(a,P){if(!a||a.semaine!==semaineId())return null;const tot=P.act.pts+P.jours.pts+P.sed.pts+P.ecran.pts||1;
   const d={act:Math.min(1,(+a.min||0)/P.act.cible),jours:Math.min(1,(+a.jours||0)/P.jours.cible),sed:[1,.5,0][lvl3(+a.sed||0,P.sed.seuils)],ecran:[1,.5,0][lvl3(+a.ecran||0,P.ecran.seuils)]};
@@ -2412,7 +2417,10 @@ function conseils(a,P){if(!a)return[];const out=[],r=scoreAct(a,P);if(!r)return[
   return out}
 async function openHome(){RETRY=()=>openHome();go("loading",{msg:"Chargement de ton espace…"});
   try{const[pc,ac,actus,cls,sess]=await Promise.all([fb.getProfCfg(me.profId).catch(()=>null),fb.getActivite(me.uid).catch(()=>null),fb.listActus(me.profId).catch(()=>[]),fb.getClasse(me.classeId).catch(()=>null),fb.listSessionsActives(me.classeId,me.profId).catch(()=>[])]);
-    H={pc:normPC(pc),ac,cls,sessions:sess,actus:actus.filter(x=>String(x.date||"")>=today()&&(!(x.classes||[]).length||(x.classes||[]).includes(me.classeId))).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};
+    const eid=cls&&cls.etabId||"",[eActus,eDefis,ins]=await Promise.all([eid?fb.listActusEtab(eid).catch(()=>[]):[],eid?fb.listEtabDefis(eid).catch(()=>[]):[],VUE?[]:fb.listMesInscriptions(me.uid).catch(()=>[])]);
+    const vus=new Set(),tous=[...actus.filter(x=>x.portee!=="etab"||x.etabId===eid),...eActus].filter(x=>!vus.has(x.id)&&vus.add(x.id));
+    H={pc:normPC(pc),ac,cls,sessions:sess,ins:ins.map(i=>i.actuId),edefis:eDefis.filter(d=>d.semaine===semaineId()).map(d=>({id:"e_"+d.id,valeur:d.valeur,texte:d.texte,semaine:d.semaine,etab:true})),
+      actus:tous.filter(x=>String(x.date||"")>=today()&&(x.portee==="etab"||!(x.classes||[]).length||(x.classes||[]).includes(me.classeId))).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};
     eleveClasse=cls;eleveSessions=sess;go("home");vgInit()}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 const AVATARS=["🏃","🤸","⚽","🏀","🏐","🤾","🏸","🎾","🚴","🏊","🧗","🥋","🦊","🐯","🐺","🦁"];
 function avatarHTML(cls=""){return`<div class="h-av ${cls}" aria-hidden="true">${esc(me.avatar||AVATARS[0])}</div>`}
@@ -2426,7 +2434,7 @@ function vConseilsPage(){const P=H.pc,a=H.ac,L=conseils(a,P);
     <li><i style="background:${P.couleurs[0]}"></i>Temps assis jusqu'à ${fmtH(P.sed.seuils[0])} par jour, <i style="background:${P.couleurs[1]}"></i>jusqu'à ${fmtH(P.sed.seuils[1])}, <i style="background:${P.couleurs[2]}"></i>au-delà</li>
     <li><i style="background:${P.couleurs[0]}"></i>Écran jusqu'à ${fmtH(P.ecran.seuils[0])} par jour, <i style="background:${P.couleurs[1]}"></i>jusqu'à ${fmtH(P.ecran.seuils[1])}, <i style="background:${P.couleurs[2]}"></i>au-delà</li></ul></section></div>`}
 function vActusPage(){return`<div class="shell-home"><div class="row"><button class="h-link" data-act="shTab" data-t="home">← Accueil</button></div><div class="h-sech"><span class="h-ic">📢</span><h2>Actualités</h2></div>
-  ${H.actus.map(x=>`<div class="h-row"><span class="hr-ic">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date))} · ${dansJours(x.date)}${x.lieu?` · ${esc(x.lieu)}`:""}</small></div><span class="spacer"></span>${x.lien?`<a href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="S'inscrire">S'inscrire ›</a>`:""}</div>`).join("")||'<p class="h-empty">Rien de prévu pour l\'instant.</p>'}</div>`}
+  ${H.actus.map(x=>`<div class="h-row"><span class="hr-ic">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date))} · ${dansJours(x.date)}${x.lieu?` · ${esc(x.lieu)}`:""}</small></div><span class="spacer"></span>${x.inscription&&x.type==="competition"?etInsBtn(x):x.lien?`<a href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="S'inscrire">S'inscrire ›</a>`:""}</div>`).join("")||'<p class="h-empty">Rien de prévu pour l\'instant.</p>'}</div>`}
 /* --- En classe --- */
 const CA_FR={CA1:"Réaliser une performance motrice maximale",CA2:"Adapter ses déplacements à des environnements variés",CA3:"Réaliser une prestation corporelle à voir et à apprécier",CA4:"Conduire et maîtriser un affrontement pour gagner",CA5:"Réaliser et orienter son activité physique pour s'entretenir"};
 const CA_COL={CA1:"#ef4444",CA2:"#22c55e",CA3:"#a855f7",CA4:"#f97316",CA5:"#0ea5e9","":"#64748b"};
@@ -2446,7 +2454,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-1" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-2" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2469,7 +2477,7 @@ async function saveActivite(){if(apercuBloque())return;const err=$("#ac-err");er
   if(j<0||j>7||sed>24*60||ecr>24*60){err.textContent="Vérifie tes valeurs.";return}
   const d={profId:me.profId,classeId:me.classeId,semaine:semaineId(),min,jours:j,sed:Math.round(sed/60*100)/100,ecran:Math.round(ecr/60*100)/100,defis:(H.ac&&H.ac.defis)||{},maj:new Date().toISOString()};
   try{await fb.setActivite(me.uid,d);H.ac=d;toast("Activité enregistrée");shTab("home")}catch(e){err.textContent=authMsg(e)}}
-async function toggleDefi(id){if(apercuBloque())return;const d=(H.pc.defis||[]).find(x=>x.id===id);if(!d)return;const sem=semaineId(),k=sem+":"+id,a=H.ac||{profId:me.profId,classeId:me.classeId,semaine:"",min:0,jours:0,sed:0,ecran:0,defis:{}};
+async function toggleDefi(id){if(apercuBloque())return;const d=defisH().find(x=>x.id===id);if(!d)return;const sem=semaineId(),k=sem+":"+id,a=H.ac||{profId:me.profId,classeId:me.classeId,semaine:"",min:0,jours:0,sed:0,ecran:0,defis:{}};
   const was=defiFait(a,d),m={...(a.defis||{})};if(id==="d0")delete m[sem];m[k]=!was;a.defis=m;
   try{await fb.setActivite(me.uid,{...a,profId:me.profId,classeId:me.classeId});H.ac=a;if(!was)toast("Bravo, défi relevé ! 💪");rerenderKeep()}catch(e){toast(authMsg(e))}}
 async function savePseudoAvatar(av){if(apercuBloque())return;try{await fb.updateLogin(me.login,{avatar:av});me.avatar=av;rerenderKeep()}catch(e){toast(authMsg(e))}}
@@ -2477,7 +2485,8 @@ function shTab(t){if(t==="enclasse"){openActs();return}go(t)}
 /* --- Prof : réglages de l'accueil élèves --- */
 let PA=null;
 async function openProfAccueil(){RETRY=()=>openProfAccueil();go("loading");try{await loadClasses();const[pc,actus]=await Promise.all([fb.getProfCfg(me.uid).catch(()=>null),fb.listActus(me.uid).catch(()=>[])]);
-  PA={pc:normPC(pc),actus:actus.sort((a,b)=>String(a.date).localeCompare(String(b.date))),edit:null};go("profAccueil")}catch(e){go("error",{msg:authMsg(e)})}}
+  await etLoad();let edefis=[],etActus=[];if(ET.etab){[edefis,etActus]=await Promise.all([fb.listEtabDefis(ET.etab.id).catch(()=>[]),fb.listActusEtab(ET.etab.id).catch(()=>[])])}
+  PA={pc:normPC(pc),actus:actus.sort((a,b)=>String(a.date).localeCompare(String(b.date))),edit:null,edefis,etActus:etActus.filter(x=>x.profId!==me.uid).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};go("profAccueil")}catch(e){go("error",{msg:authMsg(e)})}}
 function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`<label class="f">${l}<input data-pa="${k}" inputmode="decimal" value="${v}" ${at}></label>`;
   return`<div class="stack"><h2>Accueil des élèves</h2><p class="hint" style="margin:-6px 0 0">Ce que vos élèves voient en ouvrant l'appli : leur score d'activité physique, vos actualités et les défis de la semaine.</p>
   <section class="card stack" style="gap:10px"><div class="sec-h"><h3>Barème du score d'activité (/100)</h3></div>
@@ -2497,14 +2506,16 @@ function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`
     <div class="grid2" style="border-top:1px solid var(--line);padding-top:10px"><label class="f">Objectif<input id="df-v" maxlength="20" placeholder="ex. 5 min"></label><label class="f">Défi<input id="df-t" maxlength="60" placeholder="ex. de gainage cumulé"></label></div>
     <button class="btn primary" data-act="paDefiAdd" style="justify-self:start">＋ Ajouter ce défi cette semaine</button></section>
   <section class="card stack" style="gap:10px"><div class="sec-h"><h3>📢 Actualités</h3><span class="hint">Compétitions, AS, informations</span></div>
-    ${PA.actus.length?`<div class="list-s">${PA.actus.map(x=>`<div class="s-item" style="cursor:default${PA.edit===x.id?";outline:2px solid var(--accent)":""}"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${(x.classes||[]).length?esc(classes.filter(c=>x.classes.includes(c.id)).map(c=>c.nom).join(", ")):"toutes mes classes"}${String(x.date)<today()?" · passée":""}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn ghost small" data-act="paEditActu" data-id="${x.id}" aria-label="Modifier">✎</button><button class="btn ghost small danger" data-act="paDelActu" data-id="${x.id}" aria-label="Supprimer">✕</button></div></div>`).join("")}</div>`:'<p class="hint" style="margin:0">Aucune actualité.</p>'}
+    ${PA.actus.length?`<div class="list-s">${PA.actus.map(x=>`<div class="s-item" style="cursor:default${PA.edit===x.id?";outline:2px solid var(--accent)":""}"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${x.portee==="etab"?"🏫 tout l'établissement":(x.classes||[]).length?esc(classes.filter(c=>x.classes.includes(c.id)).map(c=>c.nom).join(", ")):"toutes mes classes"}${x.inscription&&x.type==="competition"?" · inscriptions dans l'appli":""}${String(x.date)<today()?" · passée":""}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap">${x.inscription&&x.type==="competition"?`<button class="btn ghost small" data-et="etInscrits" data-id="${x.id}">👥 Inscrits</button>`:""}<button class="btn ghost small" data-act="paEditActu" data-id="${x.id}" aria-label="Modifier">✎</button><button class="btn ghost small danger" data-act="paDelActu" data-id="${x.id}" aria-label="Supprimer">✕</button></div></div>`).join("")}</div>`:'<p class="hint" style="margin:0">Aucune actualité.</p>'}
     ${(()=>{const E=PA.edit&&PA.actus.find(x=>x.id===PA.edit)||null,v=k=>esc(E&&E[k]||"");return`<form class="stack" id="actu-form" style="gap:8px;border-top:1px solid var(--line);padding-top:10px">
       <strong>${E?"Modifier l'actualité":PA.actus.length?"Ajouter une autre actualité":"Nouvelle actualité"}</strong>
       <div class="grid2"><label class="f">Type<select id="au-type">${[["competition","🏆 Compétition"],["as","🏅 Activité AS"],["info","📣 Information"]].map(([k,l])=>`<option value="${k}" ${E&&E.type===k?"selected":""}>${l}</option>`).join("")}</select></label><label class="f">Date<input type="date" id="au-date" value="${E?v("date"):today()}" required></label></div>
       <label class="f">Titre<input id="au-t" maxlength="60" required placeholder="ex. Cross académique UNSS" value="${v("titre")}"></label>
       <div class="grid2"><label class="f">Lieu (facultatif)<input id="au-lieu" maxlength="60" value="${v("lieu")}"></label><label class="f">Lien d'inscription (facultatif)<input id="au-lien" type="url" placeholder="https://…" value="${v("lien")}"></label></div>
-      <div class="f"><span class="mlab">Classes</span><div class="mchecks">${classes.map(c=>`<label><input type="checkbox" class="au-cls" value="${c.id}" ${E&&(E.classes||[]).includes(c.id)?"checked":""}> ${esc(c.nom)}</label>`).join("")}</div><span class="hint">Aucune cochée = toutes vos classes.</span></div>
-      <div class="row"><button class="btn primary" type="submit">${E?"Enregistrer les modifications":"＋ Publier l'actualité"}</button>${E?`<button class="btn ghost" type="button" data-act="paCancelActu">Annuler</button>`:""}</div></form>`})()}</section></div>`}
+      <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="au-ins" ${!E||E.inscription?"checked":""} style="width:20px;height:20px"> Inscriptions dans l'appli (bouton « Je m'inscris » pour une compétition)</label>
+      ${ET.etab?`<label class="f">Pour qui ?<select id="au-portee"><option value="classes" ${E&&E.portee==="etab"?"":"selected"}>Mes classes</option><option value="etab" ${E&&E.portee==="etab"?"selected":""}>🏫 Tout l'établissement (${esc(ET.etab.nom)})</option></select></label>`:""}
+      <div class="f"><span class="mlab">Classes</span><div class="mchecks">${classes.map(c=>`<label><input type="checkbox" class="au-cls" value="${c.id}" ${E&&(E.classes||[]).includes(c.id)?"checked":""}> ${esc(c.nom)}</label>`).join("")}</div><span class="hint">Aucune cochée = toutes vos classes${ET.etab?" (ignoré pour « tout l'établissement »)":""}.</span></div>
+      <div class="row"><button class="btn primary" type="submit">${E?"Enregistrer les modifications":"＋ Publier l'actualité"}</button>${E?`<button class="btn ghost" type="button" data-act="paCancelActu">Annuler</button>`:""}</div></form>`})()}</section>${vEtabAccueil()}</div>`}
 async function paDefi(a,id){const P=PA.pc,sem=semaineId();let L=P.defis.slice();
   if(a==="paDefiAdd"){const v=($("#df-v")||{}).value||"",t=($("#df-t")||{}).value||"";if(!v.trim()&&!t.trim()){toast("Indiquez l'objectif du défi");return}
     L.push({id:Date.now().toString(36),valeur:v.trim().slice(0,20),texte:t.trim().slice(0,60),semaine:sem})}
@@ -2543,7 +2554,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-1" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-2" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2576,14 +2587,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-1" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-2" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
-  const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
+  const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisH();DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-1" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-2" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -2595,19 +2606,19 @@ function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):nu
       <button class="h2-link" data-act="shConseils">Voir mes conseils <span>→</span></button>`
     :`<p class="h-empty">Saisis ton activité de la semaine pour voir ton score et des conseils adaptés.</p><button class="h-btn" data-act="shTab" data-t="profilEl">Saisir mes données</button>`}</section>
   <div class="h2-sh"><span class="h2-ic blue">${IC.mega}</span><h2>Actualités</h2><span class="spacer"></span><button class="h2-link" data-act="shActus">Tout voir <span>→</span></button></div>
-  ${a0?`<section class="h2-news"><div class="hn2-tro" aria-hidden="true">${(ACTU_T[a0.type]||ACTU_T.info).ic}</div><div class="hn2-b"><span class="hn2-tag">${(ACTU_T[a0.type]||ACTU_T.info).lab}</span><h3>${esc(a0.titre)}</h3><p><span class="hn2-cal">${IC.cal}</span>${esc(dLong(a0.date).replace(/^./,m=>m.toUpperCase()))} · ${dansJours(a0.date)}</p></div>${a0.lien?`<a class="hn2-go" href="${esc(a0.lien)}" target="_blank" rel="noopener">S'inscrire <span>→</span></a>`:""}</section>
-    ${aRest.slice(0,4).map(x=>`<a class="h2-row" ${x.lien?`href="${esc(x.lien)}" target="_blank" rel="noopener"`:""}><span class="h2-medal" aria-hidden="true">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date).replace(/^./,m=>m.toUpperCase()))}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></a>`).join("")}`
+  ${a0?`<section class="h2-news"><div class="hn2-tro" aria-hidden="true">${(ACTU_T[a0.type]||ACTU_T.info).ic}</div><div class="hn2-b"><span class="hn2-tag">${(ACTU_T[a0.type]||ACTU_T.info).lab}</span><h3>${esc(a0.titre)}</h3><p><span class="hn2-cal">${IC.cal}</span>${esc(dLong(a0.date).replace(/^./,m=>m.toUpperCase()))} · ${dansJours(a0.date)}</p></div>${a0.inscription&&a0.type==="competition"?`<div class="hn2-go">${etInsBtn(a0)}</div>`:a0.lien?`<a class="hn2-go" href="${esc(a0.lien)}" target="_blank" rel="noopener">S'inscrire <span>→</span></a>`:""}</section>
+    ${aRest.slice(0,4).map(x=>x.inscription&&x.type==="competition"?`<div class="h2-row"><span class="h2-medal" aria-hidden="true">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date).replace(/^./,m=>m.toUpperCase()))}${x.portee==="etab"?" · 🏫":""}</small></div><span class="spacer"></span>${etInsBtn(x)}</div>`:`<a class="h2-row" ${x.lien?`href="${esc(x.lien)}" target="_blank" rel="noopener"`:""}><span class="h2-medal" aria-hidden="true">${(ACTU_T[x.type]||ACTU_T.info).ic}</span><div><b>${esc(x.titre)}</b><small>${esc(dLong(x.date).replace(/^./,m=>m.toUpperCase()))}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></a>`).join("")}`
     :`<div class="h2-row"><span class="h2-medal" aria-hidden="true">📣</span><div><b>Pas d'actualité pour l'instant</b><small>Les compétitions et l'AS apparaîtront ici.</small></div></div>`}
   <div class="h2-sh"><span class="h2-ic blue">${IC.target}</span><h2>Mes objectifs</h2><span class="spacer"></span><button class="h2-link" data-act="shTab" data-t="progres">Voir mes progrès <span>→</span></button></div>
   <div class="h2-obj"><section class="h2-card goal"><div class="h2-ring sm">${ring(Math.min(jours,P.objectifJours),P.objectifJours,"ggo","#a855f7","#3b82f6",40,9)}<div class="h2-ringv"><b>${jours} / ${P.objectifJours}</b></div></div>
       <div class="g-txt"><b>Bouger ${P.objectifJours} jours cette semaine</b><small>${jours>=P.objectifJours?"Objectif atteint, bravo !":`Encore ${P.objectifJours-jours} jour${P.objectifJours-jours>1?"s":""} pour atteindre ton objectif !`}</small><div class="h2-bar"><i style="width:${Math.min(100,jours/P.objectifJours*100)}%"></i></div></div></section>
-    <section class="h2-card defi"><div class="d-h"><span aria-hidden="true">🔥</span> ${DS.length>1?"Défis":"Défi"} de la semaine</div>${dfi?`<b>${esc(dfi.valeur)}</b><small>${esc(dfi.texte)}</small>
+    <section class="h2-card defi"><div class="d-h"><span aria-hidden="true">🔥</span> ${DS.length>1?"Défis":"Défi"} de la semaine</div>${dfi?`${dfi.etab?`<span class="et-tag">🏫 Établissement</span>`:""}<b>${esc(dfi.valeur)}</b><small>${esc(dfi.texte)}</small>
       <button class="d-btn${defiOk?" ok":""}" data-act="shDefi" data-id="${dfi.id}"><span class="d-ic">${defiOk?"✅":IC.dumbbell}</span>${defiOk?"Défi relevé !":"Je relève le défi !"}</button>
       ${DS.length>1?`<div class="d-nav"><button data-act="shDefiNav" data-d="-1" aria-label="Défi précédent">‹</button>${DS.map((x,i)=>`<i class="${i===DI?"on":""}${defiFait(a,x)?" ok":""}"></i>`).join("")}<button data-act="shDefiNav" data-d="1" aria-label="Défi suivant">›</button></div>`:""}`:`<small>Pas de défi cette semaine.</small>`}</section></div>
   <div class="h2-sh"><span class="h2-ic blue">${IC.grid}</span><h2>Ton espace EPS</h2></div>
   <div class="h2-tiles"><button data-act="shTab" data-t="enclasse" class="t-blue"><span>${IC.cal}</span>Séance du jour</button><button data-act="shTab" data-t="progres" class="t-green"><span>${IC.bars}</span>Mes progrès</button>
     <button data-act="shTab" data-t="enclasse" class="t-purple"><span>${IC.people}</span>Ma classe</button><button data-act="shConseils" class="t-orange"><span>${IC.book}</span>Ressources &amp; conseils</button></div></div>`}
-function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P),ok=DS.filter(d=>defiFait(a,d)).length,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
+function vProgres(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisH(),ok=DS.filter(d=>defiFait(a,d)).length,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const bar=(l,v,max,txt,c)=>`<div class="pg-b"><div class="pg-bl"><span>${l}</span><b style="${c?`color:${c}`:""}">${txt}</b></div><div class="h2-bar"><i style="width:${Math.max(0,Math.min(100,v/max*100))}%;${c?`background:${c}`:""}"></i></div></div>`;
   return`<div class="shell-home ec">${vVueBanner()}
   <div class="ec-h"><button class="dos-back" data-act="shTab" data-t="home" aria-label="Retour à l'accueil">${IC.chev}</button><span class="ec-hic green">${IC.bars}</span><div><h1>Progrès</h1><p>Ton activité, tes objectifs, tes défis !</p></div><i class="ec-sw" aria-hidden="true"></i></div>
@@ -3058,7 +3069,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-1");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-2");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
@@ -3413,7 +3424,7 @@ function vQcmEd(){const Q=QE.Q,cars=dossierItems.filter(x=>x.t==="carnet"),fis=d
   <button class="btn" data-act="qeAddQ">+ Question</button></div>`}
 function vQeRes(cl,r){if(r.load)return`<p class="hint">Chargement…</p>`;if(r.err)return`<p class="err">${esc(r.err)}</p>`;
   const Q=QE.Q,rows=r.eleves.map(e=>{const rep=r.reps.find(x=>x.eleveUid===e.id),n=rep?qcmRetenue(Q,QE.cle,rep):null;
-    return`<tr><td><strong>N°${e.numero}</strong> <code>${esc(e.login)}</code></td><td class="n">${n?`<strong>${fmtN(n.note)}</strong><span class="hint"> / ${fmtN(Q.sur)}</span>`:"–"}</td><td class="n">${rep?rep.essais||1:"–"}</td>
+    return`<tr><td><strong>N°${e.numero}</strong>${getReperes(cl.id)[e.id]?` ${esc(getReperes(cl.id)[e.id])}`:""} <code>${esc(e.login)}</code></td><td class="n">${n?`<strong>${fmtN(n.note)}</strong><span class="hint"> / ${fmtN(Q.sur)}</span>`:"–"}</td><td class="n">${rep?rep.essais||1:"–"}</td>
     <td class="hint">${rep&&(rep.prec||[]).length?[...rep.prec.map(p=>qcmNote(Q,QE.cle,p.r).note),qcmNote(Q,QE.cle,rep.reponses).note].map(fmtN).join(" → "):""}</td>
     <td>${rep?`<button class="btn ghost small" data-act="qeZero" data-c="${cl.id}" data-id="${rep.id}">Remettre à zéro</button>`:""}</td></tr>`}).join("");
   return`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Note</th><th class="n">Essais</th><th>Historique</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="hint">Aucun élève.</td></tr>'}</tbody></table></div>
@@ -3443,10 +3454,10 @@ async function qeIa(){const err=t=>{QE.ia.err=t;QE.ia.busy=false;if(route.name==
     if(fid){const f=dossierItems.find(x=>x.id===fid).f;if(f.type==="texte")txt=(txt?txt+"\n\n":"")+(f.texte||"");
       else{const parts=await fb.getFicheParts(fid);if(f.type==="pdf")fichiers.push({mime:"application/pdf",base64:parts.map(p=>p.data).join("")});else parts.forEach(p=>fichiers.push({mime:p.mime||"image/jpeg",base64:p.data}))}}
     for(const f of files)fichiers.push({mime:f.type||"application/pdf",base64:await fileToB64(f)});
-    const ia=await import("./ia.js?v=2026.11.21-1");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
+    const ia=await import("./ia.js?v=2026.11.21-2");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
     const add=qNorm({questions:(r.questions||[])}).questions;(r.questions||[]).forEach((x,k)=>{const q=add[k];if(!q)return;QE.cle[q.id]=(x.bonnes||[]).map(Number).filter(n=>n>=0&&n<q.reponses.length)});
     if(!add.length)throw new Error("Réponse de l'IA illisible.");QE.Q.questions.push(...add);QE.dirty=true;QE.ia={busy:false,err:""};toast(`${add.length} question${add.length>1?"s":""} ajoutée${add.length>1?"s":""} : vérifiez-les`);if(route.name==="qcmEd")rerenderKeep()}
-  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");m=ia.iaMessage(e)}catch(x){}err(m)}}
+  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-2");m=ia.iaMessage(e)}catch(x){}err(m)}}
 function qeField(t){const k=t.dataset.qe,i=+t.dataset.i,Q=QE.Q,q=Q.questions[i];let re=false;
   if(k==="titre")Q.titre=t.value;else if(k==="sur"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)Q.sur=v;re=true}
   else if(["afl","carnet","garder"].includes(k)){Q[k]=t.value;if(k==="afl")Q.sur=QAFL_DEF[t.value];re=true}
@@ -3540,7 +3551,7 @@ async function qsSetNote(uid,afl,v){const n=JSON.parse(JSON.stringify(QS.notes))
 document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.dataset.qsn||route.name!=="suivi"||!QS)return;const[uid,afl]=t.dataset.qsn.split("|"),s=String(t.value).trim().replace(",",".");
   const v=s===""?null:parseFloat(s);if(v!==null&&!(v>=0)){toast("Note invalide");return}qsSetNote(uid,afl,v)});
 
-/* ===================== Fiche d'observation cliquable « copie fidèle » (2026.11.21-1) =====================
+/* ===================== Fiche d'observation cliquable « copie fidèle » (2026.11.21-2) =====================
    modele.gabarit = {html, css, ficheId} : mise en page de la fiche papier du prof, redessinée par l'IA.
    Chaque case à remplir y est un repère <span data-f="section.champ"></span>, remplacé à l'affichage par la case du moteur
    (mêmes valeurs, même correction, même coach, même note de juge). Le gabarit est nettoyé : ni script, ni lien, ni image externe. */
@@ -3587,3 +3598,214 @@ function ffClick(a,b){
   if(a==="ffOrig"){ffOrig();return true}
   if(a==="ffDrop"&&modeleEdit){confirmBox("Retirer la mise en page ?","Le carnet garde ses cases, mais s'affichera comme un carnet classique (une partie sous l'autre).","Retirer",()=>{closeModal();mutDraft(M=>{delete M.gabarit})},true);return true}
   return false}
+
+/* ====================================================================
+   Établissements, actualités et défis d'établissement, inscriptions,
+   noms des élèves (liste locale + chiffrement par phrase secrète) — 2026.11.21-2
+   ==================================================================== */
+let ET={etab:null,dem:null,loaded:false,loading:null,demandes:[],sugg:null,form:{nom:"",commune:""}};
+const ET_STOP=new Set("college lycee cite scolaire de du des la le les l d et en au aux a polyvalent polyvalente general generale technologique professionnel professionnelle prive privee public publique lp lgt lpo clg ensemble etablissement ecole groupe".split(" "));
+const etTok=s=>norm(s).replace(/['’`\-_.,;:()"/«»]/g," ").split(" ").filter(w=>w&&!ET_STOP.has(w)).map(w=>w==="saint"?"st":w==="sainte"?"ste":w);
+const etNorm=s=>etTok(s).join(" ");
+const etNormCom=s=>norm(s).replace(/['’`\-_.,;:()"/]/g," ").split(" ").filter(Boolean).map(w=>w==="saint"?"st":w==="sainte"?"ste":w).join(" ");
+function etLev(a,b){if(a===b)return 0;const m=a.length,n=b.length;if(!m||!n)return m||n;let p=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
+const etSim=(a,b)=>!a||!b?0:a===b?1:1-etLev(a,b)/Math.max(a.length,b.length);
+// Score tolérant aux fautes : nom (texte entier ou mot à mot) 75 %, commune 25 %
+function etScore(nom,commune,E){const a=etNorm(nom),b=E.nomNorm||etNorm(E.nom),ta=a.split(" ").filter(Boolean),tb=b.split(" ").filter(Boolean);
+  let s=etSim(a,b);if(ta.length&&tb.length){const t=ta.reduce((m,w)=>m+Math.max(...tb.map(v=>etSim(w,v))),0)/Math.max(ta.length,tb.length);s=Math.max(s,t)}
+  const c=etSim(etNormCom(commune),E.communeNorm||etNormCom(E.commune));return{nom:s,com:c,tot:s*.75+c*.25}}
+const estAdmin=()=>!!(ET.etab&&(ET.etab.admins||[]).includes(me.uid));
+async function etLoad(){if(!me||me.role==="eleve")return;if(ET.loading)return ET.loading;
+  ET.loading=(async()=>{try{const[L,D]=await Promise.all([fb.listMesEtabs(me.uid),fb.listMesEtabDemandes(me.uid).catch(()=>[])]);
+    ET.etab=L[0]||null;ET.dem=D[0]||null;if(ET.etab&&ET.dem){fb.deleteEtabDemande(ET.dem.id).catch(()=>{});ET.dem=null}
+    ET.demandes=ET.etab&&estAdmin()?await fb.listEtabDemandes(ET.etab.id).catch(()=>[]):[];ET.loaded=true;etSyncClasses();etPullNoms()}
+    catch(e){console.warn("établissement",e);ET.loaded=true}finally{ET.loading=null}})();return ET.loading}
+// Les classes du prof portent l'établissement : ses élèves voient ainsi les actualités et défis communs.
+async function etSyncClasses(){const id=ET.etab?ET.etab.id:"";for(const c of classes||[]){if((c.etabId||"")===id)continue;try{await fb.updateClasse(c.id,{etabId:id});c.etabId=id}catch(e){console.warn(e)}}}
+function etRefresh(){if(["compte","classes","classe","profAccueil"].includes(route.name))rerenderKeep()}
+/* --- Carte « Mon établissement » (onglet Compte) --- */
+function vEtabCard(){if(!ET.loaded){etLoad().then(etRefresh);return`<section class="card"><h3>🏫 Mon établissement</h3><p class="hint" style="margin:0">Chargement…</p></section>`}
+  const E=ET.etab;
+  if(E){const adm=estAdmin(),em=E.emails||{},cle=etCleLocale(E.id);
+    return`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>🏫 ${esc(E.nom)}</h3><span class="hint">${esc(E.commune||"")}</span><span class="spacer"></span><span class="chip">${adm?"Administrateur":"Membre"}</span></div>
+    ${adm&&ET.demandes.length?`<div class="et-dem"><b>Demandes pour rejoindre l'établissement</b>${ET.demandes.map(d=>`<div class="dem"><div><strong>${esc(d.email||"")}</strong> <span class="hint">· ${esc(tsDate(d.createdAt))}</span></div><div class="row"><button class="btn primary small" data-et="etAccept" data-id="${d.id}">Accepter</button><button class="btn ghost small" data-et="etRefuse" data-id="${d.id}">Refuser</button></div></div>`).join("")}</div>`:""}
+    <details${adm?" open":""}><summary><strong>Professeurs (${(E.profs||[]).length})</strong></summary><div class="list-s" style="margin-top:8px">${(E.profs||[]).map(u=>{const a=(E.admins||[]).includes(u);return`<div class="s-item" style="cursor:default"><div><strong>${esc(em[u]||"Professeur")}</strong>${u===me.uid?' <span class="hint">(vous)</span>':""}<div class="hint">${a?"Administrateur":"Membre"}</div></div>
+      ${adm&&u!==me.uid?`<div class="row" style="gap:6px;flex-wrap:nowrap">${a?`<button class="btn ghost small" data-et="etAdmin" data-u="${u}" data-v="0">Retirer admin</button>`:`<button class="btn ghost small" data-et="etAdmin" data-u="${u}" data-v="1">Nommer admin</button>`}<button class="btn ghost small danger" data-et="etRetirer" data-u="${u}" aria-label="Retirer de l'établissement">✕</button></div>`:""}</div>`}).join("")}</div>
+      ${adm?`<p class="hint" style="margin:6px 0 0">Nommez au moins un autre administrateur : si vous partez, il pourra valider les nouvelles demandes.</p>`:""}</details>
+    <div class="et-key"><b>🔑 Phrase secrète de l'établissement</b>
+      <p class="hint" style="margin:4px 0 8px">Elle chiffre les noms de vos élèves sur cet appareil avant tout envoi : le serveur ne voit jamais les noms. Elle se transmet de vive voix ou par l'ENT, jamais par l'appli.</p>
+      ${!E.verif?(adm?`<button class="btn small primary" data-et="etPhraseSet">Choisir la phrase secrète</button>`:`<p class="hint" style="margin:0">L'administrateur n'a pas encore choisi de phrase secrète. Les noms restent seulement sur cet appareil.</p>`)
+        :cle?`<div class="row"><span class="chip" style="border-color:var(--d4);color:var(--d4)">✓ Phrase saisie sur cet appareil</span><button class="btn ghost small" data-et="etSyncNoms">↻ Synchroniser les noms</button><button class="btn ghost small" data-et="etOublier">Oublier sur cet appareil</button>${adm?`<button class="btn ghost small" data-et="etPhraseSet">Changer la phrase</button>`:""}</div>`
+        :`<div class="row"><button class="btn small primary" data-et="etPhraseAsk">Saisir la phrase secrète</button><span class="hint">Une seule fois par appareil.</span></div>`}</div>
+    <div class="row"><button class="btn small" data-et="etRgpd">📄 Information des familles (RGPD)</button><span class="spacer"></span><button class="btn ghost small danger" data-et="etQuitter">Quitter l'établissement</button></div></section>`}
+  if(ET.dem)return`<section class="card stack" style="gap:8px"><h3>🏫 Mon établissement</h3><p style="margin:0">Demande envoyée pour rejoindre <b>${esc(ET.dem.nom||"l'établissement")}</b>${ET.dem.commune?` (${esc(ET.dem.commune)})`:""}.</p>
+    <p class="hint" style="margin:0">Un administrateur de l'établissement doit la valider. En attendant, les fonctions d'établissement (actualités et défis communs, noms partagés) ne sont pas disponibles.</p>
+    <div class="row"><button class="btn ghost small" data-et="etRecharger">↻ Vérifier</button><button class="btn ghost small danger" data-et="etAnnulerDem">Annuler la demande</button></div></section>`;
+  const S=ET.sugg;
+  return`<section class="card stack" style="gap:10px"><h3>🏫 Mon établissement</h3><p class="hint" style="margin:0">Indiquez votre établissement pour partager avec vos collègues des actualités et des défis communs à tous vos élèves, et les inscriptions aux compétitions.</p>
+    <div class="grid2"><label class="f">Nom de l'établissement<input id="et-nom" maxlength="80" placeholder="ex. Lycée Raymond Poincaré" value="${esc(ET.form.nom)}"></label><label class="f">Commune<input id="et-com" maxlength="60" placeholder="ex. Bar-le-Duc" value="${esc(ET.form.commune)}"></label></div>
+    <div class="err" id="et-err"></div>
+    ${S?`<div class="et-sugg">${S.length?`<b>Vouliez-vous dire…</b>${S.map(x=>`<div class="s-item" style="cursor:default"><div><strong>${esc(x.nom)}</strong><div class="hint">${esc(x.commune||"")} · ${(x.profs||[]).length} prof${(x.profs||[]).length>1?"s":""}</div></div><button class="btn primary small" data-et="etRejoindre" data-id="${x.id}">Rejoindre</button></div>`).join("")}`:`<p class="hint" style="margin:0">Aucun établissement ressemblant n'est encore inscrit.</p>`}
+      <button class="btn small" data-et="etCreer">${S.length?"Non, ":""}Créer « ${esc(ET.form.nom)}${ET.form.commune?` (${esc(ET.form.commune)})`:""} »</button>
+      <p class="hint" style="margin:0">Rejoindre : votre demande est validée par un administrateur de l'établissement. Créer : vous en devenez l'administrateur.</p></div>`
+    :`<button class="btn primary" data-et="etChercher" style="justify-self:start">Continuer</button>`}</section>`}
+function vEtabNudge(){if(!ET.loaded||ET.etab||ET.dem||load("etNudgeOff"))return"";
+  return`<section class="card"><div class="row"><div><strong>🏫 Indiquez votre établissement</strong><div class="hint">Actualités et défis communs avec vos collègues, inscriptions aux compétitions.</div></div><span class="spacer"></span><button class="btn small" data-nav="compte">Indiquer</button><button class="btn ghost small" data-et="etNudgeOff" aria-label="Masquer">✕</button></div></section>`}
+async function etChercher(){const nom=($("#et-nom")||{}).value||"",com=($("#et-com")||{}).value||"",err=$("#et-err");ET.form={nom:nom.trim(),commune:com.trim()};
+  if(etNorm(nom).length<2||!com.trim()){if(err)err.textContent="Indiquez le nom de l'établissement et la commune.";return}
+  try{const L=await fb.listEtabs();ET.sugg=L.map(x=>({...x,_s:etScore(nom,com,x)})).filter(x=>x._s.tot>=.6||(x._s.nom>=.8)||(x._s.com>=.9&&x._s.nom>=.45)).sort((a,b)=>b._s.tot-a._s.tot).slice(0,4);rerenderKeep()}
+  catch(e){if(err)err.textContent=authMsg(e)}}
+async function etClick(a,b){
+  if(a==="etNudgeOff"){store("etNudgeOff",1);rerenderKeep();return}
+  if(a==="etChercher"){etChercher();return}
+  if(a==="etRecharger"){ET.loaded=false;await etLoad();rerenderKeep();if(!ET.etab&&ET.dem)toast("Toujours en attente de validation");return}
+  if(a==="etCreer"){const{nom,commune}=ET.form;if(!nom)return;b.disabled=true;
+    try{const d={nom:nom.slice(0,80),nomNorm:etNorm(nom),commune:commune.slice(0,60),communeNorm:etNormCom(commune),createur:me.uid,admins:[me.uid],profs:[me.uid],emails:{[me.uid]:me.email||""}};
+      const id=await fb.createEtab(d);ET.etab={id,...d};ET.sugg=null;etSyncClasses();toast("Établissement créé : vous en êtes l'administrateur");rerenderKeep()}catch(e){b.disabled=false;toast(authMsg(e))}return}
+  if(a==="etRejoindre"){const x=(ET.sugg||[]).find(y=>y.id===b.dataset.id);if(!x)return;b.disabled=true;
+    try{await fb.setEtabDemande(x.id,me.uid,{email:me.email||"",nom:x.nom,commune:x.commune||""});ET.dem={id:x.id+"__"+me.uid,etabId:x.id,nom:x.nom,commune:x.commune};ET.sugg=null;toast("Demande envoyée à l'administrateur");rerenderKeep()}catch(e){b.disabled=false;toast(authMsg(e))}return}
+  if(a==="etAnnulerDem"){try{await fb.deleteEtabDemande(ET.dem.id);ET.dem=null;rerenderKeep()}catch(e){toast(authMsg(e))}return}
+  const E=ET.etab;
+  if(a==="etAccept"&&E){const d=ET.demandes.find(x=>x.id===b.dataset.id);if(!d)return;b.disabled=true;
+    try{const profs=[...new Set([...(E.profs||[]),d.uid])],emails={...(E.emails||{}),[d.uid]:d.email||""};await fb.updateEtab(E.id,{profs,emails});E.profs=profs;E.emails=emails;
+      await fb.deleteEtabDemande(d.id).catch(()=>{});ET.demandes=ET.demandes.filter(x=>x.id!==d.id);toast("Professeur ajouté");rerenderKeep()}catch(e){b.disabled=false;toast(authMsg(e))}return}
+  if(a==="etRefuse"&&E){try{await fb.deleteEtabDemande(b.dataset.id);ET.demandes=ET.demandes.filter(x=>x.id!==b.dataset.id);rerenderKeep()}catch(e){toast(authMsg(e))}return}
+  if(a==="etAdmin"&&E){const u=b.dataset.u,on=b.dataset.v==="1";let ad=(E.admins||[]).filter(x=>x!==u);if(on)ad.push(u);if(!ad.length)return;
+    try{await fb.updateEtab(E.id,{admins:ad});E.admins=ad;toast(on?"Administrateur nommé":"Droits d'administrateur retirés");rerenderKeep()}catch(e){toast(authMsg(e))}return}
+  if(a==="etRetirer"&&E){const u=b.dataset.u;confirmBox("Retirer ce professeur ?",`${esc((E.emails||{})[u]||"Ce professeur")} n'aura plus accès aux fonctions de l'établissement.`,"Retirer",async()=>{
+    const emails={...(E.emails||{})};delete emails[u];const p={profs:(E.profs||[]).filter(x=>x!==u),admins:(E.admins||[]).filter(x=>x!==u),emails};
+    try{await fb.updateEtab(E.id,p);Object.assign(E,p);closeModal();rerenderKeep()}catch(e){closeModal();toast(authMsg(e))}},true);return}
+  if(a==="etQuitter"&&E){const seul=(E.profs||[]).length<=1,ad=estAdmin(),autresAd=(E.admins||[]).filter(x=>x!==me.uid);
+    if(ad&&!seul&&!autresAd.length){toast("Nommez d'abord un autre administrateur");return}
+    confirmBox(seul?"Supprimer l'établissement ?":"Quitter l'établissement ?",seul?"Vous êtes le seul professeur inscrit : l'établissement sera supprimé.":"Vos classes ne verront plus les actualités et défis de l'établissement.",seul?"Supprimer":"Quitter",async()=>{
+      try{if(seul)await fb.deleteEtab(E.id);else{const emails={...(E.emails||{})};delete emails[me.uid];await fb.updateEtab(E.id,{profs:(E.profs||[]).filter(x=>x!==me.uid),admins:(E.admins||[]).filter(x=>x!==me.uid),emails})}
+        ET.etab=null;ET.demandes=[];closeModal();await etSyncClasses();rerenderKeep()}catch(e){closeModal();toast(authMsg(e))}},true);return}
+  if(a==="etPhraseSet"&&E){const chg=!!E.verif;openModal(`<h3>${chg?"Changer":"Choisir"} la phrase secrète</h3>
+    <p style="margin:0" class="hint">Au moins 12 caractères, par exemple une petite phrase facile à dire (« les pingouins courent le 800 m »). Majuscules et accents comptent. Transmettez-la à vos collègues de vive voix ou par l'ENT : elle n'est jamais envoyée au serveur.</p>
+    ${chg?`<p class="hint" style="margin:0">Les noms déjà chiffrés seront re-chiffrés avec la nouvelle phrase. Vos collègues devront la saisir à nouveau.</p>`:""}
+    <label class="f">Phrase secrète<input id="ph-1" type="password" autocomplete="off" minlength="12"></label><label class="f">Confirmer<input id="ph-2" type="password" autocomplete="off"></label>
+    <div class="err" id="ph-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-et="etPhraseOk">Enregistrer</button></div>`);return}
+  if(a==="etPhraseOk"&&E){const p1=$("#ph-1").value,p2=$("#ph-2").value,err=$("#ph-err");if(p1.trim().length<12){err.textContent="12 caractères minimum.";return}if(p1!==p2){err.textContent="Les deux saisies sont différentes.";return}
+    if(E.verif&&!etCleLocale(E.id)){err.textContent="Saisissez d'abord l'ancienne phrase sur cet appareil (pour re-chiffrer les noms).";return}
+    b.disabled=true;b.textContent="Chiffrement…";try{await etChangerPhrase(p1);closeModal();toast("Phrase secrète enregistrée");rerenderKeep()}catch(e){console.error(e);b.disabled=false;b.textContent="Enregistrer";err.textContent=authMsg(e)}return}
+  if(a==="etPhraseAsk"&&E){openModal(`<h3>Phrase secrète de l'établissement</h3><p class="hint" style="margin:0">Demandez-la à l'administrateur (${esc((E.admins||[]).map(u=>(E.emails||{})[u]).filter(Boolean).join(", ")||"un collègue")}).</p>
+    <label class="f">Phrase secrète<input id="ph-1" type="password" autocomplete="off"></label><div class="err" id="ph-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-et="etPhraseTry">Valider</button></div>`);return}
+  if(a==="etPhraseTry"&&E){const err=$("#ph-err");b.disabled=true;
+    try{const k=await etDerive($("#ph-1").value,E.sel);const ok=await etDec(k,E.verif).then(v=>v==="carnet-eps").catch(()=>false);
+      if(!ok){b.disabled=false;err.textContent="Phrase incorrecte (attention aux majuscules et aux accents).";return}
+      await etGarderCle(E.id,k);closeModal();toast("Phrase enregistrée sur cet appareil");await etPullNoms(true);etPushTout();rerenderKeep()}catch(e){b.disabled=false;err.textContent=authMsg(e)}return}
+  if(a==="etOublier"&&E){localStorage.removeItem("etabKey_"+E.id);ET._k=null;toast("Phrase oubliée sur cet appareil (les noms restent affichés ici)");rerenderKeep();return}
+  if(a==="etSyncNoms"){await etPullNoms(true);await etPushTout();toast("Noms synchronisés");rerenderKeep();return}
+  if(a==="etRgpd"){etRgpd();return}
+  if(a==="etPrintRgpd"){$("#print").innerHTML=`<div class="rgpd-p">${$("#rgpd-txt").innerHTML}</div>`;window.print();return}
+  // Noms des élèves (liste Pronote)
+  if(a==="etColler"){openModal(`<h3>Coller la liste des élèves · ${esc(classe.nom)}</h3>
+    <p class="hint" style="margin:0">Copiez la liste depuis Pronote (ou un tableur) et collez-la ici : une ligne par élève, dans l'ordre des numéros (N°1 sur la première ligne). Vous pouvez aussi commencer chaque ligne par le numéro (« 12 DUPONT Léa »).</p>
+    <textarea id="nl-txt" style="min-height:200px" placeholder="DUPONT Léa&#10;MARTIN Hugo&#10;…"></textarea>
+    <p class="hint" style="margin:0">🔒 Les noms restent sur cet appareil. Ils ne sont envoyés que chiffrés avec la phrase secrète de l'établissement, si elle a été saisie.</p>
+    <div class="err" id="nl-err"></div><div class="grid2"><button class="btn" data-mact="close">Annuler</button><button class="btn primary" data-et="etCollerOk">Placer les noms</button></div>`);return}
+  if(a==="etCollerOk"){const r=etParseListe($("#nl-txt").value);if(!r.length){$("#nl-err").textContent="Aucun nom trouvé.";return}
+    const rep=getReperes(classe.id),byN={};eleves.forEach(e=>byN[e.numero]=e.id);let n=0;r.forEach(x=>{const id=byN[x.n];if(id){rep[id]=x.nom;n++}});
+    store(reperesKey(classe.id),rep);etPushSoon(classe.id);closeModal();toast(`${n} nom${n>1?"s":""} placé${n>1?"s":""}${r.length>n?` · ${r.length-n} sans compte élève (créez d'autres comptes)`:""}`);rerenderKeep();return}
+  if(a==="etExport"){const o={app:"carnet-eps-noms",v:1,date:today(),classes:{}};(classes||[]).forEach(c=>{const r=getReperes(c.id);if(Object.keys(r).length)o.classes[c.id]={nom:c.nom,noms:r}});
+    const el=document.createElement("a");el.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:"application/json"}));el.download=`noms-eleves-${today()}.json`;document.body.appendChild(el);el.click();el.remove();
+    toast("Fichier enregistré : gardez-le en lieu sûr (il contient les noms)");return}
+  if(a==="etImport"){const inp=document.createElement("input");inp.type="file";inp.accept=".json,application/json";inp.onchange=async()=>{try{const o=JSON.parse(await inp.files[0].text());if(o.app!=="carnet-eps-noms")throw new Error("Ce fichier n'est pas un export des noms.");
+    let n=0;Object.entries(o.classes||{}).forEach(([cid,x])=>{if(!(classes||[]).some(c=>c.id===cid))return;const r={...getReperes(cid),...(x.noms||{})};store(reperesKey(cid),r);n++;etPushSoon(cid)});toast(`Noms importés pour ${n} classe${n>1?"s":""}`);rerenderKeep()}catch(e){toast(e.message||"Fichier illisible")}};inp.click();return}
+  // Inscriptions (élève)
+  if(a==="etIns"||a==="etDesins"){etInscrire(b.dataset.id,a==="etIns",b);return}
+  // Prof : inscrits, défis et actualités d'établissement
+  if(a==="etInscrits"){etVoirInscrits(b.dataset.id);return}
+  if(a==="etInsCopy"){try{await navigator.clipboard.writeText(ETI.txt);toast("Liste copiée")}catch(e){toast("Copie impossible")}return}
+  if(a==="etInsPdf"){$("#print").innerHTML=ETI.html;window.print();return}
+  if(a==="etDefiAdd"){etDefiAdd();return}
+  if(a==="etDefiDel"){try{await fb.deleteEtabDefi(b.dataset.id);PA.edefis=PA.edefis.filter(x=>x.id!==b.dataset.id);toast("Défi supprimé");rerenderKeep()}catch(e){toast(authMsg(e))}return}
+  if(a==="etDefiRel"){try{await fb.updateEtabDefi(b.dataset.id,{semaine:semaineId()});const d=PA.edefis.find(x=>x.id===b.dataset.id);if(d)d.semaine=semaineId();toast("Défi relancé cette semaine");rerenderKeep()}catch(e){toast(authMsg(e))}return}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-et]");if(!b||b.disabled)return;e.preventDefault();etClick(b.dataset.et,b)});
+function etParseListe(txt){const L=String(txt||"").split(/\r?\n/).map(l=>l.replace(/ /g," ").trim()).filter(Boolean);
+  // ignore une ligne d'en-tête (Nom, Prénom, Élève…)
+  if(L.length&&/^(n[°o]?\s|nom|élève|eleve|prénom|prenom)/i.test(L[0])&&!/\d/.test(L[0]))L.shift();
+  let auto=0;return L.map(l=>{const c=l.split(/\t|;/).map(x=>x.trim()).filter(Boolean);let n=null;
+    if(/^\d{1,2}$/.test(c[0]||"")){n=+c.shift()}else{const m=l.match(/^(\d{1,2})[\s.)-]+(.+)$/);if(m&&c.length===1){n=+m[1];c[0]=m[2]}}
+    if(n==null)n=++auto;else auto=n;const nom=c.join(" ").replace(/\s+/g," ").slice(0,40);return nom?{n,nom}:null}).filter(Boolean)}
+/* --- Chiffrement des noms (Web Crypto : PBKDF2 → AES-GCM 256) --- */
+const etB64=u8=>{let s="";for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s)};
+const etUb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function etDerive(phrase,sel){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(phrase||"").normalize("NFC").trim()),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:etUb64(sel),iterations:250000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},true,["encrypt","decrypt"])}
+async function etEnc(k,obj){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,new TextEncoder().encode(JSON.stringify(obj))));return{iv:etB64(iv),data:etB64(ct)}}
+async function etDec(k,x){const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:etUb64(x.iv)},k,etUb64(x.data));return JSON.parse(new TextDecoder().decode(pt))}
+const etCleLocale=id=>{try{return localStorage.getItem("etabKey_"+id)||""}catch(e){return""}};
+async function etGarderCle(id,k){const raw=new Uint8Array(await crypto.subtle.exportKey("raw",k));try{localStorage.setItem("etabKey_"+id,etB64(raw))}catch(e){}ET._k={id,k}}
+async function etCle(){const E=ET.etab;if(!E||!E.verif)return null;if(ET._k&&ET._k.id===E.id)return ET._k.k;const s=etCleLocale(E.id);if(!s)return null;
+  try{const k=await crypto.subtle.importKey("raw",etUb64(s),{name:"AES-GCM"},true,["encrypt","decrypt"]);if(await etDec(k,E.verif)!=="carnet-eps"){localStorage.removeItem("etabKey_"+E.id);return null}ET._k={id:E.id,k};return k}
+  catch(e){localStorage.removeItem("etabKey_"+E.id);return null}}
+async function etChangerPhrase(p){const E=ET.etab,old=await etCle(),sel=etB64(crypto.getRandomValues(new Uint8Array(16))),k=await etDerive(p,sel),verif=await etEnc(k,"carnet-eps");
+  let docs=[];if(old){docs=await fb.listNomsChiffres(E.id).catch(()=>[]);for(const d of docs){try{d._clair=await etDec(old,d)}catch(e){d._clair=null}}}
+  await fb.updateEtab(E.id,{sel,verif});E.sel=sel;E.verif=verif;await etGarderCle(E.id,k);
+  for(const d of docs){if(!d._clair)continue;try{await fb.setNomsChiffres(d.id,{etabId:E.id,profId:d.profId,classeId:d.classeId||d.id,...(await etEnc(k,d._clair))})}catch(e){console.warn("re-chiffrement",d.id,e)}}
+  await etPushTout()}
+const ETP={};
+function etPushSoon(cid){clearTimeout(ETP[cid]);ETP[cid]=setTimeout(()=>etPush(cid),1500)}
+async function etPush(cid){const k=await etCle();if(!k)return;const r=getReperes(cid);try{await fb.setNomsChiffres(cid,{etabId:ET.etab.id,profId:me.uid,classeId:cid,...(await etEnc(k,r))})}catch(e){console.warn("noms",e)}}
+async function etPushTout(){for(const c of classes||[])if(Object.keys(getReperes(c.id)).length)await etPush(c.id)}
+// Récupère les noms chiffrés de mes classes (nouvel appareil) : complète ce qui manque sur cet appareil.
+async function etPullNoms(force){const k=await etCle();if(!k)return;for(const c of classes||[]){try{const d=await fb.getNomsChiffres(c.id);if(!d)continue;const r=await etDec(k,d),loc=getReperes(c.id);let ch=false;
+  Object.entries(r||{}).forEach(([u,v])=>{if(v&&!loc[u]){loc[u]=v;ch=true}});if(ch)store(reperesKey(c.id),loc)}catch(e){if(force)console.warn("noms",c.id,e)}}}
+// Noms d'une classe d'un collègue (organisateur d'une compétition)
+const ETN={};
+async function etNomsClasse(cid){if((classes||[]).some(c=>c.id===cid))return getReperes(cid);if(ETN[cid])return ETN[cid];const k=await etCle();if(!k)return{};
+  try{const d=await fb.getNomsChiffres(cid);ETN[cid]=d?await etDec(k,d):{}}catch(e){ETN[cid]={}}return ETN[cid]}
+function vNomsCard(){const rep=getReperes(classe.id),n=eleves.filter(e=>rep[e.id]).length,E=ET.etab,cle=E&&E.verif&&etCleLocale(E.id);
+  return`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>👤 Noms des élèves</h3><span class="spacer"></span><span class="hint">${n} / ${eleves.length}</span></div>
+    <p class="hint" style="margin:0">Les noms restent sur cet appareil et s'affichent à côté des identifiants (carnets, QCM, inscrits). ${cle?"Ils sont aussi enregistrés chiffrés avec la phrase secrète de l'établissement : vous les retrouvez sur vos autres appareils et l'organisateur d'une compétition voit les noms des inscrits.":E?"Saisissez la phrase secrète de l'établissement (onglet Compte) pour les retrouver sur vos autres appareils.":"Exportez-les dans un fichier pour changer d'appareil."}</p>
+    <div class="row"><button class="btn small primary" data-et="etColler">📋 Coller la liste Pronote</button><button class="btn small" data-et="etExport">⇩ Exporter (toutes mes classes)</button><button class="btn small" data-et="etImport">⇧ Importer</button></div></section>`}
+/* --- Information des familles (modèle) --- */
+function etRgpd(){const E=ET.etab||{},nom=esc(E.nom||"l'établissement");
+  const t=`<h2>Information des familles — Carnet d'entraînement EPS</h2>
+  <p>En éducation physique et sportive, les élèves de ${nom}${E.commune?` (${esc(E.commune)})`:""} utilisent une application web, le « Carnet d'entraînement EPS », pour remplir leurs carnets d'entraînement, répondre à des QCM, consulter les actualités sportives de l'établissement et s'inscrire aux compétitions.</p>
+  <h3>Quelles données ?</h3><ul><li>Un identifiant de connexion anonyme (ex. « 1g2-07-k4m ») attribué par l'enseignant, la classe et un numéro dans la classe.</li><li>Un pseudo et un avatar choisis par l'élève (il lui est demandé de ne pas utiliser son vrai nom).</li><li>Les réponses aux carnets d'entraînement et aux QCM, les corrections et notes de l'enseignant.</li><li>Si l'élève la saisit : son activité physique de la semaine (temps d'activité, jours actifs, temps assis et temps d'écran déclarés).</li><li>Les inscriptions aux compétitions (identifiant et classe).</li></ul>
+  <p><b>Aucun nom ni prénom d'élève n'est enregistré en clair sur le serveur.</b> Les enseignants gardent la correspondance identifiant ↔ nom sur leur appareil ; lorsqu'elle est partagée entre enseignants de l'établissement, elle est chiffrée sur l'appareil avec une phrase secrète connue des seuls enseignants d'EPS. Il s'agit néanmoins d'un traitement de données personnelles pseudonymisées.</p>
+  <h3>Pourquoi ?</h3><p>Apprentissages et évaluation en EPS, suivi de l'activité physique, organisation des compétitions et de l'association sportive.</p>
+  <h3>Qui y a accès ?</h3><p>L'élève, son enseignant d'EPS et, pour les inscriptions à une compétition, l'enseignant qui l'organise. Les données ne sont ni vendues ni utilisées à des fins publicitaires. Aucune donnée d'élève n'est envoyée à l'outil d'intelligence artificielle de l'application.</p>
+  <h3>Où et combien de temps ?</h3><p>Hébergement Google Firebase, base de données située dans l'Union européenne. Les comptes et les données sont supprimés à la fin de l'année scolaire (ou à la demande).</p>
+  <h3>Vos droits</h3><p>Vous pouvez demander l'accès, la rectification ou l'effacement des données de votre enfant, ou vous opposer à leur utilisation, auprès de l'enseignant d'EPS ou du chef d'établissement, responsable du traitement. Vous pouvez aussi contacter le délégué à la protection des données (DPO) de l'académie, ou adresser une réclamation à la CNIL (cnil.fr).</p>`;
+  openModal(`<h3>Information des familles (RGPD)</h3><p class="hint" style="margin:0">Modèle à relire et adapter avec votre chef d'établissement. Pensez à faire inscrire l'application au <b>registre des traitements</b> de l'établissement (chef d'établissement / DPO académique).</p>
+    <div id="rgpd-txt" class="rgpd-box">${t}</div><div class="grid2"><button class="btn" data-mact="close">Fermer</button><button class="btn primary" data-et="etPrintRgpd">🖨 Imprimer / PDF</button></div>`)}
+/* --- Inscriptions aux compétitions --- */
+async function etInscrire(id,on,b){if(apercuBloque())return;const x=(H.actus||[]).find(y=>y.id===id);if(!x)return;const rid=id+"__"+me.uid;if(b)b.disabled=true;
+  try{if(on){await fb.setInscription(rid,{actuId:id,uid:me.uid,login:me.login,numero:me.numero||null,classeId:me.classeId,classeNom:(eleveClasse&&eleveClasse.nom)||"",profId:me.profId,organisateur:x.profId,etabId:x.etabId||""});H.ins=[...new Set([...(H.ins||[]),id])];toast("Tu es inscrit ! 🏆")}
+    else{await fb.deleteInscription(rid);H.ins=(H.ins||[]).filter(y=>y!==id);toast("Inscription annulée")}rerenderKeep()}catch(e){if(b)b.disabled=false;toast(authMsg(e))}}
+const etInsBtn=x=>{if(!x.inscription||x.type!=="competition")return"";const ok=(H.ins||[]).includes(x.id);
+  return ok?`<button class="et-ins ok" data-et="etDesins" data-id="${x.id}" aria-label="Annuler mon inscription">✓ Inscrit</button>`:`<button class="et-ins" data-et="etIns" data-id="${x.id}">Je m'inscris</button>`};
+let ETI={txt:"",html:""};
+async function etVoirInscrits(id){const x=(PA.actus||[]).concat(PA.etActus||[]).find(y=>y.id===id);if(!x)return;const orga=x.profId===me.uid;
+  openModal(`<h3>👥 Inscrits · ${esc(x.titre)}</h3><p class="hint">Chargement…</p>`);
+  try{const L=orga?await fb.listInscritsOrga(id,me.uid):await fb.listInscritsProf(id,me.uid);const parC={};L.forEach(i=>(parC[i.classeId]=parC[i.classeId]||[]).push(i));
+    const noms={};for(const cid of Object.keys(parC))noms[cid]=await etNomsClasse(cid);
+    const cls=Object.keys(parC).sort((a,b)=>String(parC[a][0].classeNom).localeCompare(String(parC[b][0].classeNom),"fr",{numeric:true}));
+    const ligne=i=>({c:i.classeNom||"",n:i.numero||"",l:i.login,nom:(noms[i.classeId]||{})[i.uid]||""});
+    const rows=cls.flatMap(cid=>parC[cid].sort((a,b)=>(a.numero||0)-(b.numero||0)).map(ligne));
+    const manque=rows.some(r=>!r.nom),E=ET.etab;
+    ETI.txt=`${x.titre} — ${dLong(x.date)}${x.lieu?" — "+x.lieu:""}\n${rows.length} inscrit${rows.length>1?"s":""}\n\n`+rows.map(r=>`${r.c}\tN°${r.n}\t${r.nom||r.l}${r.nom?"\t"+r.l:""}`).join("\n");
+    ETI.html=`<div class="ins-p"><h2>${esc(x.titre)}</h2><p>${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${rows.length} inscrit${rows.length>1?"s":""}</p><table><thead><tr><th>Classe</th><th>N°</th><th>Nom</th><th>Identifiant</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.c)}</td><td>${r.n}</td><td>${esc(r.nom)}</td><td>${esc(r.l)}</td></tr>`).join("")}</tbody></table></div>`;
+    openModal(`<h3>👥 Inscrits · ${esc(x.titre)}</h3><p class="hint" style="margin:0">${orga?"Vous organisez : vous voyez tous les inscrits de l'établissement.":"Inscrits de vos classes."} ${rows.length} inscrit${rows.length>1?"s":""}.</p>
+      ${rows.length?`<div class="scroll" style="max-height:50vh"><table class="ids"><thead><tr><th>Classe</th><th>N°</th><th>Nom</th><th>Identifiant</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.c)}</td><td>${r.n}</td><td>${esc(r.nom)||'<span class="hint">—</span>'}</td><td><code>${esc(r.l)}</code></td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">Aucun inscrit pour l\'instant.</p>'}
+      ${manque&&orga&&E&&E.verif&&!etCleLocale(E.id)?`<p class="hint" style="margin:0">Saisissez la phrase secrète (onglet Compte) pour voir les noms des élèves de vos collègues.</p>`:manque?`<p class="hint" style="margin:0">Certains noms manquent : le professeur de la classe ne les a pas encore collés ou partagés.</p>`:""}
+      <div class="grid3"><button class="btn" data-mact="close">Fermer</button><button class="btn" data-et="etInsCopy" ${rows.length?"":"disabled"}>Copier</button><button class="btn primary" data-et="etInsPdf" ${rows.length?"":"disabled"}>🖨 PDF</button></div>`)}
+  catch(e){openModal(`<h3>Inscrits</h3><p class="err">${esc(authMsg(e))}</p><button class="btn" data-mact="close">Fermer</button>`)}}
+/* --- Défis d'établissement (prof) --- */
+async function etDefiAdd(){const E=ET.etab;if(!E)return;const v=($("#edf-v")||{}).value||"",t=($("#edf-t")||{}).value||"";if(!v.trim()&&!t.trim()){toast("Indiquez l'objectif du défi");return}
+  const d={etabId:E.id,profId:me.uid,valeur:v.trim().slice(0,20),texte:t.trim().slice(0,60),semaine:semaineId()};
+  try{d.id=await fb.createEtabDefi(d);PA.edefis.push(d);toast("Défi d'établissement ajouté");rerenderKeep()}catch(e){toast(authMsg(e))}}
+function vEtabAccueil(){const E=ET.etab;if(!E)return ET.dem?`<section class="card"><p class="hint" style="margin:0">🏫 Demande en attente pour rejoindre ${esc(ET.dem.nom||"votre établissement")} : les défis et actualités d'établissement seront disponibles après validation.</p></section>`
+  :`<section class="card"><div class="row"><div><strong>🏫 Défis et actualités d'établissement</strong><div class="hint">Indiquez votre établissement pour en publier avec vos collègues.</div></div><span class="spacer"></span><button class="btn small" data-nav="compte">Indiquer</button></div></section>`;
+  const sem=semaineId(),em=E.emails||{},L=(PA.edefis||[]).slice().sort((x,y)=>(y.semaine===sem)-(x.semaine===sem));
+  return`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>🏫 Défis de l'établissement</h3><span class="spacer"></span><span class="hint">${esc(E.nom)}</span></div>
+    <p class="hint" style="margin:0">Proposés à tous les élèves de l'établissement, avec l'étiquette 🏫. Seul l'auteur d'un défi peut le modifier ou le supprimer.</p>
+    ${L.length?`<div class="list-s">${L.map(d=>{const mien=d.profId===me.uid;return`<div class="s-item" style="cursor:default"><div><strong>🏫 ${esc(d.valeur)}</strong> ${esc(d.texte)}<div class="hint">${d.semaine===sem?"Cette semaine":`Semaine ${esc(String(d.semaine).split("-S")[1]||d.semaine)} · terminé`}${mien?"":` · ${esc(em[d.profId]||"un collègue")}`}</div></div>${mien?`<div class="row" style="gap:6px;flex-wrap:nowrap">${d.semaine!==sem?`<button class="btn ghost small" data-et="etDefiRel" data-id="${d.id}">Relancer</button>`:""}<button class="btn ghost small danger" data-et="etDefiDel" data-id="${d.id}" aria-label="Supprimer">✕</button></div>`:""}</div>`}).join("")}</div>`:""}
+    <div class="grid2" style="border-top:1px solid var(--line);padding-top:10px"><label class="f">Objectif<input id="edf-v" maxlength="20" placeholder="ex. 10 000 pas"></label><label class="f">Défi<input id="edf-t" maxlength="60" placeholder="ex. chaque jour cette semaine"></label></div>
+    <button class="btn primary" data-et="etDefiAdd" style="justify-self:start">＋ Ajouter pour tout l'établissement</button></section>
+  ${(PA.etActus||[]).length?`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>🏫 Actualités de vos collègues</h3></div><div class="list-s">${PA.etActus.map(x=>`<div class="s-item" style="cursor:default"><div><strong>${(ACTU_T[x.type]||ACTU_T.info).ic} ${esc(x.titre)}</strong><div class="hint">${esc(dLong(x.date))}${x.lieu?" · "+esc(x.lieu):""} · ${esc(em[x.profId]||"un collègue")}${String(x.date)<today()?" · passée":""}</div></div>${x.inscription?`<button class="btn ghost small" data-et="etInscrits" data-id="${x.id}">👥 Mes inscrits</button>`:""}</div>`).join("")}</div></section>`:""}`}

@@ -248,3 +248,33 @@ export const deleteQcmRep = id => deleteDoc(doc(db, "qcmrep", id));
 export const listQcmReps = async (qcmId, profId, classeId) => list(await getDocs(query(collection(db, "qcmrep"), where("qcmId", "==", qcmId), where("profId", "==", profId), where("classeId", "==", classeId))));
 export const getAflNotes = async id => snap(await getDoc(doc(db, "aflnotes", id)));
 export const setAflNotes = (id, data) => setDoc(doc(db, "aflnotes", id), { ...clean(data), maj: serverTimestamp() });
+
+/* ---------- Établissements (2026.11.21-2) ---------- */
+// etablissements/{id} : nom, nomNorm, commune, communeNorm, createur, admins[], profs[], emails{uid:email}, sel, verif
+export const listEtabs = async () => list(await getDocs(collection(db, "etablissements")));
+export const getEtab = async id => snap(await getDoc(doc(db, "etablissements", id)));
+export const createEtab = async data => (await addDoc(collection(db, "etablissements"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const updateEtab = (id, patch) => updateDoc(doc(db, "etablissements", id), clean(patch));
+export const deleteEtab = id => deleteDoc(doc(db, "etablissements", id));
+export const listMesEtabs = async uid => list(await getDocs(query(collection(db, "etablissements"), where("profs", "array-contains", uid))));
+// Demandes pour rejoindre un établissement : id = etabId__uid, validées par un administrateur
+export const setEtabDemande = (etabId, uid, data) => setDoc(doc(db, "etabdemandes", etabId + "__" + uid), { ...clean(data), etabId, uid, createdAt: serverTimestamp() });
+export const listEtabDemandes = async etabId => list(await getDocs(query(collection(db, "etabdemandes"), where("etabId", "==", etabId))));
+export const listMesEtabDemandes = async uid => list(await getDocs(query(collection(db, "etabdemandes"), where("uid", "==", uid))));
+export const deleteEtabDemande = id => deleteDoc(doc(db, "etabdemandes", id));
+// Actualités et défis communs à l'établissement
+export const listActusEtab = async etabId => list(await getDocs(query(collection(db, "actus"), where("etabId", "==", etabId), where("portee", "==", "etab"))));
+export const listEtabDefis = async etabId => list(await getDocs(query(collection(db, "etabdefis"), where("etabId", "==", etabId))));
+export const createEtabDefi = async data => (await addDoc(collection(db, "etabdefis"), { ...clean(data), createdAt: serverTimestamp() })).id;
+export const updateEtabDefi = (id, patch) => updateDoc(doc(db, "etabdefis", id), clean(patch));
+export const deleteEtabDefi = id => deleteDoc(doc(db, "etabdefis", id));
+// Inscriptions des élèves à une compétition : id = actuId__uid (identifiant et classe seulement, jamais de nom)
+export const setInscription = (id, data) => setDoc(doc(db, "inscriptions", id), { ...clean(data), createdAt: serverTimestamp() });
+export const deleteInscription = id => deleteDoc(doc(db, "inscriptions", id));
+export const listMesInscriptions = async uid => list(await getDocs(query(collection(db, "inscriptions"), where("uid", "==", uid))));
+export const listInscritsOrga = async (actuId, uid) => list(await getDocs(query(collection(db, "inscriptions"), where("actuId", "==", actuId), where("organisateur", "==", uid))));
+export const listInscritsProf = async (actuId, uid) => list(await getDocs(query(collection(db, "inscriptions"), where("actuId", "==", actuId), where("profId", "==", uid))));
+// Noms des élèves chiffrés avec la phrase secrète de l'établissement (le serveur ne voit jamais les noms en clair)
+export const getNomsChiffres = async cid => snap(await getDoc(doc(db, "nomsChiffres", cid)));
+export const setNomsChiffres = (cid, data) => setDoc(doc(db, "nomsChiffres", cid), { ...clean(data), maj: serverTimestamp() });
+export const listNomsChiffres = async etabId => list(await getDocs(query(collection(db, "nomsChiffres"), where("etabId", "==", etabId))));
