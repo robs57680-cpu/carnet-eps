@@ -92,21 +92,31 @@ async function callCle(parts, cle, name) {
   return parse(txt);
 }
 
-/** Vérifie une clé personnelle avec une requête minuscule. */
-export async function testerCle(cle) {
+/** Vérifie une clé personnelle avec une requête minuscule.
+ *  Limite totale : 15 secondes (au-delà, on abandonne avec une erreur TIMEOUT). */
+export async function testerCle(cle, limiteMs = 15000) {
   let lastErr;
+  const fin = Date.now() + limiteMs;
   for (const name of MODELES) {
+    const reste = fin - Date.now();
+    if (reste <= 0) break;
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), reste);
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle },
+        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle }, signal: ctrl.signal,
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Réponds OK" }] }], generationConfig: { maxOutputTokens: 5 } })
       });
       if (r.ok) return name;
       const j = await r.json().catch(() => ({}));
       lastErr = new Error(`${r.status} ${(j.error && j.error.message) || r.statusText}`);
-      if (r.status === 400 || r.status === 401 || r.status === 403) break;
-    } catch (e) { lastErr = e; }
+      if (r.status === 400 || r.status === 401 || r.status === 403 || r.status === 429) break;
+    } catch (e) {
+      lastErr = (e && e.name === "AbortError") ? new Error("TIMEOUT Google ne répond pas") : e;
+      if (e && e.name === "AbortError") break;
+    } finally { clearTimeout(minuteur); }
   }
+  if (!lastErr || Date.now() >= fin) lastErr = new Error("TIMEOUT Google ne répond pas");
   throw lastErr;
 }
 
