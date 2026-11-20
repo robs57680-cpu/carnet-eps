@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.20-7";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-7";
-const APP_VERSION="2026.11.20-7";
+import * as fb from "./fb.js?v=2026.11.20-8";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-8";
+const APP_VERSION="2026.11.20-8";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -771,7 +771,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.20-7");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.20-8");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -1191,7 +1191,7 @@ function gCalcText(M,cr){const c=cr.calcul,src=x=>{if(typeof x==="number")return
   if(c.type==="ecart")return`Écart entre ${src(c.source)} et ${src(c.cible)} : D4 si ≤ ${c.seuils[0]}, D3 ≤ ${c.seuils[1]}, D2 ≤ ${c.seuils[2]}`;
   const op=c.sens==="bas"?"≤":"≥";return`${src(c.source)} : D4 si ${op} ${c.seuils[0]}, D3 ${op} ${c.seuils[1]}, D2 ${op} ${c.seuils[2]}`}
 
-/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.20-7) */
+/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.20-8) */
 function mbList(){const moi=me&&String(me.login||"").toLowerCase();let L;
   if(carnetDoc&&carnetDoc.groupe)L=(carnetDoc.logins||[]).filter(l=>String(l).toLowerCase()!==moi);
   else{if(!ROSTER&&me&&me.role==="eleve"){loadRoster().then(()=>rerenderKeep());return null}L=(ROSTER||[]).map(x=>x.login).filter(l=>l!==moi)}
@@ -1208,13 +1208,13 @@ function mbField(el,e){if(el.dataset.mb===undefined)return false;if(e.type!=="ch
   if(lim!==null&&sel.length>lim){el.checked=false;sel=sel.filter(x=>x!==el.value);toast(lim?`${lim} partenaire${lim>1?"s":""} au plus pour cette figure`:"Indique d'abord combien de personnes il y a dans la figure");return true}
   if(/^seances\.\d+\./.test(k)){const si=+k.split(".")[1];if(data.seances[si]&&data.seances[si].valide)return true}
   setPath(data,k,sel);save();const sm=el.closest("details").querySelector("summary");if(sm)sm.textContent=sel.length?sel.join(", "):"Choisir…";return true}
-/* ===================== Tableau à double entrée (2026.11.20-7) =====================
+/* ===================== Tableau à double entrée (2026.11.20-8) =====================
    Champ calculé « grille » : deux axes (ex. points acros × étoiles collectives), chacun alimenté par une ou plusieurs cases additionnées
    (nombre, compteur, échelle, choix, colonne d'un tableau…). La note est lue au croisement. Un critère « grille » la compte directement en AFL1. */
 const numsOf=a=>(Array.isArray(a)?a:String(a??"").split(/[,;\s]+/)).map(x=>parseFloat(String(x).replace(",","."))).filter(Number.isFinite);
 function normGrille(C){const ax=(x,t)=>{x=x&&typeof x==="object"?x:{};let src=Array.isArray(x.src)?x.src:x.src&&typeof x.src==="object"?[x.src]:[];
     src=src.filter(o=>o&&o.champ).slice(0,8).map(o=>({champ:String(o.champ),...(o.colonne?{colonne:String(o.colonne)}:{})}));
-    let sl=numsOf(x.seuils).slice(0,15);if(!sl.length)sl=[0];sl=[...new Set(sl)].sort((a,b)=>a-b);
+    let sl=numsOf(x.seuils).slice(0,100);if(!sl.length)sl=[0];sl=[...new Set(sl)].sort((a,b)=>a-b);
     const labels=(Array.isArray(x.labels)?x.labels:[]).map(l=>String(l??"").slice(0,20));
     return{titre:String(x.titre||t).slice(0,30),src,seuils:sl,labels}};
   const L=ax(C.lignes,"Lignes"),K=ax(C.colonnes,"Colonnes"),raw=C.notes||[];
@@ -1432,7 +1432,7 @@ function gSuivi(){const rep=getReperes(classe.id),JG=MOD.partage==="coach"&&MOD.
   ${rows?`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Séances validées</th><th class="n">Dernière note /20</th><th class="n">AFL1</th><th>AFL3 prof</th><th class="n">Total /20</th>${JG?'<th class="n">⚖️ Note de juge</th>':""}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
   <p class="hint" style="margin:8px 0 0">Total = AFL1 et AFL2 de la séance d'épreuve (★) ou de la dernière séance validée + AFL3 fixé par vous. Les pages que vous avez corrigées (✏️) sont notées avec vos choix.${JG?` Note de juge : moyenne des pages jugées par l'élève, − ${fmtN(jugeCfg(MOD).perte)} pt par écart avec votre correction.`:""}</p></section></div>`}
 
-/* ===================== Correction du prof (2026.11.20-7) =====================
+/* ===================== Correction du prof (2026.11.20-8) =====================
    Le prof ouvre la page d'un élève et déplace les marqueurs (réponses de l'élève, cases du juge / observateur, autoévaluation).
    Ses choix sont rangés à part (corrections/{carnetId__sid}) : la page de l'élève n'est jamais écrasée.
    Chaque case du juge modifiée par le prof = un écart : la note de juge baisse automatiquement.
@@ -1544,7 +1544,7 @@ function corrField(el,e){
 function jugeDe(uid){const L=Object.values(CORRS).filter(c=>c.coachUid===uid&&c.jugeNote!=null);if(!L.length)return null;
   return{n:L.length,note:Math.round(L.reduce((a,c)=>a+c.jugeNote,0)/L.length*10)/10,max:L[0].jugeMax,ec:L.reduce((a,c)=>a+(c.ecarts||0),0)}}
 
-/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.20-7) =====================
+/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.20-8) =====================
    Données d'exemple, groupe factice déjà formé, vue observateur avec choix de l'observateur. Rien n'est enregistré. */
 let SBXOBS=false;
 const sbxOn=()=>PREVIEW&&!!SBX&&!!modeleEdit&&modeleEdit.tab==="apercu";
@@ -1736,17 +1736,17 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.20-7");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.20-8");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-7");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-8");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.20-7");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-7");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.20-8");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-8");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1978,7 +1978,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-7" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-8" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -2361,7 +2361,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-7" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-8" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2458,7 +2458,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-7" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-8" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2491,14 +2491,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-7" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-8" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-7" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-8" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -2963,7 +2963,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.20-7");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.20-8");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
