@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.21-7";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-7";
-const APP_VERSION="2026.11.21-7";
+import * as fb from "./fb.js?v=2026.11.21-8";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-8";
+const APP_VERSION="2026.11.21-8";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -417,7 +417,7 @@ const getReperes=cid=>load(reperesKey(cid))||{};
 function save(){if(CORR){clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(corrFlush,700);return}if(COACH){const s=curS();if(!s||s.valide)return;clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(flushCoach,500);return}
   if(RO||!carnetId)return;dirtyProfil=true;if(cur)dirty.add(cur);clearTimeout(saveTimer);setSync("pending");saveTimer=setTimeout(flush,700)}
 async function flushCoach(){clearTimeout(saveTimer);saveTimer=null;const s=curS();if(!COACH||!s)return;setSync(navigator.onLine===false?"offline":"saving");
-  try{if(MOD){const up={};coachPaths(MOD).forEach(p=>{up["valeurs."+p]=gVal(s,p)??null});await fb.updateSeance(carnetId,s.id,up)}else await fb.coachSaveTours(carnetId,s.id,s.real.tours);setSync("ok")}catch(e){console.error(e);setSync("error");toast(e&&e.code==="permission-denied"?"Tu n'es plus le coach de cette séance.":authMsg(e))}}
+  try{if(MOD){const up={};coachPaths(MOD).forEach(p=>{up["valeurs."+p]=gVal(s,p)??null});if(MOD.versions&&s.valeurs._version)up["valeurs._version"]=s.valeurs._version;await fb.updateSeance(carnetId,s.id,up)}else await fb.coachSaveTours(carnetId,s.id,s.real.tours);setSync("ok")}catch(e){console.error(e);setSync("error");toast(e&&e.code==="permission-denied"?"Tu n'es plus le coach de cette séance.":authMsg(e))}}
 async function flush(){if(CORR)return corrFlush();clearTimeout(saveTimer);saveTimer=null;if(VUE){dirty.clear();dirtyProfil=false;return}if(COACH)return flushCoach();if(RO||!carnetId)return;const jobs=[];
   if(dirtyProfil){dirtyProfil=false;jobs.push(fb.updateCarnet(carnetId,{profil:data.profil}))}
   for(const id of [...dirty]){dirty.delete(id);const s=data.seances.find(x=>x.id===id);if(!s||savedValide.has(id))continue;const v=!!s.valide;
@@ -496,7 +496,7 @@ function syncWatch(){const s=curS&&data?curS():null;
     const busy=!$("#modal").hidden||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
     if(COACH){if(saveTimer)return;const before=JSON.stringify(loc);Object.keys(d).forEach(k=>{if(k!=="id")loc[k]=d[k]});if(MOD)gEnsure(MOD,loc);else syncTours(loc);if(JSON.stringify(loc)!==before&&!busy)rerenderKeep()}
     else if(MOD&&isGroupe()){if(mergeRemote(loc,d)){gEnsure(MOD,loc);if(!busy)rerenderKeep()}}
-    else if(MOD){let ch=false;coachPaths(MOD).forEach(p=>{const[a,b]=p.split("."),nt=gVal(d,p);if(nt===undefined)return;if(JSON.stringify(nt)!==JSON.stringify(gVal(loc,p))){loc.valeurs[a]=loc.valeurs[a]||{};loc.valeurs[a][b]=nt;ch=true}});if(ch){gEnsure(MOD,loc);if(!busy)rerenderKeep();else toast("Ton coach a mis à jour ta page")}}
+    else if(MOD){let ch=false;if(MOD.versions&&d.valeurs&&d.valeurs._version&&JSON.stringify(d.valeurs._version)!==JSON.stringify(loc.valeurs._version)&&(+d.valeurs._version.t||0)>=(+(loc.valeurs._version||{}).t||0)){loc.valeurs._version=d.valeurs._version;ch=true}coachPaths(MOD).forEach(p=>{const[a,b]=p.split("."),nt=gVal(d,p);if(nt===undefined)return;if(JSON.stringify(nt)!==JSON.stringify(gVal(loc,p))){loc.valeurs[a]=loc.valeurs[a]||{};loc.valeurs[a][b]=nt;ch=true}});if(ch){gEnsure(MOD,loc);if(!busy)rerenderKeep();else toast("Ton coach a mis à jour ta page")}}
     else{const nt=d.real&&d.real.tours;if(!nt)return;if(JSON.stringify(nt)!==JSON.stringify(loc.real.tours)){loc.real.tours=nt;syncTours(loc);if(!busy)rerenderKeep();else toast("Ton coach a mis à jour les temps")}}})}
 
 /* ---------- Écrans : connexion ---------- */
@@ -782,7 +782,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.21-7");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.21-8");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -881,6 +881,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="sjSave"){(async()=>{const did=$("#sj-d").value,dd=(classeDossiers||[]).find(x=>x.d.id===did);if(!dd)return;const ids=[...document.querySelectorAll(".sj-it:checked")].map(x=>x.value);
       const items=dd.all.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,t:x.t,titre:x.titre,...(x.kind?{kind:x.kind}:{})}));const old=classe.seanceJour&&classe.seanceJour.date===today()?classe.seanceJour:null,autres=old?(old.items||[]).filter(x=>x.d&&x.d!==did&&x.t==="qcm"):[];
       const sj={date:today(),dossierId:did,titre:dd.d.titre,items:[...items,...autres],qcms:[...items,...autres].filter(x=>x.t==="qcm").map(x=>x.id)};
+      if(old&&old.versions)sj.versions=old.versions;try{await verRepartir(sj,dd)}catch(x){console.warn(x)}
       try{await fb.updateClasse(classe.id,{seanceJour:sj});classe.seanceJour=sj;toast("Séance d'aujourd'hui affichée aux élèves");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   if(a==="sjClear"){(async()=>{try{await fb.updateClasse(classe.id,{seanceJour:null});classe.seanceJour=null;rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   // Outils généraux
@@ -1063,13 +1064,13 @@ const coachPaths=M=>M.sections.flatMap(S=>S.champs.filter(f=>f.coach).map(f=>S.i
 function gCoachField(M,s){return coachPaths(M)[0]||C_TOURS}
 function gCoach(s,prev){const M=MOD;gEnsure(M,s);if(!prev)gAutoPseudo(M,s);const base="seances.0.valeurs",th=M.themes.find(t=>t.id===s.theme),V=!!s.valide;
   const res=M.sections.flatMap(S2=>S2.champs.filter(x=>x.type==="resume").map(x=>`<section class="card resume">${gFieldHTML(M,s,S2,x,base,true,false)}</section>`)).join("");
-  const mine=M.sections.filter(S=>S.champs.some(f=>f.coach)),other=M.sections.filter(S=>!S.champs.some(f=>f.coach)&&!S.champs.every(f=>f.type==="resume"));
+  const mine=verSections(M,s).filter(S=>S.champs.some(f=>f.coach)),other=verSections(M,s).filter(S=>!S.champs.some(f=>f.coach)&&!S.champs.every(f=>f.type==="resume"));
   const sec=(S,only)=>`<section class="card sec"><div class="sec-h"><h3>${esc(S.titre)}</h3></div>${S.consigne?`<p class="hint" style="margin:-4px 0 10px">${esc(S.consigne)}</p>`:""}<div class="stack" style="gap:12px">${S.champs.filter(f=>!only||f.coach).map(f=>gFieldHTML(M,s,S,f,base,V||!f.coach,false)).join("")}</div></section>`;
   return`<div class="stack seance" style="--th:var(--accent)">
   ${prev?"":`<div class="row"><button class="btn ghost small" data-act="coachBack">← Mes activités</button><span class="spacer"></span><span id="sync" class="sync dark"></span></div>`}
   <section class="hero"><div class="hero-top"><span class="eyebrow">📣 Je coache</span><span class="spacer"></span><span class="lock-chip">${V?"🔒 Validée":"En direct"}</span></div>
     <div class="hero-main"><div><h2 class="hero-t" style="font-size:2rem">${esc(coachCtx.eleveLogin)}</h2><div class="hero-sub">${esc(M.titre)} · ${PW(M).one} du ${fmtDate(s.date)}${th?" · "+esc(th.label):""}</div></div></div></section>
-  ${V?`<div class="card"><p style="margin:0">Cette page a été validée par l'élève : elle n'est plus modifiable.</p></div>`:""}${res}
+  ${V?`<div class="card"><p style="margin:0">Cette page a été validée par l'élève : elle n'est plus modifiable.</p></div>`:""}${res}${M.versions?verBar(M,s,!V):""}
   ${M.gabarit?`<p class="hint" style="margin:0">Remplis la fiche : tes cases (📣) s'affichent en direct dans le carnet de ton camarade.</p>${ffHTML(M,s,base,f=>V||!f.coach,false,null)}`:mine.length?`<p class="hint" style="margin:0">Remplis les cases ci-dessous : elles s'affichent en direct dans le carnet de ton camarade.</p><div class="coach-sec stack">${mine.map(S=>sec(S,true)).join("")}</div>`:'<div class="card"><p style="margin:0">Aucune case n\'est à remplir par le coach.</p></div>'}
   ${other.length&&!M.gabarit?`<details class="card"><summary><strong>Voir toute la page de ${esc(coachCtx.eleveLogin)}</strong></summary><fieldset class="lock" disabled style="border:0;padding:0;margin:10px 0 0"><div class="stack">${other.map(S=>sec(S,false)).join("")}</div></fieldset></details>`:""}</div>`}
 function gModalAdapt(sec,fid,i){const t=curS().valeurs[sec][fid][i],a=t.adapt||{params:[],texte:""};
@@ -1138,6 +1139,7 @@ function normModele(m){m=m&&typeof m==="object"?clone(m):{};
   if(!out.partage)out.partage=out.sections.some(S=>S.champs.some(f=>f.coach))?"coach":"aucun";
   if(out.groupeMax<out.groupeMin)out.groupeMax=out.groupeMin;
   const gb=normGabarit(m.gabarit);if(gb){out.gabarit=gb;if(!m.partage)out.partage="coach"}
+  const vs=normVersions(m.versions);if(vs)out.versions=vs;
   const jg=m.juge&&typeof m.juge==="object"?m.juge:{};out.juge={max:Number.isFinite(+jg.max)&&+jg.max>0?Math.min(100,+jg.max):4,perte:Number.isFinite(+jg.perte)&&+jg.perte>=0?Math.min(100,+jg.perte):1};
   return out}
 
@@ -1392,14 +1394,14 @@ function gStampMap(M,res){const m={};res.R.forEach(x=>{const c=x.cr.calcul;if(!x
 function gPassStamps(M,path){const o={};if(!GRES)return o;GRES.R.forEach(x=>{const c=x.cr.calcul;if(!c.source||c.source.champ!==path)return;
   const k=c.type==="rythme"?"rythme":{norep:"norep",adaptations:"adapt",proportion_dans_cible:"temps",nb_hors_cible:"temps",termine:"tours",temps_total:"tours"}[c.source.mesure]||"tours";
   o[k]=o[k]?Math.min(o[k],x.deg||0)||null:x.deg;if(c.source.cible!==undefined&&!o.cible)o.cible=c.source});return o}
-function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(M,s);gAutoPseudo(M,s);const i0=data.seances.indexOf(s),base=`seances.${i0}.valeurs`;
+function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(M,s);gAutoPseudo(M,s);gAutoVersion(M,s);const i0=data.seances.indexOf(s),base=`seances.${i0}.valeurs`;
   const cdoc=!PREVIEW&&!VUE&&carnetId&&CORRS[carnetId+"__"+s.id]||null,eleveC=!RO&&!COACH&&!CORR&&cdoc;
   let raw=null;if(eleveC&&CVIEW===s.id){raw=s;s=corrApply(s,cdoc);gEnsure(M,s);s.valide=true}
   DIFF=CORR?{orig:CORR.orig,who:"prof"}:raw?{orig:raw,who:"eleve",coachLogin:raw.coachLogin}:null;
   const V=!!s.valide||!!CORR,L=CORR?false:(V||RO||!!raw);
   const res=gCorrect(M,s,data.profil),sm=gStampMap(M,res),th=M.themes.find(t=>t.id===s.theme);GRES=V?res:null;
   const auto=M.criteres.filter(c=>c.calcul.type==="autoeval");
-  let no=0;const secs=M.sections.map((S,si)=>S.champs.length&&S.champs.every(f=>f.type==="resume")?`<section class="card resume" id="gsec-${si}">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V)).join("")}</section>`:`<section class="card sec" id="gsec-${si}"><div class="sec-h"><span class="num">${++no}</span><h3>${esc(S.titre)}</h3>${V&&sm["@"+S.id]?`<span class="spacer"></span>${stamp(sm["@"+S.id])}`:""}</div>
+  let no=0;const secs=verSections(M,s).map(S=>[S,M.sections.indexOf(S)]).map(([S,si])=>S.champs.length&&S.champs.every(f=>f.type==="resume")?`<section class="card resume" id="gsec-${si}">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V)).join("")}</section>`:`<section class="card sec" id="gsec-${si}"><div class="sec-h"><span class="num">${++no}</span><h3>${esc(S.titre)}</h3>${V&&sm["@"+S.id]?`<span class="spacer"></span>${stamp(sm["@"+S.id])}`:""}</div>
     ${S.consigne?`<p class="hint" style="margin:-4px 0 10px">${esc(S.consigne)}</p>`:""}<div class="stack" style="gap:12px">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V,sm[S.id+"."+f.id])).join("")}</div></section>`).join("");
   if(M.gabarit)no=1;
   const ae=auto.length?`<section class="card sec"><div class="sec-h"><span class="num">${no+1}</span><h3>Je m'autoévalue</h3></div><p class="hint" style="margin:-4px 0 10px">Touche un niveau pour lire ses critères.</p>
@@ -1412,7 +1414,7 @@ function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(
     <div class="hero-main"><div><h2 class="hero-t" style="font-size:2.1rem">${esc(M.titre)}</h2><div class="hero-sub">${th?`<strong>${esc(th.label)}</strong> · ${esc(th.desc||"")}${th.reps?`<br>${th.reps[0]}–${th.reps[1]} répétitions`:""}${th.pct?` · haltéro ${th.pct[0]}–${th.pct[1]} % du 1RM`:""}`:esc(M.description||"")}</div></div>${V?gRing(res):""}</div>
     ${M.themes.length&&!L&&!CORR?`<div class="pills" style="grid-template-columns:repeat(${Math.min(3,M.themes.length)},minmax(0,1fr))">${M.themes.map(t=>`<label title="${esc(t.desc)}"><input type="radio" name="gth" data-k="seances.${i0}.theme" data-rerender value="${t.id}" ${s.theme===t.id?"checked":""}>${esc(t.label)}</label>`).join("")}</div>`:""}
     ${L||CORR||M.pages!=="seance"?"":`<label class="hero-ep"><input type="checkbox" id="g-ep" data-k="seances.${i0}.epreuve" data-t="bool" data-rerender ${s.epreuve?"checked":""}> Séance d'épreuve</label>`}${isGroupe()?`<div class="hint" style="color:#cfd6dc;margin-top:6px">👥 Page partagée avec ${esc((carnetDoc.logins||[]).filter(l=>l!==me.login).join(", "))}</div>`:""}</section>
-  <fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${M.gabarit?ffHTML(M,s,base,()=>L,V,sm):secs}${ae}</div></fieldset>${gDatalist(M,s)}
+  ${M.versions?verBar(M,s,PREVIEW&&!L):""}<fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${M.gabarit?ffHTML(M,s,base,()=>L,V,sm):secs}${ae}</div></fieldset>${gDatalist(M,s)}
   ${V?gCorrHTML(M,res):""}
   ${CORR?corrBar(M,s):raw?"":PREVIEW?`<div class="valid-bar"><button class="btn big" data-act="gTest">${V?"Revenir en saisie":"🧪 Tester la correction"}</button></div>`:V?(RO?`<div class="valid-bar"><button class="btn big" data-act="unlock">🔓 Déverrouiller la ${w.one} pour l'élève</button></div>`:""):RO?`<p class="hint" style="text-align:center">${w.One} pas encore validée par l'élève.</p>`:`<div class="valid-bar"><button class="btn big go-valid" data-act="gValidate"><span>🏁 ${w.val}</span><small>La ${w.one} ne pourra plus être modifiée${isGroupe()?" (pour tout le groupe)":""}</small></button></div>`}</div>`;DIFF=null;return html}
 function gRing(res){const ok=res.complete,v=ok?res.tot:res.n1,max=ok?20:res.max1,f=Math.max(0,Math.min(1,v/max)),R=34,Lg=2*Math.PI*R;
@@ -1473,6 +1475,7 @@ async function openCarnetModele(act){RETRY=()=>openCarnetModele(act);go("loading
     if(MOD.partage==="groupe"){c=await fb.findGroupeCarnet(me.uid,act);if(!c){carnetId=null;carnetDoc={sansGroupe:true};data={profil:blankProfil(),seances:[]};view="seances";cur=null;go("carnet");return}MOD=modFor(MODBASE,me.uid);carnetId=c.id}
     else{carnetId=`${me.uid}_${act}`;c=await fb.getCarnet(carnetId);
       if(!c){const b={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};await fb.createCarnet(carnetId,b);c={id:carnetId,...b}}}
+    if(MOD.versions&&me.role==="eleve"){try{const cl=await fb.getClasse(me.classeId);if(cl)eleveClasse=cl}catch(e){console.warn(e)}}
     const ss=await fb.listSeances(carnetId);CORRS={};CVIEW=null;try{(await fb.listCorrectionsEleve(me.uid,carnetId)).forEach(x=>CORRS[x.id]=x)}catch(e){console.warn(e)}
     setCarnetData(c,ss);view="seances";cur=null;syncState="ok";
     if(MOD.pages==="cycle"){if(!data.seances.length)newPage();cur=data.seances[0].id}
@@ -1776,7 +1779,7 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=(()=>{const p=E.
       ${M.partage==="groupe"?mSel(`sections.${si}.portee`,S.portee||"collective",[["collective","👥 Collective : une seule réponse pour le groupe"],["individuelle","👤 Individuelle : chaque élève du groupe remplit la sienne"]],"Partie"):""}
       <div class="stack" style="gap:10px;margin-top:10px">${S.champs.map((f,fi)=>mFieldEd(M,si,fi,f)).join("")}</div>
       <div style="margin-top:10px">${vBlocs(si)}</div></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
-  if(E.tab==="seance"&&M.gabarit)body=ffEdCard(M)+body;
+  if(E.tab==="seance")body=(M.gabarit?ffEdCard(M):"")+verEdCard(M)+body;
   if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.${M.criteres.length?"":" Aucun critère : le carnet n'est pas noté."}</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
     <details class="card madv"><summary>Barème AFL1 (note sur ${M.bareme.afl1.max}, proportionnelle par défaut)</summary><div style="margin-top:10px">${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
     <p class="hint">Table de conversion (facultative) : à partir de tant de points, la note vaut… Sans table, la note est proportionnelle aux points.</p>
@@ -1813,19 +1816,19 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.21-7");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.21-8");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
-    let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;m.partage=m.partage==="groupe"?"groupe":"coach";
+    let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;if(r.versions&&!m.versions)m.versions=r.versions;m.partage=m.partage==="groupe"?"groupe":"coach";
       try{const pr=/pdf/i.test(f2.type)||/\.pdf$/i.test(f2.name)?await pdfParts(f2,()=>{}):{type:"images",parts:await imageParts(f2)};m.gabarit.ficheId=await fb.addFiche({profId:me.uid,activite:dossier?dossier.id:"",titre:"Fiche d'origine · "+String(m.titre||f2.name).slice(0,60),type:pr.type,origine:true},pr.parts)}catch(x){console.warn("fiche d'origine",x)}}
     else m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-7");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-8");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.21-7");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-7");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.21-8");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);const v0=modeleEdit.draft.versions;if(v0&&m&&!("versions" in m))m.versions=v0;if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-8");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1868,7 +1871,7 @@ function mField(el,e){if(!modeleEdit||route.name!=="modele")return false;const M
   if(el.dataset.m===undefined)return false;
   const path=el.dataset.m,t=el.dataset.mt;let v=t==="bool"?el.checked:el.value;
   if(t==="num")v=el.value===""?"":num(el.value);if(t==="list")v=el.value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);if(t==="tlist"){v=el.value.split(/[;\n]/).map(x=>x.trim());while(v.length&&!v[v.length-1])v.pop()}
-  setPath(M,path,v);modeleEdit.dirty=true;
+  setPath(M,path,v);modeleEdit.dirty=true;if(path==="versions.nb"&&e.type==="change")rerenderKeep();
   if(/\.type$/.test(path)&&/^sections\.\d+\.champs\.\d+\.type$/.test(path)&&e.type==="change"){const[, si,fi]=path.match(/sections\.(\d+)\.champs\.(\d+)/);const f=M.sections[+si].champs[+fi];
     if(v==="tableau"&&!(f.colonnes&&f.colonnes.length))f.colonnes=[{id:newId("k"),type:"texte",label:"Colonne",options:[]}];if(v==="passages"&&!f.nb)f.nb=4;if(v==="exercices"&&!f.nb)f.nb=3;if(v==="resume")f.src=f.src||{exos:(allFields(normModele(M),["exercices"])[0]||[""])[0],tours:"",temps:""};if(v==="echelle"){f.min=f.min||1;f.max=f.max||10}if(v==="choix"&&!f.options)f.options=[]}
   if(/^criteres\.\d+\.calcul\.type$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci],first=(allFields(normModele(M),["nombre","temps","compteur","echelle"])[0]||[""])[0];
@@ -2061,7 +2064,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-7" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-8" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?qResItems(its)+coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -2455,7 +2458,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-7" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-8" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2529,7 +2532,7 @@ function vSeanceJourProf(){const sj=classe.seanceJour||{},isT=sj.date===today(),
   return`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>📌 Séance d'aujourd'hui</h3><span class="spacer"></span><span class="hint">${isT?`Affichée aux élèves : ${esc(sj.titre||"")}`:"Rien d'affiché aujourd'hui"}</span></div>
     ${ds.length?`<label class="f">Activité<select id="sj-d">${ds.map(x=>`<option value="${x.d.id}" ${dsel&&dsel.d.id===x.d.id?"selected":""}>${esc(x.d.titre)}</option>`).join("")}</select></label>
     <div class="f"><span class="mlab">Documents mis en avant</span><div class="mchecks">${(dsel&&dsel.all||[]).map(x=>`<label><input type="checkbox" class="sj-it" value="${x.id}" ${isT&&sj.dossierId===dsel.d.id&&(sj.items||[]).some(i=>i.id===x.id)?"checked":""}> ${x.t==="carnet"?"📒":x.t==="outil"?OUTILS[x.kind].ic:x.t==="qcm"?"📝":"📄"} ${esc(x.titre)}</label>`).join("")||'<span class="hint">Activité vide.</span>'}</div></div>
-    <div class="row"><button class="btn primary small" data-act="sjSave">Afficher pour aujourd'hui</button>${isT?`<button class="btn ghost small" data-act="sjClear">Retirer</button>`:""}</div>`:'<p class="hint" style="margin:0">Activez d\'abord une activité pour cette classe.</p>'}</section>`}
+    <div class="row"><button class="btn primary small" data-act="sjSave">Afficher pour aujourd'hui</button>${isT?`<button class="btn ghost small" data-act="sjClear">Retirer</button>`:""}</div>${isT?vVersionsProf(sj):""}`:'<p class="hint" style="margin:0">Activez d\'abord une activité pour cette classe.</p>'}</section>`}
 let SJ={};
 
 
@@ -2555,7 +2558,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-7" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-8" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2588,14 +2591,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-7" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-8" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisH();DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-7" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-8" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -3072,7 +3075,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-7");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-8");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
@@ -3457,10 +3460,10 @@ async function qeIa(){const err=t=>{QE.ia.err=t;QE.ia.busy=false;if(route.name==
     if(fid){const f=dossierItems.find(x=>x.id===fid).f;if(f.type==="texte")txt=(txt?txt+"\n\n":"")+(f.texte||"");
       else{const parts=await fb.getFicheParts(fid);if(f.type==="pdf")fichiers.push({mime:"application/pdf",base64:parts.map(p=>p.data).join("")});else parts.forEach(p=>fichiers.push({mime:p.mime||"image/jpeg",base64:p.data}))}}
     for(const f of files)fichiers.push({mime:f.type||"application/pdf",base64:await fileToB64(f)});
-    const ia=await import("./ia.js?v=2026.11.21-7");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
+    const ia=await import("./ia.js?v=2026.11.21-8");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
     const add=qNorm({questions:(r.questions||[])}).questions;(r.questions||[]).forEach((x,k)=>{const q=add[k];if(!q)return;QE.cle[q.id]=(x.bonnes||[]).map(Number).filter(n=>n>=0&&n<q.reponses.length)});
     if(!add.length)throw new Error("Réponse de l'IA illisible.");QE.Q.questions.push(...add);QE.dirty=true;QE.ia={busy:false,err:""};toast(`${add.length} question${add.length>1?"s":""} ajoutée${add.length>1?"s":""} : vérifiez-les`);if(route.name==="qcmEd")rerenderKeep()}
-  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-7");m=ia.iaMessage(e)}catch(x){}err(m)}}
+  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-8");m=ia.iaMessage(e)}catch(x){}err(m)}}
 function qeField(t){const k=t.dataset.qe,i=+t.dataset.i,Q=QE.Q,q=Q.questions[i];let re=false;
   if(k==="titre")Q.titre=t.value;else if(k==="sur"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)Q.sur=v;re=true}
   else if(["afl","carnet","garder"].includes(k)){Q[k]=t.value;if(k==="afl")Q.sur=QAFL_DEF[t.value];re=true}
@@ -3559,7 +3562,7 @@ document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.datase
    Chaque case à remplir y est un repère <span data-f="section.champ"></span>, remplacé à l'affichage par la case du moteur
    (mêmes valeurs, même correction, même coach, même note de juge). Le gabarit est nettoyé : ni script, ni lien, ni image externe. */
 const FF_TAGS=new Set("div span p b strong i em u s br hr table thead tbody tfoot tr th td caption colgroup col h1 h2 h3 h4 h5 h6 ul ol li small sup sub mark section header footer label".split(" "));
-const FF_ATTR=new Set(["class","style","colspan","rowspan","data-f","align","valign","width","height","title"]);
+const FF_ATTR=new Set(["class","style","colspan","rowspan","data-f","data-v","data-num","align","valign","width","height","title"]);
 const ffBadCss=v=>/url\s*\(|expression|@import|javascript:|behavior|-moz-binding|position\s*:\s*(fixed|sticky)|<\//i.test(v);
 function ffSanitize(html){const doc=new DOMParser().parseFromString(`<div id="ffr">${String(html||"").slice(0,120000)}</div>`,"text/html"),root=doc.getElementById("ffr");
   const walk=el=>{[...el.children].forEach(c=>{const t=c.tagName.toLowerCase();
@@ -3585,8 +3588,8 @@ function normGabarit(g){if(!g||typeof g!=="object"||!g.html)return null;return{h
 function ffHTML(M,s,base,lockFor,V,sm){const P=ffPrep(M.gabarit),done=new Set();
   const cell=path=>{const[a,b]=path.split(".");const S=gSec(M,a),f=S&&S.champs.find(c=>c.id===b);if(!f)return"";done.add(path);
     const f2={...f,label:"",aide:"",unite:"",ffTiles:f.type==="choix"&&(f.options||[]).length<=8};return`<span class="ff-cell ff-t-${f.type}${f.coach&&M.partage==="coach"?" ff-coach":""}" title="${esc(f.label)}">${gFieldHTML(M,s,S,f2,base,lockFor(f),V,sm&&sm[path])}</span>`};
-  let h=P.h.replace(/@@FF:([^@]+)@@/g,(m,p)=>cell(p));
-  const rest=[];M.sections.forEach(S=>S.champs.forEach(f=>{const p=S.id+"."+f.id;if(!done.has(p)&&f.type!=="resume")rest.push(`<div class="ff-rest">${gFieldHTML(M,s,S,f,base,lockFor(f),V,sm&&sm[p])}</div>`)}));
+  let h=(M.versions&&s?ffReorder(P.h,verOrdre(M,verN(M,s))):P.h).replace(/@@FF:([^@]+)@@/g,(m,p)=>cell(p));
+  const rest=[];verSections(M,s).forEach(S=>S.champs.forEach(f=>{const p=S.id+"."+f.id;if(!done.has(p)&&f.type!=="resume")rest.push(`<div class="ff-rest">${gFieldHTML(M,s,S,f,base,lockFor(f),V,sm&&sm[p])}</div>`)}));
   return`<style>${P.css}</style><section class="card ff-wrap" id="gsec-ff"><div class="ff-scroll"><div class="ff-fiche">${h}</div></div>
     ${rest.length?`<div class="ff-more"><div class="hint" style="margin:6px 0">Autres cases de la fiche</div><div class="stack" style="gap:10px">${rest.join("")}</div></div>`:""}
     ${M.gabarit.ficheId&&me&&me.role!=="eleve"?`<button class="btn ghost small" data-act="ffOrig" style="margin-top:8px">📄 Voir la fiche d'origine</button>`:""}</section>`}
@@ -3605,7 +3608,107 @@ async function ffOrig(){const id=MOD&&MOD.gabarit&&MOD.gabarit.ficheId||modeleEd
 function ffClick(a,b){
   if(a==="ffOrig"){ffOrig();return true}
   if(a==="ffDrop"&&modeleEdit){confirmBox("Retirer la mise en page ?","Le carnet garde ses cases, mais s'affichera comme un carnet classique (une partie sous l'autre).","Retirer",()=>{closeModal();mutDraft(M=>{delete M.gabarit})},true);return true}
+  if(a==="ffVer"){verSet(b.dataset.n);return true}
+  if(a==="ffVerU"||a==="ffVerMix")return verProfClick(a,b);
+  if(a==="ffVerDrop"||a==="ffVerCree")return verEdClick(a);
   return false}
+
+/* ===================== Versions d'une fiche (2026.11.21-8) =====================
+   modele.versions = {nb, blocs:[{id,nom}], ordres?:[[id…]…]} : une seule fiche, plusieurs versions où seul l'ordre
+   des ateliers change (par défaut : décalage d'un cran, la version 2 commence au 2e atelier…).
+   bloc.id = id de la section de l'atelier ; dans le gabarit, le bloc de l'atelier porte data-v="id" et son numéro data-num.
+   La version d'une page est dans valeurs._version = {n, par:"prof"|"coach"|"auto", t}. Les résultats restent rangés
+   par atelier (mêmes cases) : correction et note inchangées.
+   Lancement de la séance (prof) : seanceJour.versions[modeleId] = {nb, titre, t, par:{clé:{n,l,t}}} ; clé = id du carnet de groupe ou uid. */
+function normVersions(v){if(!v||typeof v!=="object")return null;const ids=new Set();
+  const blocs=(Array.isArray(v.blocs)?v.blocs:[]).map(b=>typeof b==="string"?{id:b,nom:b}:b).filter(b=>b&&b.id!=null&&String(b.id).trim())
+    .map(b=>({id:String(b.id).trim().slice(0,60),nom:String(b.nom||b.id).slice(0,80)})).filter(b=>!ids.has(b.id)&&ids.add(b.id)).slice(0,20);
+  if(blocs.length<2)return null;
+  const ordres=(Array.isArray(v.ordres)?v.ordres:[]).map(o=>Array.isArray(o)?[...new Set(o.map(String).filter(x=>ids.has(x)))]:[]).filter(o=>o.length).slice(0,20);
+  let nb=parseInt(v.nb);if(!(nb>=2))nb=ordres.length>=2?ordres.length:blocs.length;nb=Math.min(20,Math.max(2,nb));
+  const out={nb,blocs};if(ordres.length&&ordres.some((o,i)=>o.join("|")!==verRot(blocs,i).join("|")))out.ordres=ordres;return out}
+const verRot=(blocs,k)=>{const ids=blocs.map(b=>b.id),n=k%ids.length;return ids.slice(n).concat(ids.slice(0,n))};
+function verOrdre(M,n){const V=M.versions,o=V.ordres&&V.ordres[n-1];if(!o)return verRot(V.blocs,n-1);return o.concat(V.blocs.map(b=>b.id).filter(x=>!o.includes(x)))}
+const verN=(M,s)=>{const n=parseInt(s&&s.valeurs&&s.valeurs._version&&s.valeurs._version.n);return n>=1&&n<=M.versions.nb?n:1};
+const verNom=(M,id)=>{const b=M.versions.blocs.find(x=>x.id===id);return b?b.nom:id};
+const verHash=k=>{let h=7;for(const c of String(k))h=(h*31+c.charCodeAt(0))>>>0;return h};
+// Version attribuée par le prof au lancement de la séance (élève ou groupe), sinon répartition automatique stable.
+function gAutoVersion(M,s){if(!M.versions||!s||PREVIEW||RO||CORR||VUE||COACH||s.valide||!me||me.role!=="eleve")return;
+  const sj=eleveClasse&&eleveClasse.seanceJour,key=isGroupe()?carnetId:me.uid;
+  const e=sj&&sj.date===s.date&&sj.versions&&sj.versions[activite]&&sj.versions[activite].par&&sj.versions[activite].par[key];
+  const cur=s.valeurs._version;let nv=null;
+  if(e&&e.n>=1&&e.n<=M.versions.nb&&(!cur||(+e.t||0)>(+cur.t||0))&&(!cur||cur.n!==e.n))nv={n:e.n,par:"prof",t:+e.t||0};
+  else if(!cur)nv={n:verHash(key+"|"+s.date)%M.versions.nb+1,par:"auto",t:0};
+  if(nv){s.valeurs._version=nv;setTimeout(save,0)}}
+// Bandeau en haut de la fiche : « Version 3 : commence par Farmer carry » + changement d'un clic (coach, aperçu)
+function verBar(M,s,edit){if(!M.versions)return"";const n=verN(M,s),o=verOrdre(M,n),nb=M.versions.nb;
+  return`<div class="ver-bar"><div class="ver-t"><b>Version ${n}</b> : commence par <b>${esc(verNom(M,o[0]))}</b></div>
+    <div class="ver-o hint">${o.map((id,i)=>`${i+1}. ${esc(verNom(M,id))}`).join(" · ")}</div>
+    ${edit?`<div class="ver-ch" role="group" aria-label="Changer de version">${Array.from({length:nb},(x,i)=>`<button type="button" data-act="ffVer" data-n="${i+1}" aria-pressed="${n===i+1}">V${i+1}</button>`).join("")}</div>`:""}</div>`}
+// Réordonne les blocs data-v du gabarit (chaque parent garde ses emplacements) et renumérote data-num.
+let VER_CACHE={};
+function ffReorder(h,ordre){const key=h.length+"|"+ordre.join("|");if(VER_CACHE.h===h&&VER_CACHE.key===key)return VER_CACHE.out;
+  const doc=new DOMParser().parseFromString(`<div id="vr">${h}</div>`,"text/html"),root=doc.getElementById("vr");
+  const els=[...root.querySelectorAll("[data-v]")].filter(e=>!e.parentElement.closest("[data-v]"));
+  const parents=[...new Set(els.map(e=>e.parentElement))];
+  parents.forEach(p=>{const kids=[...p.children],slots=[],grp={},seen=[];
+    kids.forEach((k,i)=>{const id=k.getAttribute("data-v");if(id==null||k.parentElement.closest("[data-v]"))return;slots.push(i);if(!grp[id]){grp[id]=[];seen.push(id)}grp[id].push(k)});
+    const seq=ordre.filter(id=>grp[id]).concat(seen.filter(id=>!ordre.includes(id))),nw=seq.flatMap(id=>grp[id]);
+    if(nw.length!==slots.length)return;const arr=kids.slice();slots.forEach((si,j)=>arr[si]=nw[j]);p.replaceChildren(...arr)});
+  const pos={};ordre.forEach((id,i)=>pos[id]=i+1);
+  root.querySelectorAll("[data-v]").forEach(b=>{const id=b.getAttribute("data-v");if(!pos[id])return;
+    const nums=b.matches("[data-num]")?[b]:[...b.querySelectorAll("[data-num]")].filter(x=>x.closest("[data-v]")===b);nums.forEach(x=>x.textContent=String(pos[id]))});
+  VER_CACHE={h,key,out:root.innerHTML};return VER_CACHE.out}
+// Carnet classique : les sections des ateliers prennent l'ordre de la version (les autres restent à leur place)
+function verSections(M,s,list){list=list||M.sections;if(!M.versions)return list;const o=verOrdre(M,verN(M,s)),ids=new Set(o);
+  const slots=[],grp=list.filter((S,i)=>{if(ids.has(S.id)){slots.push(i);return true}return false});
+  const nw=o.map(id=>grp.find(S=>S.id===id)).filter(Boolean);if(nw.length!==slots.length)return list;const arr=list.slice();slots.forEach((si,j)=>arr[si]=nw[j]);return arr}
+function verSet(n){const s=curS&&data?curS():null;if(!s||!MOD||!MOD.versions)return;n=Math.max(1,Math.min(MOD.versions.nb,parseInt(n)||1));
+  if(COACH){if(s.valide)return;s.valeurs._version={n,par:"coach",t:Date.now()};save();rerenderKeep();toast(`Version ${n} : commence par ${verNom(MOD,verOrdre(MOD,n)[0])}`);return}
+  if(PREVIEW||VUE){s.valeurs._version={n,par:"prof",t:Date.now()};rerenderKeep()}}
+
+/* --- Prof : répartition des versions au lancement de la séance, changement d'un clic --- */
+function verShuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function verUnites(mid){const[el,cs]=await Promise.all([fb.listEleves(classe.id),fb.listCarnets(me.uid,classe.id,mid).catch(()=>[])]);
+  const inG=new Set(),u=[];el.sort((a,b)=>(a.numero||0)-(b.numero||0));const num={};el.forEach(e=>num[e.id]=e.numero||0);
+  cs.filter(c=>c.groupe&&(c.membres||[]).length).forEach(c=>{c.membres.forEach(x=>inG.add(x));u.push({k:c.id,l:"👥 "+(c.logins||[]).join(", "),o:Math.min(...c.membres.map(x=>num[x]??999))})});
+  el.filter(e=>!inG.has(e.id)).forEach(e=>u.push({k:e.id,l:e.login||("n°"+(e.numero||"?")),o:e.numero||0}));
+  return u.sort((a,b)=>a.o-b.o)}
+async function verRepartir(sj,dd,seul){const old=sj.versions||{},out={};
+  for(const it of (sj.items||[]).filter(x=>x.t==="carnet")){if(seul&&it.id!==seul){if(old[it.id])out[it.id]=old[it.id];continue}
+    const x=(dd&&dd.all||[]).find(y=>y.id===it.id);let M0=x&&x.M;try{if(!M0&&x&&x.doc)M0=normModele(x.doc.modele||x.doc.brouillon)}catch(e){M0=null}
+    if(!M0||!M0.versions)continue;const nb=M0.versions.nb,t=Date.now();
+    const keep=!seul&&old[it.id]&&old[it.id].nb===nb&&sj.date===old[it.id].d?old[it.id]:null;if(keep){out[it.id]=keep;continue}
+    const us=verShuffle(await verUnites(it.id)),par={};us.forEach((u,i)=>par[u.k]={n:i%nb+1,l:u.l.slice(0,120),t});
+    out[it.id]={nb,titre:String(it.titre||M0.titre||"").slice(0,80),d:sj.date,t,par,noms:verOrdreNoms(M0)}}
+  if(Object.keys(out).length)sj.versions=out;else delete sj.versions;return sj}
+const verOrdreNoms=M=>Array.from({length:M.versions.nb},(x,i)=>verNom(M,verOrdre(M,i+1)[0]));
+function vVersionsProf(sj){const vs=sj&&sj.date===today()&&sj.versions;if(!vs||!Object.keys(vs).length)return"";
+  return Object.entries(vs).map(([mid,v])=>{const ents=Object.entries(v.par||{}).sort((a,b)=>a[1].l.localeCompare(b[1].l,"fr",{numeric:true}));
+    const cnt=Array.from({length:v.nb},(x,i)=>ents.filter(e=>e[1].n===i+1).length);
+    return`<div class="ver-prof stack" style="gap:6px"><div class="row" style="gap:8px"><strong>🔢 Versions · ${esc(v.titre||"Fiche")}</strong><span class="spacer"></span><button class="btn ghost small" data-act="ffVerMix" data-m="${esc(mid)}">🔀 Répartir à nouveau</button></div>
+      <div class="hint">${cnt.map((c,i)=>`V${i+1}${v.noms&&v.noms[i]?" ("+esc(v.noms[i])+")":""} : ${c}`).join(" · ")} — touchez une version pour la changer.</div>
+      <div class="ver-list">${ents.map(([k,e])=>`<div class="ver-u"><span class="ver-l">${esc(e.l)}</span><span class="ver-ch sm">${Array.from({length:v.nb},(x,i)=>`<button type="button" data-act="ffVerU" data-m="${esc(mid)}" data-k="${esc(k)}" data-n="${i+1}" aria-pressed="${e.n===i+1}">${i+1}</button>`).join("")}</span></div>`).join("")||'<span class="hint">Aucun élève dans la classe.</span>'}</div></div>`}).join("")}
+async function verProfSave(sj,msg){try{await fb.updateClasse(classe.id,{seanceJour:sj});classe.seanceJour=sj;if(msg)toast(msg);rerenderKeep()}catch(x){toast(authMsg(x))}}
+function verProfClick(a,b){const sj0=classe&&classe.seanceJour;if(!sj0||!sj0.versions)return true;const sj=clone(sj0),mid=b.dataset.m,v=sj.versions[mid];if(!v)return true;
+  if(a==="ffVerU"){const e=v.par[b.dataset.k];if(!e)return true;const n=parseInt(b.dataset.n);if(e.n===n)return true;e.n=n;e.t=Date.now();verProfSave(sj,`${e.l} : version ${n}`);return true}
+  if(a==="ffVerMix"){(async()=>{const dd=(classeDossiers||[]).find(x=>x.d.id===sj.dossierId);if(!dd){toast("Activité introuvable");return}await verRepartir(sj,dd,mid);verProfSave(sj,"Versions réparties à nouveau")})();return true}
+  return true}
+
+/* --- Éditeur : carte « Versions » (onglet Page) --- */
+function verEdCard(M){const V=M.versions;
+  if(!V){const ok=M.sections.filter(S=>S.champs.some(f=>f.type!=="resume"&&f.type!=="pseudo")).length>=2;if(!ok)return"";
+    return`<details class="card madv"><summary>🔢 Versions de la fiche (ordre des ateliers décalé)</summary><p class="hint">Votre fiche papier existe en plusieurs versions où seul l'ordre des ateliers change ? L'appli garde une seule fiche et en tire les versions : au lancement de la séance, elle les répartit entre les élèves ou les groupes. Chaque partie du carnet = un atelier.${M.gabarit?" Pour que la mise en page suive l'ordre, demandez-le aussi à l'IA (« Modifier en parlant à l'IA » : « ma fiche a des versions où l'ordre des ateliers change »).":""}</p>
+      <button class="btn small" data-act="ffVerCree">Créer les versions à partir des parties</button></details>`}
+  const nbMax=Math.min(20,V.ordres?Math.max(V.ordres.length,V.blocs.length):V.blocs.length);
+  return`<section class="card stack" style="gap:8px;border:2px solid #0f766e"><div class="sec-h"><h3>🔢 ${V.nb} versions de la fiche</h3></div>
+    <p class="hint" style="margin:0">${V.ordres?"Ordre des ateliers propre à chaque version (lu sur votre fiche).":"La version 2 commence au 2e atelier, la version 3 au 3e… (décalage d'un cran)."} Au lancement de la séance (« Séance d'aujourd'hui »), l'appli répartit les versions entre les élèves ou les groupes ; vous pouvez en changer d'un clic, et le coach aussi sur sa fiche. Les résultats restent rangés par atelier : correction et note inchangées.</p>
+    <div class="hint">${Array.from({length:V.nb},(x,i)=>`<div><b>V${i+1}</b> : ${verOrdre(M,i+1).map(id=>esc(verNom(M,id))).join(" → ")}</div>`).join("")}</div>
+    <div class="row" style="align-items:end">${mSel("versions.nb",V.nb,Array.from({length:nbMax-1},(x,i)=>[i+2,`${i+2} versions`]),"Nombre de versions",'data-mt="num"')}<button class="btn ghost small danger" data-act="ffVerDrop">Supprimer les versions</button></div></section>`}
+function verEdClick(a){if(!modeleEdit)return true;
+  if(a==="ffVerDrop"){mutDraft(M=>{delete M.versions});return true}
+  if(a==="ffVerCree"){mutDraft(M=>{const ss=M.sections.filter(S=>S.champs.some(f=>f.type!=="resume"&&f.type!=="pseudo"));M.versions={nb:ss.length,blocs:ss.map(S=>({id:S.id,nom:S.titre||S.id}))}});return true}
+  return true}
 
 /* ====================================================================
    Établissements, actualités et défis d'établissement, inscriptions,

@@ -593,7 +593,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.21-7) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.21-8) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -904,6 +904,17 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 .ff-t-case label.row{justify-content:center;gap:0!important}.ff-t-case input{width:28px!important;height:28px!important}
 .ff-cell .ps-auto{min-height:30px;padding:4px 8px;font-size:14px}.ff-cell .calc-v{min-height:30px;padding:3px 8px;font-size:1.1rem}
 .ff-coach .gf :is(input:not([type=checkbox]),select,textarea,.cnt){outline:2px solid #ffd6a8;outline-offset:-1px}.ff-t-case input{accent-color:#1f6feb;min-width:0!important;-webkit-appearance:checkbox!important;appearance:auto!important;opacity:1!important}.ff-cell select{-webkit-appearance:menulist!important;appearance:auto!important}.ff-t-case label.row{display:flex!important}.ff-cell .calc-v~.hint{display:none}
+/* Versions d'une fiche (2026.11.21-8) */
+.ver-bar{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:2px solid #0f766e;border-radius:12px;background:#f0fdfa;color:#0f172a}
+.ver-t{font-size:1.02rem}.ver-o{font-size:.82rem;line-height:1.35}
+.ver-ch{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ver-ch button{min-width:42px;min-height:36px;padding:4px 8px;border:1.5px solid #0f766e;border-radius:9px;background:#fff;color:#0f766e;font-weight:700;cursor:pointer}
+.ver-ch button[aria-pressed="true"]{background:#0f766e;color:#fff}
+.ver-ch.sm{gap:4px;margin:0;flex-wrap:nowrap}.ver-ch.sm button{min-width:30px;min-height:30px;padding:2px 4px;font-size:.85rem}
+.ver-prof{border-top:1px solid #e5e7eb;padding-top:10px;margin-top:4px}
+.ver-list{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow:auto}
+.ver-u{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #e5e7eb}
+.ver-l{font-size:.9rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Choix en cases colorées, comme la fiche papier (2026.11.21-7) */
 .ff-tiles{display:inline-flex;gap:6px;flex-wrap:nowrap;vertical-align:middle}
 .ff-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:46px;padding:5px 6px 4px;border:1.5px solid #1f2937;border-radius:8px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1.1;color:#111;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -979,6 +990,6 @@ div.hn2-go{background:none;padding:0}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.21-7"></script>
+<script type="module" src="app.js?v=2026.11.21-8"></script>
 </body>
 </html>
