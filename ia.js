@@ -82,9 +82,9 @@ function parse(txt) {
 }
 
 // Appel direct avec la clé Gemini personnelle d'un prof (son propre quota gratuit).
-async function callCle(parts, cle, name) {
+async function callCle(parts, cle, name, signal) {
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`, {
-    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle },
+    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": cle }, signal,
     body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", temperature: 0.3, maxOutputTokens: 32768 } })
   });
   const j = await r.json().catch(() => ({}));
@@ -121,12 +121,30 @@ export async function testerCle(cle, limiteMs = 15000) {
   throw lastErr;
 }
 
+/* Limite de temps et bouton « Annuler » (2026.11.21-9) : au-delà de LIMITE_IA_MS (tous modèles confondus),
+   on abandonne avec une erreur TIMEOUT ; annulerIA() abandonne la demande en cours (erreur ANNULE). */
+export const LIMITE_IA_MS = 240000;
+let ANNULER = null;
+export function annulerIA() { if (ANNULER) ANNULER(); }
 async function call(parts, cle) {
+  const ctrl = new AbortController();
+  let minuteur;
+  const stop = new Promise((_, rej) => {
+    minuteur = setTimeout(() => { ctrl.abort(); rej(new Error("TIMEOUT L'IA n'a pas répondu à temps")); }, LIMITE_IA_MS);
+    ANNULER = () => { ctrl.abort(); rej(new Error("ANNULE")); };
+  });
+  stop.catch(() => {});
+  const garde = p => Promise.race([p, stop]);
+  try { return await essais(parts, cle, garde, ctrl.signal); }
+  finally { clearTimeout(minuteur); ANNULER = null; }
+}
+const arret = e => /^(TIMEOUT|ANNULE)/.test(String(e && e.message));
+async function essais(parts, cle, garde, signal) {
   let lastErr;
   if (cle) {
     for (const name of MODELES) {
-      try { return await callCle(parts, cle, name); }
-      catch (e) { lastErr = e; if (/^(400|401|403) /.test(String(e.message)) && !/model/i.test(String(e.message))) break; }
+      try { return await garde(callCle(parts, cle, name, signal)); }
+      catch (e) { if (arret(e)) throw e; lastErr = e; if (/^(400|401|403) /.test(String(e.message)) && !/model/i.test(String(e.message))) break; }
     }
     throw lastErr;
   }
@@ -136,9 +154,10 @@ async function call(parts, cle) {
         model: name,
         generationConfig: { responseMimeType: "application/json", temperature: 0.3, maxOutputTokens: 32768 }
       });
-      const res = await model.generateContent(parts);
+      const res = await garde(model.generateContent(parts));
       return parse(res.response.text());
     } catch (e) {
+      if (arret(e)) throw e;
       lastErr = e;
       const m = String((e && e.message) || e);
       if (/app.?check|appcheck|unauthenticated|permission|api key|API_KEY|billing/i.test(m)) break;   // inutile d'essayer un autre modèle
@@ -151,6 +170,8 @@ export function iaMessage(e) {
   const m = String((e && e.message) || e || "");
   if (/API key not valid|API_KEY_INVALID|^40[13] /i.test(m)) return "Votre clé Gemini personnelle est refusée. Vérifiez-la dans « Compte ».";
   if (/429|quota|exhausted|rate/i.test(m)) return "L'IA gratuite est saturée pour le moment (quota atteint). Réessayez plus tard, ou ajoutez votre clé Gemini personnelle dans « Compte ».";
+  if (/^ANNULE/.test(m)) return "Demande annulée.";
+  if (/^TIMEOUT L'IA/.test(m)) return "L'IA n'a pas répondu en 4 minutes : demande abandonnée. Réessayez ; pour une fiche en plusieurs exemplaires, déposez une seule page (une seule fiche) et précisez les versions dans les consignes.";
   if (/app.?check/i.test(m)) return "L'IA refuse la requête (vérification App Check). Rechargez la page et réessayez.";
   if (/network|fetch/i.test(m)) return "Pas de connexion internet.";
   if (/illisible|JSON/i.test(m)) return "L'IA a renvoyé une réponse incomplète. Réessayez.";
