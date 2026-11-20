@@ -30,7 +30,7 @@ FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en mi
           // selon le type :
           "options": ["..."],                       // type choix
           "min": 1, "max": 10,                      // type echelle
-          "colonnes": [ { "id": "...", "type": "texte|nombre|temps|choix", "label": "...", "options": [] } ],  // type tableau
+          "colonnes": [ { "id": "...", "type": "texte|nombre|temps|choix|membres", "label": "...", "options": [], "min": 2, "max": 4, "nbCol": "id d'une colonne nombre" } ],  // type tableau ; nombre : min/max facultatifs (ex. personnes dans une pyramide : max = taille du groupe) ; membres : l'élève coche ses partenaires dans la liste de son groupe (nbCol : leur nombre = valeur de cette colonne − 1)
           "nb": 4, "nbChamp": "section.champ", "noRep": true, "adapt": true, "coach": true,  // type passages : nombre de tours fixe ou lu dans un champ nombre ; noRep : compteur par tour ; adapt : bouton adaptation par tour ; coach : un camarade peut remplir depuis son téléphone
           "nb": 3,                                  // type exercices : nombre de lignes au départ
           "src": { "exos": "section.exercices", "tours": "section.nombre", "temps": "section.temps" },  // type resume
