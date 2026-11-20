@@ -121,7 +121,7 @@ export async function testerCle(cle, limiteMs = 15000) {
   throw lastErr;
 }
 
-/* Limite de temps et bouton « Annuler » (2026.11.21-10) : au-delà de LIMITE_IA_MS (tous modèles confondus),
+/* Limite de temps et bouton « Annuler » (2026.11.21-11) : au-delà de LIMITE_IA_MS (tous modèles confondus),
    on abandonne avec une erreur TIMEOUT ; annulerIA() abandonne la demande en cours (erreur ANNULE). */
 export const LIMITE_IA_MS = 240000;
 let ANNULER = null;
