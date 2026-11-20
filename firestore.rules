@@ -250,6 +250,56 @@ service cloud.firestore {
         || (isProf() && resource.data.profId == request.auth.uid && onlyKeys(['avert']));
     }
 
+    // ---------- QCM (2026.11.20-10 / -11) ----------
+    // Questions : lues par tous les comptes connectés (aucune bonne réponse dedans).
+    match /qcms/{id} {
+      allow read: if signedIn();
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+    // Corrigé : le prof ; l'élève seulement après avoir validé une première fois.
+    match /qcmcles/{id} {
+      allow read: if signedIn() && (resource.data.profId == request.auth.uid
+        || (isEleve() && exists(/databases/$(database)/documents/qcmrep/$(id + '__' + request.auth.uid))));
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid && request.resource.data.profId == request.auth.uid;
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+    // Réponses : id = qcmId__uid. Créées puis mises à jour (nouvel essai) par l'élève, seulement si le QCM est ouvert
+    // dans la séance d'aujourd'hui de sa classe et qu'il lui reste des essais.
+    function qcmOuvert(qid) {
+      return qid in get(/databases/$(database)/documents/classes/$(me().classeId)).data.get('seanceJour', {}).get('qcms', []);
+    }
+    function qcmEssaisMax(qid) { return get(/databases/$(database)/documents/qcms/$(qid)).data.get('essais', 1); }
+    match /qcmrep/{rid} {
+      allow read: if signedIn() && (rid.matches('.*__' + request.auth.uid)
+        || resource.data.profId == request.auth.uid);
+      allow create: if isEleve()
+        && rid == request.resource.data.qcmId + '__' + request.auth.uid
+        && request.resource.data.eleveUid == request.auth.uid
+        && request.resource.data.profId == me().profId
+        && request.resource.data.classeId == me().classeId
+        && request.resource.data.essais == 1
+        && qcmOuvert(request.resource.data.qcmId);
+      allow update: if isEleve()
+        && resource.data.eleveUid == request.auth.uid
+        && request.resource.data.eleveUid == request.auth.uid
+        && request.resource.data.qcmId == resource.data.qcmId
+        && request.resource.data.profId == resource.data.profId
+        && request.resource.data.classeId == resource.data.classeId
+        && request.resource.data.essais == resource.data.get('essais', 1) + 1
+        && (qcmEssaisMax(resource.data.qcmId) == 0 || request.resource.data.essais <= qcmEssaisMax(resource.data.qcmId))
+        && qcmOuvert(resource.data.qcmId);
+      allow delete: if isProf() && resource.data.profId == request.auth.uid;
+    }
+    // Notes retenues par le prof (tableau des carnets).
+    match /aflnotes/{id} {
+      allow read, delete: if signedIn() && resource.data.profId == request.auth.uid;
+      allow create: if isProf() && request.resource.data.profId == request.auth.uid;
+      allow update: if isProf() && resource.data.profId == request.auth.uid && request.resource.data.profId == request.auth.uid;
+    }
+
     // ---------- Préférences privées du prof (clé Gemini personnelle) ----------
     match /prefs/{uid} {
       allow read, write: if uidIs(uid) && isProf();

@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.20-9";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.20-9";
-const APP_VERSION="2026.11.20-9";
+import * as fb from "./fb.js?v=2026.11.21-1";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-1";
+const APP_VERSION="2026.11.21-1";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -409,7 +409,7 @@ const genPwdProf=()=>rnd(4)+"-"+rnd(4)+"-"+rnd(2,"23456789");
 const slug=s=>norm(s).replace(/[^a-z0-9]+/g,"").slice(0,8)||"classe";
 const loginToEmail=l=>{l=String(l||"").trim().toLowerCase();return l.includes("@")?l:`${l}@${STUDENT_DOMAIN}`};
 function mergeSettings(r){const s=clone(DEF_SETTINGS);if(!r)return s;if(r.tol)s.tol=r.tol;Object.keys(s.themes).forEach(k=>{if(r.themes&&r.themes[k]){["reps","pct"].forEach(p=>{if(Array.isArray(r.themes[k][p]))s.themes[k][p]=r.themes[k][p]})}});return s}
-function authMsg(e){const c=(e&&e.code)||"";return({"auth/invalid-credential":"Identifiant ou mot de passe incorrect.","auth/wrong-password":"Identifiant ou mot de passe incorrect.","auth/user-not-found":"Identifiant ou mot de passe incorrect.","auth/invalid-email":"Identifiant invalide.","auth/too-many-requests":"Trop de tentatives. Réessaie dans quelques minutes.","auth/network-request-failed":"Pas de connexion internet.","auth/email-already-in-use":"Ce compte existe déjà.","auth/weak-password":"Mot de passe trop court (6 caractères minimum).","auth/requires-recent-login":"Par sécurité, déconnectez-vous puis reconnectez-vous avant de changer le mot de passe.","permission-denied":"Action refusée par les règles de sécurité."})[c]||("Erreur : "+((e&&e.message)||c))}
+function authMsg(e){const c=(e&&e.code)||"";return({"auth/invalid-credential":"Identifiant ou mot de passe incorrect.","auth/wrong-password":"Identifiant ou mot de passe incorrect.","auth/user-not-found":"Identifiant ou mot de passe incorrect.","auth/invalid-email":"Identifiant invalide.","auth/too-many-requests":"Trop de tentatives. Réessaie dans quelques minutes.","auth/network-request-failed":"Pas de connexion internet.","auth/email-already-in-use":"Ce compte existe déjà.","auth/weak-password":"Mot de passe trop court (6 caractères minimum).","auth/requires-recent-login":"Par sécurité, déconnectez-vous puis reconnectez-vous avant de changer le mot de passe.","permission-denied":"Action refusée par les règles de sécurité.","lent":"La connexion est trop lente ou figée. Réessaie (la connexion sera relancée).","unavailable":"Serveur injoignable (connexion coupée). Réessaie dans un instant.","not-found":"Document introuvable (il a peut-être été supprimé)."})[c]||("Erreur : "+((e&&e.message)||c))}
 const reperesKey=cid=>"reperes_"+cid;
 const getReperes=cid=>load(reperesKey(cid))||{};
 
@@ -432,7 +432,11 @@ window.addEventListener("online",()=>{if(syncState==="offline")setSync("saving")
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
 
 /* ---------- Navigation ---------- */
-function go(name,params){route={name,...(params||{})};render();window.scrollTo(0,0)}
+let RETRY=null,LOADT=null;
+function go(name,params){clearTimeout(LOADT);route={name,...(params||{})};
+  if(name==="loading"){const r0=route;LOADT=setTimeout(()=>{if(route===r0){try{fb.relancerReseau()}catch(e){}go("error",{msg:"Le chargement prend trop de temps (connexion lente ou figée). Touche « Réessayer » : la connexion est relancée.",retry:true})}},20000)}
+  render();window.scrollTo(0,0)}
+async function retryNow(){go("loading",{msg:"Relance de la connexion…"});try{await fb.relancerReseau()}catch(e){}const f=RETRY;if(f){try{await f()}catch(e){go("error",{msg:authMsg(e),retry:true})}}else go("home")}
 function setView(v){view=v;if(v!=="seances")cur=null;render();window.scrollTo(0,0)}
 function rerenderKeep(){const y=window.scrollY;render();window.scrollTo(0,y)}
 function renderHeader(){
@@ -452,13 +456,15 @@ function render(){DIFF=null;document.body.classList.toggle("vue",!!VUE);document
     case"setup":h=vSetup();break;
     case"login":h=vLogin();break;
     case"noaccount":h=`<div class="card center-card"><h2>Compte non activé</h2><p>Ce compte n'a pas (ou plus) accès au carnet. Demande à ton enseignant de vérifier tes identifiants.</p><button class="btn primary" data-nav="logout">Retour à la connexion</button></div>`;break;
-    case"error":h=`<div class="card center-card"><h2>Oups</h2><p>${esc(route.msg)}</p><button class="btn primary" data-nav="home">Réessayer</button></div>`;break;
+    case"error":h=`<div class="card center-card"><h2>Oups</h2><p>${esc(route.msg)}</p>${RETRY?`<button class="btn primary" data-act="retryNow">↻ Réessayer</button> <button class="btn" data-nav="home">Retour à l'accueil</button>`:`<button class="btn primary" data-nav="home">Réessayer</button>`}</div>`;break;
     case"acts":h=vActs();break;
     case"coach":h=curS()?(MOD?gCoach(curS()):vCoach(curS())):`<div class="card center-card"><p>Séance introuvable.</p></div>`;break;
     case"carnet":h=MOD&&carnetDoc&&carnetDoc.sansGroupe?vSansGroupe():MOD?(view==="profil"?gProfil():view==="bilan"?gBilan()+(RO?vAfl3Prof():""):(cur?gSeance(curS()):gListe())):(view==="profil"?vProfil():view==="bilan"?vBilan()+(RO?vAfl3Prof():""):(cur?vSeance(curS()):vListe()));break;
     case"modeles":h=vModeles();break;
     case"dossiers":h=vDossiers();break;
     case"dossierEd":h=vDossierEd();break;
+    case"qcmEd":h=QE?vQcmEd():"";break;
+    case"qcm":h=QV?vQcm():"";break;
     case"dossier":h=vDossierEleve()+(me&&me.role==="eleve"?vBottomNav():"");break;
     case"progres":h=vProgres()+vBottomNav();break;
     case"stock":h=vStock();break;
@@ -518,18 +524,18 @@ function vActs(){const cl=coachings.slice().sort((a,b)=>String(b.date||"").local
   ${actsDossiers.length?`<div class="acts">${actsDossiers.map(d=>`<button class="act-card" data-act="openDossier" data-id="${d.id}"><span class="act-ca">${esc(d.ca||"")}</span><span class="act-t">${esc(d.titre)}</span><span class="act-d">${esc(d.desc||"")}</span><span class="act-go">Ouvrir →</span></button>`).join("")}</div>`:`<div class="card"><p style="margin:0">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</p></div>`}</div>`;
   return`<div class="stack">${coachH}${vPseudoCard()}${vOutilsGeneraux()}<h2>Mes activités</h2><p class="hint" style="margin:-6px 0 0">Choisis l'activité pour ouvrir ton carnet d'entraînement.</p>
   <div class="acts">${[...Object.entries(ACTIVITES).map(([k,a])=>({id:k,...a})),...actsList].map(a=>`<button class="act-card" data-act="openAct" data-a="${a.id}"><span class="act-ca">${esc(a.ca||"")}</span><span class="act-t">${esc(a.titre)}</span><span class="act-d">${esc(a.desc||"")}</span><span class="act-go">Ouvrir mon carnet →</span></button>`).join("")}</div></div>`}
-async function openActs(){dossierCtx=null;COACH=false;coachCtx=null;carnetId=null;data=null;cur=null;MOD=null;PREVIEW=false;go("loading");
+async function openActs(){RETRY=()=>openActs();dossierCtx=null;COACH=false;coachCtx=null;carnetId=null;data=null;cur=null;MOD=null;PREVIEW=false;go("loading");
   try{coachings=await fb.listCoachings(me.uid)}catch(e){console.error(e);coachings=[]}
   try{const cl=await fb.getClasse(me.classeId);eleveClasse=cl;actsDossiers=await loadClasseDossiers(cl);actsList=actsDossiers?[]:await loadActs(cl)}catch(e){console.error(e);actsList=[];actsDossiers=null}
   try{eleveSessions=await fb.listSessionsActives(me.classeId,me.profId)}catch(e){eleveSessions=[]}go(actsDossiers?"enclasse":"acts")}
 let actsDossiers=null;
-async function openCoach(id){const c=coachings.find(x=>x.id===id);if(!c)return;go("loading",{msg:"Ouverture de la séance…"});
+async function openCoach(id){RETRY=()=>openCoach(id);const c=coachings.find(x=>x.id===id);if(!c)return;go("loading",{msg:"Ouverture de la séance…"});
   try{const sd=await fb.getSeance(c.carnetId,c.sid);if(!sd)throw{code:"not-found"};
     if(c.activite===CA5_ID){MOD=(await ca5Modele(me.profId)).M;ca5Convert(sd)}else{const d=await fb.getModele(c.activite);if(!d)throw{code:"not-found"};MOD=normModele(d.modele||d.brouillon)}gEnsure(MOD,sd);
     COACH=true;RO=false;coachCtx=c;carnetId=c.carnetId;data={profil:blankProfil(),seances:[sd]};cur=sd.id;syncState="ok";chrono.run=false;chrono.acc=0;go("coach")}
   catch(e){console.error(e);toast(e&&e.code==="permission-denied"||e.code==="not-found"?"Cette séance n'est plus disponible : l'élève t'a retiré ou l'a supprimée.":authMsg(e));
     openActs()}}
-async function openCarnetEleve(act){return openCarnetModele(act);go("loading",{msg:"Ouverture du carnet…"});
+async function openCarnetEleve(act){RETRY=()=>openCarnetEleve(act);return openCarnetModele(act);go("loading",{msg:"Ouverture du carnet…"});
   try{MOD=null;PREVIEW=false;activite=act;RO=false;carnetId=`${me.uid}_${act}`;
     let c=await fb.getCarnet(carnetId);
     if(!c){const base={eleveUid:me.uid,profId:me.profId,classeId:me.classeId,activite:act,profil:blankProfil()};await fb.createCarnet(carnetId,base);c={id:carnetId,...base}}
@@ -563,7 +569,7 @@ function vClasses(){const year=(()=>{const d=new Date(),y=d.getFullYear();return
     <div class="grid2"><label class="f">Nom de la classe<input id="nc-nom" required maxlength="20" placeholder="ex. 1G2"></label><label class="f">Année scolaire<input id="nc-annee" value="${year}" maxlength="12"></label></div>
     <button class="btn primary" type="submit" style="margin-top:10px">Créer la classe</button></form></div>`}
 let classeDossiers=null;
-async function openClasse(id,tab){go("loading");try{await migrerDossiers();classe=await fb.getClasse(id)||classes.find(c=>c.id===id);classeDossiers=await loadClasseActs(classe);classeActs=classeDossiers?[]:await loadActs(classe);dossiers=(await fb.listDossiers(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));eleves=(await fb.listEleves(id)).sort((a,b)=>(a.numero||0)-(b.numero||0));classeTab=tab||classeTab||"activites";if(classeTab==="correction"){await openCorrTab();return}go("classe")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openClasse(id,tab){RETRY=()=>openClasse(id,tab);go("loading");try{await migrerDossiers();classe=await fb.getClasse(id)||classes.find(c=>c.id===id);classeDossiers=await loadClasseActs(classe);classeActs=classeDossiers?[]:await loadActs(classe);dossiers=(await fb.listDossiers(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));eleves=(await fb.listEleves(id)).sort((a,b)=>(a.numero||0)-(b.numero||0));classeTab=tab||classeTab||"activites";if(classeTab==="correction"){await openCorrTab();return}go("classe")}catch(e){go("error",{msg:authMsg(e)})}}
 function vClasse(){const c=classe,rep=getReperes(c.id);
   const tabs=`<div class="seg2">${[["activites","Activités"],["correction","✏️ Correction"],["eleves",`Élèves (${eleves.length})`],["vigie","📵 Téléphone"]].map(([k,l])=>`<button data-act="classeTab" data-t="${k}" aria-current="${classeTab===k}">${l}</button>`).join("")}</div>`;
   let body="";
@@ -600,10 +606,11 @@ function printIds(){const url=location.origin+location.pathname,rep=getReperes(c
   $("#print").innerHTML=`<div class="pgrid">${eleves.map(e=>`<div class="pcard"><div class="pc-h">Carnet d'entraînement EPS · ${esc(classe.nom)}</div><div class="pc-r">${esc(rep[e.id]||"")}</div><div>N°${e.numero}</div><div>Identifiant : <b>${esc(e.login)}</b></div><div>Mot de passe : <b>${esc(e.password)}</b></div><div class="pc-u">${esc(url)}</div></div>`).join("")}</div>`;
   window.print()}
 
-async function openSuivi(act){dossierCtx=null;go("loading",{msg:"Chargement des carnets…"});
+async function openSuivi(act){RETRY=()=>openSuivi(act);dossierCtx=null;go("loading",{msg:"Chargement des carnets…"});
   try{activite=act;PREVIEW=false;MOD=null;if(act===CA5_ID){const r=await ca5Modele(me.uid);MODDOC=r.doc;MOD=r.M}else{const d=await fb.getModele(act);if(!d)throw{code:"not-found"};MODDOC=d;MOD=normModele(d.modele||d.brouillon)}MODBASE=MOD;const cs=await fb.listCarnets(me.uid,classe.id,act);
     const withS=await Promise.all(cs.map(async c=>({c,ss:(await fb.listSeances(c.id)).map(x=>{if(act===CA5_ID)ca5Convert(x);gEnsure(MOD,x);return x})})));
     CORRS={};CORR=null;try{(await fb.listCorrections(me.uid,classe.id,act)).forEach(c=>CORRS[c.id]=c)}catch(e){console.warn(e)}
+    await qsLoad(act);
     suivi={act,rows:eleves.map(e=>{const f=withS.find(x=>x.c.eleveUid===e.id||(x.c.membres||[]).includes(e.id));return{e,c:f&&f.c,ss:f&&f.ss}})};
     settings=mergeSettings(classe.reglages&&classe.reglages[act]);go("suivi")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
@@ -646,7 +653,7 @@ function exportCSV(){const L=[["N°","Identifiant","Séances validées","AFL1 /1
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`Notes_${slug(classe.nom)}_${suivi.act}.csv`;document.body.appendChild(a);a.click();a.remove()}
 
 /* ---------- Écrans : développeur et compte ---------- */
-async function openDev(){go("loading");try{[demandes,profs]=await Promise.all([fb.listDemandes(),fb.listProfs()]);go("dev")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openDev(){RETRY=()=>openDev();go("loading");try{[demandes,profs]=await Promise.all([fb.listDemandes(),fb.listProfs()]);go("dev")}catch(e){go("error",{msg:authMsg(e)})}}
 const tsDate=t=>{try{const d=t&&t.toDate?t.toDate():t?new Date(t):null;return d?d.toLocaleDateString("fr-FR"):""}catch(e){return""}};
 function vDev(){const nv=demandes.filter(d=>d.statut==="nouvelle");
   return`<div class="stack"><h2>Espace développeur</h2>
@@ -771,7 +778,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.20-9");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.21-1");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -779,10 +786,17 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
 main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){cur=o.dataset.open;render();window.scrollTo(0,0);return}
   const b=e.target.closest("[data-act]");if(!b)return;if(b.dataset.act==="openEleve"&&e.target.closest(".noclk"))return;
   const a=b.dataset.act,i=+b.dataset.i;
+  if(a==="retryNow"){retryNow();return}
   if(/^(cr|mAddBloc|mPaste)/.test(a)&&crClick(a,b))return;
   if(/^(co|cc)[A-Z]/.test(a)&&coClick(a,b))return;
   if(/^cp[A-Z]/.test(a)&&cpClick(a,b))return;
   if(/^vg[A-Z]/.test(a)&&vgClick(a,b))return;
+  if(/^qe[A-Z]/.test(a)&&qeClick(a,b))return;
+  if(/^qv[A-Z]/.test(a)&&qvClick(a,b))return;
+  if(/^ff[A-Z]/.test(a)&&ffClick(a,b))return;
+  if(a==="mCalcAbove"&&modeleEdit){mCalcAbove(+b.dataset.si,+b.dataset.fi);return}
+  if(a==="qOpenEd"){openQcmEd(b.dataset.id||null);return}
+  if(a==="qOpen"){openQcmEleve(b.dataset.id);return}
   if(/^(corr|cx|cView)/.test(a)&&corrClick(a,b))return;
   if(/^sbx[A-Z]/.test(a)&&sbxClick(a,b))return;
   // Connexion
@@ -832,7 +846,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="dosGen"){dosGen=dosGen?false:"ref";rerenderKeep();return}
   if(a==="dosAddCa5"){(async()=>{await dosAddCarnet(CA5_ID);openDossierEd(dossier.id)})();return}
   if(a==="dosUp"||a==="dosDown"){const it=[...(dossier.items||[])],j=i+(a==="dosUp"?-1:1);if(j<0||j>=it.length)return;[it[i],it[j]]=[it[j],it[i]];[dossierItems[i],dossierItems[j]]=[dossierItems[j],dossierItems[i]];dosItems(it);rerenderKeep();return}
-  if(a==="dosDel"){const x=dossierItems[i];if(!x)return;
+  if(a==="dosDel"){const x=dossierItems[i];if(!x)return;if(x.t==="qcm"){openQcmEd(x.id);return}
     confirmBox(x.t==="fiche"?"Supprimer cette fiche ?":"Retirer ce carnet de l'activité ?",x.t==="fiche"?`« ${esc(x.titre)} » ne sera plus visible par les élèves.`:`« ${esc(x.titre)} » n'apparaîtra plus dans l'activité. Les carnets déjà remplis par les élèves sont conservés.`,x.t==="fiche"?"Supprimer":"Retirer",async()=>{
       try{if(x.t==="fiche")await fb.deleteFiche(x.id,x.f.nb);await dosItems((dossier.items||[]).filter(y=>y.id!==x.id));closeModal();openDossierEd(dossier.id)}catch(y){closeModal();toast(authMsg(y))}},true);return}
   if(a==="dosDelete"){confirmBox("Supprimer cette activité ?","Le dossier, ses fiches et ses carnets seront supprimés et retirés de vos classes. Les carnets déjà remplis par les élèves restent en base.","Supprimer",async()=>{
@@ -861,7 +875,8 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   if(a==="paSave"){(async()=>{try{await fb.setProfCfg(me.uid,PA.pc);toast("Barème enregistré");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   if(a==="paDelActu"){confirmBox("Supprimer cette actualité ?","Elle ne sera plus affichée aux élèves.","Supprimer",async()=>{try{await fb.deleteActu(b.dataset.id);PA.actus=PA.actus.filter(x=>x.id!==b.dataset.id);closeModal();rerenderKeep()}catch(x){closeModal();toast(authMsg(x))}},true);return}
   if(a==="sjSave"){(async()=>{const did=$("#sj-d").value,dd=(classeDossiers||[]).find(x=>x.d.id===did);if(!dd)return;const ids=[...document.querySelectorAll(".sj-it:checked")].map(x=>x.value);
-      const items=dd.all.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,t:x.t,titre:x.titre,...(x.kind?{kind:x.kind}:{})}));const sj={date:today(),dossierId:did,titre:dd.d.titre,items};
+      const items=dd.all.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,t:x.t,titre:x.titre,...(x.kind?{kind:x.kind}:{})}));const old=classe.seanceJour&&classe.seanceJour.date===today()?classe.seanceJour:null,autres=old?(old.items||[]).filter(x=>x.d&&x.d!==did&&x.t==="qcm"):[];
+      const sj={date:today(),dossierId:did,titre:dd.d.titre,items:[...items,...autres],qcms:[...items,...autres].filter(x=>x.t==="qcm").map(x=>x.id)};
       try{await fb.updateClasse(classe.id,{seanceJour:sj});classe.seanceJour=sj;toast("Séance d'aujourd'hui affichée aux élèves");rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   if(a==="sjClear"){(async()=>{try{await fb.updateClasse(classe.id,{seanceJour:null});classe.seanceJour=null;rerenderKeep()}catch(x){toast(authMsg(x))}})();return}
   // Outils généraux
@@ -970,7 +985,7 @@ else{render();
    Carnets génériques (modèles créés avec l'IA à partir d'un référentiel)
    ==================================================================== */
 let MODBASE=null,IAKEY="",MOD=null,MODDOC=null,PREVIEW=false,modeles=[],modeleEdit=null,modeleHist=[],iaBusy=false,actsList=[];
-const G_TYPES={texte:"Texte",texte_long:"Texte long",nombre:"Nombre",temps:"Temps",choix:"Choix",case:"Case à cocher",echelle:"Échelle",compteur:"Compteur",tableau:"Tableau",passages:"Temps de passage",exercices:"Exercices (WOD)",resume:"Résumé du WOD",grille:"Tableau à double entrée (note)"};
+const G_TYPES={texte:"Texte",texte_long:"Texte long",nombre:"Nombre",temps:"Temps",choix:"Choix",case:"Case à cocher",echelle:"Échelle",compteur:"Compteur",tableau:"Tableau",passages:"Temps de passage",exercices:"Exercices (WOD)",resume:"Résumé du WOD",grille:"Tableau à double entrée (note)",calcul:"Calcul automatique (total…)",pseudo:"Pseudo (rempli automatiquement)"};
 const AGG_FR={moyenne:"moyenne",somme:"somme",max:"maximum",min:"minimum",nombre:"nombre de lignes",dernier:"dernière valeur",ecart_premier_dernier:"écart entre première et dernière valeur"};
 const MES_FR={proportion_dans_cible:"part des tours dans le temps visé",nb_hors_cible:"tours hors du temps visé",norep:"total des NO REP",adaptations:"paramètres adaptés",termine:"séance terminée",temps_total:"temps total"};
 const idOk=s=>norm(s).replace(/[^a-z0-9_]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"x";
@@ -1042,7 +1057,7 @@ function gDatalist(M,s){if(!M.rm)return"";const names=new Set();(data.profil.rms
 const blankExo=t=>({nom:"",type:t||"gym",reps:"",charge:"",niveau:""});
 const coachPaths=M=>M.sections.flatMap(S=>S.champs.filter(f=>f.coach).map(f=>S.id+"."+f.id));
 function gCoachField(M,s){return coachPaths(M)[0]||C_TOURS}
-function gCoach(s,prev){const M=MOD;gEnsure(M,s);const base="seances.0.valeurs",th=M.themes.find(t=>t.id===s.theme),V=!!s.valide;
+function gCoach(s,prev){const M=MOD;gEnsure(M,s);if(!prev)gAutoPseudo(M,s);const base="seances.0.valeurs",th=M.themes.find(t=>t.id===s.theme),V=!!s.valide;
   const res=M.sections.flatMap(S2=>S2.champs.filter(x=>x.type==="resume").map(x=>`<section class="card resume">${gFieldHTML(M,s,S2,x,base,true,false)}</section>`)).join("");
   const mine=M.sections.filter(S=>S.champs.some(f=>f.coach)),other=M.sections.filter(S=>!S.champs.some(f=>f.coach)&&!S.champs.every(f=>f.type==="resume"));
   const sec=(S,only)=>`<section class="card sec"><div class="sec-h"><h3>${esc(S.titre)}</h3></div>${S.consigne?`<p class="hint" style="margin:-4px 0 10px">${esc(S.consigne)}</p>`:""}<div class="stack" style="gap:12px">${S.champs.filter(f=>!only||f.coach).map(f=>gFieldHTML(M,s,S,f,base,V||!f.coach,false)).join("")}</div></section>`;
@@ -1051,16 +1066,16 @@ function gCoach(s,prev){const M=MOD;gEnsure(M,s);const base="seances.0.valeurs",
   <section class="hero"><div class="hero-top"><span class="eyebrow">📣 Je coache</span><span class="spacer"></span><span class="lock-chip">${V?"🔒 Validée":"En direct"}</span></div>
     <div class="hero-main"><div><h2 class="hero-t" style="font-size:2rem">${esc(coachCtx.eleveLogin)}</h2><div class="hero-sub">${esc(M.titre)} · ${PW(M).one} du ${fmtDate(s.date)}${th?" · "+esc(th.label):""}</div></div></div></section>
   ${V?`<div class="card"><p style="margin:0">Cette page a été validée par l'élève : elle n'est plus modifiable.</p></div>`:""}${res}
-  ${mine.length?`<p class="hint" style="margin:0">Remplis les cases ci-dessous : elles s'affichent en direct dans le carnet de ton camarade.</p><div class="coach-sec stack">${mine.map(S=>sec(S,true)).join("")}</div>`:'<div class="card"><p style="margin:0">Aucune case n\'est à remplir par le coach.</p></div>'}
-  ${other.length?`<details class="card"><summary><strong>Voir toute la page de ${esc(coachCtx.eleveLogin)}</strong></summary><fieldset class="lock" disabled style="border:0;padding:0;margin:10px 0 0"><div class="stack">${other.map(S=>sec(S,false)).join("")}</div></fieldset></details>`:""}</div>`}
+  ${M.gabarit?`<p class="hint" style="margin:0">Remplis la fiche : tes cases (📣) s'affichent en direct dans le carnet de ton camarade.</p>${ffHTML(M,s,base,f=>V||!f.coach,false,null)}`:mine.length?`<p class="hint" style="margin:0">Remplis les cases ci-dessous : elles s'affichent en direct dans le carnet de ton camarade.</p><div class="coach-sec stack">${mine.map(S=>sec(S,true)).join("")}</div>`:'<div class="card"><p style="margin:0">Aucune case n\'est à remplir par le coach.</p></div>'}
+  ${other.length&&!M.gabarit?`<details class="card"><summary><strong>Voir toute la page de ${esc(coachCtx.eleveLogin)}</strong></summary><fieldset class="lock" disabled style="border:0;padding:0;margin:10px 0 0"><div class="stack">${other.map(S=>sec(S,false)).join("")}</div></fieldset></details>`:""}</div>`}
 function gModalAdapt(sec,fid,i){const t=curS().valeurs[sec][fid][i],a=t.adapt||{params:[],texte:""};
   openModal(`<h3>Tour ${i+1} · adaptation</h3><p class="hint" style="margin:0">Quel paramètre as-tu modifié pendant ce tour ?</p>
   <div class="checks">${Object.entries(PARAMS).map(([k,l])=>`<label><input type="checkbox" id="m-p-${k}" value="${k}" ${(a.params||[]).includes(k)?"checked":""}> ${l}</label>`).join("")}</div>
   <label class="f">Ce que j'ai changé<textarea id="m-txt" placeholder="ex. charge passée de 25 à 20 kg">${esc(a.texte||"")}</textarea></label>
   <div class="grid2"><button class="btn primary" data-mact="gSaveAd">Enregistrer</button><button class="btn" data-mact="close">Annuler</button></div>
   ${adCount(t.adapt)?`<button class="btn danger small" data-mact="gClearAd">Supprimer l'adaptation</button>`:""}`,{type:"gad",sec,fid,i})}
-function gExportCSV(){const L=[["N°","Identifiant","Séances validées","AFL1","AFL1 max","AFL2 auto","AFL3 degré","AFL3","AFL3 max","Total /20"]];
-  suivi.rows.forEach(r=>{const S=gRowStats(r);L.push([r.e.numero,r.e.login,S?S.nv:0,S&&S.res?S.res.n1:"",S&&S.res?S.res.max1:"",S&&S.res?S.res.a2.p:"",a3Of(r.c,r.e.id)||"",S&&S.a3!==null?S.a3:"",S?S.m3:"",S&&S.tot!==null?S.tot:""])});
+function gExportCSV(){const QA=qsAfls(),L=[["N°","Identifiant","Séances validées","AFL1","AFL1 max","AFL2 auto","AFL3 degré","AFL3","AFL3 max",...QA.map(a=>a+" retenu (QCM)"),"Total /20"]];
+  suivi.rows.forEach(r=>{const S=gRowStats(r);L.push([r.e.numero,r.e.login,S?S.nv:0,S&&S.res?S.res.n1:"",S&&S.res?S.res.max1:"",S&&S.res?S.res.a2.p:"",a3Of(r.c,r.e.id)||"",S&&S.a3!==null?S.a3:"",S?S.m3:"",...QA.map(a=>{const x=S&&S.q&&S.q[a];return x&&x.val!==null?x.val:""}),S&&S.tot!==null?S.tot:""])});
   const csv="﻿"+L.map(r=>r.map(v=>`"${typeof v==="number"?String(v).replace(".",","):String(v??"").replace(/"/g,'""')}"`).join(";")).join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`Notes_${slug(classe.nom)}_${slug(MOD.titre)}.csv`;document.body.appendChild(a);a.click();a.remove()}
 
@@ -1088,11 +1103,14 @@ function normModele(m){m=m&&typeof m==="object"?clone(m):{};
       if(type==="grille"){Object.assign(f,normGrille(C));f.requis=false;f.coach=false}
       if(type==="resume"){const r=C.src&&typeof C.src==="object"?C.src:{};f.src={exos:String(r.exos||""),tours:String(r.tours||""),temps:String(r.temps||"")};f.requis=false}
       if(type==="grille")f.coach=false;
+      if(type==="calcul"){f.op=CALC_OPS[C.op]?C.op:"somme";f.src=(Array.isArray(C.src)?C.src:[]).filter(x=>x&&x.champ).map(x=>x.colonne?{champ:String(x.champ),colonne:String(x.colonne)}:{champ:String(x.champ)}).slice(0,30);f.requis=false;f.coach=false}
+      if(type==="texte"&&estNomEleve(f.label)){f.type="pseudo";f.qui=estNomJuge(f.label)||f.coach?"juge":"eleve"}
+      if(f.type==="pseudo"){f.qui=C.qui==="juge"||f.qui==="juge"?"juge":"eleve";f.coach=f.qui==="juge";f.requis=false}
       sec.champs.push(f)});
     out.sections.push(sec)});
   if(!out.sections.length)out.sections.push({id:"seance",titre:"Ma séance",consigne:"",champs:[{id:"notes",type:"texte_long",label:"Ce que j'ai fait",aide:"",unite:"",requis:true}]});
   const exists=p=>{const[a,b]=String(p||"").split(".");const S=out.sections.find(x=>x.id===a);return!!(S&&S.champs.find(c=>c.id===b))};
-  out.sections.forEach(S=>S.champs.forEach(f=>{if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src=f[k].src.filter(x=>exists(x.champ)))}));
+  out.sections.forEach(S=>S.champs.forEach(f=>{if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src=f[k].src.filter(x=>exists(x.champ)));if(f.type==="calcul")f.src=f.src.filter(x=>exists(x.champ)&&x.champ!==S.id+"."+f.id)}));
   const fixSrc=src=>src&&typeof src==="object"&&exists(src.champ)?src:null;
   const crIds=new Set();
   (Array.isArray(m.criteres)?m.criteres:[]).slice(0,20).forEach(K=>{if(!K)return;const afl=["AFL1","AFL2","AFL3"].includes(K.afl)?K.afl:"AFL1";
@@ -1115,9 +1133,46 @@ function normModele(m){m=m&&typeof m==="object"?clone(m):{};
   out.bareme.afl1.table=(Array.isArray(b.table)?b.table:[]).map(r=>Array.isArray(r)?{pts:+r[0],note:+r[1]}:{pts:+r.pts,note:+r.note}).filter(r=>Number.isFinite(r.pts)&&Number.isFinite(r.note)).slice(0,60);
   if(!out.partage)out.partage=out.sections.some(S=>S.champs.some(f=>f.coach))?"coach":"aucun";
   if(out.groupeMax<out.groupeMin)out.groupeMax=out.groupeMin;
+  const gb=normGabarit(m.gabarit);if(gb){out.gabarit=gb;if(!m.partage)out.partage="coach"}
   const jg=m.juge&&typeof m.juge==="object"?m.juge:{};out.juge={max:Number.isFinite(+jg.max)&&+jg.max>0?Math.min(100,+jg.max):4,perte:Number.isFinite(+jg.perte)&&+jg.perte>=0?Math.min(100,+jg.perte):1};
   return out}
 
+/* ===== Case « Calcul automatique » (2026.11.20-12) et case « Pseudo » (2026.11.20-11) ===== */
+const CALC_OPS={somme:"Somme (total)",moyenne:"Moyenne",max:"Plus grande valeur",min:"Plus petite valeur",nombre:"Nombre de cases remplies"};
+const CALC_SYM={somme:" + ",moyenne:" , ",max:" , ",min:" , ",nombre:" , "};
+function gCalcVals(M,s,f,depth){const out=[];if((depth||0)>5)return out;
+  for(const o of f.src||[]){const g=gField(M,o.champ);if(!g)continue;let v;const raw=gVal(s,o.champ);
+    if(g.type==="calcul")v=gCalc(M,s,g,(depth||0)+1);
+    else if(g.type==="choix"){if(raw===""||raw==null)continue;v=choixVal(g,raw)}
+    else if(g.type==="case")v=raw?1:0;
+    else if(g.type==="tableau"){if(!o.colonne)continue;v=gSource(M,s,{champ:o.champ,colonne:o.colonne,agg:"somme"})}
+    else{if(raw===""||raw==null)continue;v=gSource(M,s,{champ:o.champ})}
+    if(Number.isFinite(v))out.push(v)}
+  return out}
+function gCalc(M,s,f,depth){const v=gCalcVals(M,s,f,depth);if(f.op==="nombre")return v.filter(x=>x).length;if(!v.length)return NaN;
+  switch(f.op){case"moyenne":return Math.round(v.reduce((a,b)=>a+b,0)/v.length*100)/100;case"max":return Math.max(...v);case"min":return Math.min(...v);default:return Math.round(v.reduce((a,b)=>a+b,0)*100)/100}}
+function gCalcHTML(M,s,f,lab){const v=gCalc(M,s,f),names=(f.src||[]).map(o=>{const g=gField(M,o.champ);if(!g)return"";const c=o.colonne&&g.colonnes?(g.colonnes.find(k=>k.id===o.colonne)||{}).label:"";return c?`${g.label} (${c})`:g.label}).filter(Boolean);
+  return`<div class="f"><span class="mlab">${lab}</span><div class="calc-v">${Number.isFinite(v)?`<b>${fmtN(v)}</b>${f.unite?` <span class="hint">${esc(f.unite)}</span>`:""}`:"<span class=\"hint\">–</span>"}</div>
+    <div class="hint">🧮 Calculé automatiquement${f.op!=="somme"?` (${esc(CALC_OPS[f.op].toLowerCase())})`:""}${names.length?" : "+esc(names.join(CALC_SYM[f.op]||" + ")):" — aucune case choisie"}</div></div>`}
+function mCalcEd(M,p,si,fi,f){const self=M.sections[si].id+"."+f.id,on=new Set((f.src||[]).map(o=>o.champ+(o.colonne?"#"+o.colonne:"")));
+  const opts=[];M.sections.forEach(S=>S.champs.forEach(c=>{const q=S.id+"."+c.id;if(q===self)return;
+    if(["nombre","compteur","echelle","choix","case","temps","calcul","grille"].includes(c.type))opts.push([q,`${S.titre} › ${c.label}`]);
+    if(c.type==="tableau")(c.colonnes||[]).filter(k=>k.type==="nombre"||k.type==="temps").forEach(k=>opts.push([q+"#"+k.id,`${S.titre} › ${c.label} › colonne « ${k.label} »`]))}));
+  return`${mSel(p+".op",f.op||"somme",Object.entries(CALC_OPS),"Calcul","data-rerender")}
+  <div class="f"><span class="mlab">Cases utilisées</span><div class="mchecks">${opts.map(([v,l])=>`<label><input type="checkbox" data-mgsrc="${p}" value="${esc(v)}" ${on.has(v)?"checked":""}> ${esc(l)}</label>`).join("")||'<span class="hint">Ajoutez d\'abord des cases nombre, compteur, échelle ou liste déroulante.</span>'}</div></div>
+  <button class="btn small" data-act="mCalcAbove" data-si="${si}" data-fi="${fi}" style="justify-self:start">↑ Toutes les cases au-dessus dans cette partie</button>
+  <p class="hint" style="margin:0">Une liste déroulante vaut le dernier nombre de son texte (« ★★★ (3 étoiles) » → 3), sinon son rang ; une case cochée vaut 1. Jamais saisie par l'élève.</p>`}
+function mCalcAbove(si,fi){mutDraft(M=>{const S=M.sections[si],f=S.champs[fi];f.src=S.champs.slice(0,fi).filter(c=>["nombre","compteur","echelle","choix","case","calcul"].includes(c.type)).map(c=>({champ:S.id+"."+c.id}))})}
+const estNomEleve=l=>{const n=norm(l).replace(/[:*.]+$/,"").trim();
+  return/\bpre ?noms?\b|\bidentite\b/.test(n)||/^noms?( et| ?\/| de l'| de la| du| des|$)/.test(n)&&!/figure|exercice|activite|equipe|groupe|enchainement|atelier|epreuve|mouvement|element/.test(n)
+    ||/^(eleve|juge|observateur|observatrice|coach|arbitre|pratiquant|pratiquante|evaluateur|partenaire|gymnaste|nageur|coureur|athlete)s?( observe| evalue)?$/.test(n)};
+const estNomJuge=l=>/juge|observ|coach|arbitre|evaluat|correct/.test(norm(l));
+// Remplit les cases pseudo : l'élève propriétaire de la page, ou le coach quand il ouvre la page
+function gAutoPseudo(M,s){if(!s||PREVIEW||RO||CORR||VUE||s.valide||!me)return;const moi=me.pseudo||me.login||"";if(!moi)return;let ch=false;
+  M.sections.forEach(S=>S.champs.forEach(f=>{if(f.type!=="pseudo")return;const o=s.valeurs[S.id]=s.valeurs[S.id]||{};
+    if(COACH){if(f.qui==="juge"&&o[f.id]!==moi){o[f.id]=moi;ch=true}}
+    else if(f.qui==="eleve"&&!o[f.id]){o[f.id]=moi;ch=true}}));
+  if(ch)setTimeout(save,0)}
 /* --- Lecture des valeurs et correction --- */
 const gSec=(M,id)=>M.sections.find(x=>x.id===id);
 function gField(M,path){const[a,b]=String(path||"").split(".");const S=gSec(M,a);return S&&S.champs.find(c=>c.id===b)}
@@ -1125,7 +1180,7 @@ function gVal(s,path){const[a,b]=String(path||"").split(".");return((s.valeurs||
 function gNb(M,s,f){if(f.nbChamp){const n=parseInt(num(gVal(s,f.nbChamp)));if(n>0)return Math.min(30,n)}return f.nb||4}
 function passDur(tours){return tours.map((t,i)=>{const p=num(t&&t.passage),q=i?num(tours[i-1]&&tours[i-1].passage):0;return p>0&&(i===0||q>0)?p-q:NaN})}
 function gRef(M,s,ref){return typeof ref==="number"?ref:ref&&ref.champ?gSource(M,s,ref):NaN}
-function gSource(M,s,src){const f=gField(M,src.champ);if(!f)return NaN;const v=gVal(s,src.champ);
+function gSource(M,s,src){const f=gField(M,src.champ);if(!f)return NaN;if(f.type==="calcul")return gCalc(M,s,f);const v=gVal(s,src.champ);
   if(f.type==="passages"){const n=gNb(M,s,f),T=(Array.isArray(v)?v:[]).slice(0,n),D=passDur(T),tol=num(src.tolerance)||5,c=src.cible!==undefined?gRef(M,s,src.cible):NaN;
     const inT=D.filter(d=>!isNaN(d)&&!isNaN(c)&&Math.abs(d-c)<=tol).length;
     switch(src.mesure){case"adaptations":return T.some(t=>num(t&&t.passage)>0)?T.reduce((a,t)=>a+adCount(t&&t.adapt),0):NaN;case"norep":return T.reduce((a,t)=>a+(num(t&&t.noRep)||0),0);case"termine":return T.length===n&&T.every(t=>num(t&&t.passage)>0)?1:0;
@@ -1144,7 +1199,7 @@ function gFilled(M,s,path){const f=gField(M,path),v=gVal(s,path);if(!f)return fa
   if(f.type==="tableau")return Array.isArray(v)&&v.some(r=>r&&Object.values(r).some(x=>x!==""&&x!=null));
   if(f.type==="passages")return Array.isArray(v)&&v.some(t=>num(t&&t.passage)>0);
   if(f.type==="exercices")return Array.isArray(v)&&v.some(e=>e&&e.nom);
-  if(f.type==="resume"||f.type==="grille")return true;
+  if(f.type==="resume"||f.type==="grille"||f.type==="calcul"||f.type==="pseudo")return true;
   if(f.type==="case"||f.type==="compteur")return true;
   return v!==undefined&&v!==null&&String(v).trim()!==""}
 function gDegree(M,s,cr,profil){const c=cr.calcul||{type:"autoeval"};
@@ -1180,7 +1235,7 @@ function gEnsure(M,s){s.valeurs=s.valeurs||{};s.autoeval=s.autoeval||{};M.sectio
   else if(f.type==="passages"){if(!Array.isArray(o[f.id]))o[f.id]=[];const n=gNb(M,s,f);while(o[f.id].length<n)o[f.id].push({passage:null,noRep:0})}
   else if(f.type==="compteur"){if(o[f.id]===undefined)o[f.id]=0}
   else if(f.type==="exercices"){if(!Array.isArray(o[f.id])||!o[f.id].length)o[f.id]=Array.from({length:f.nb||3},(_,i)=>blankExo(["haltero","gym","cardio"][i%3]))}
-  else if(f.type==="resume"||f.type==="grille"){}
+  else if(f.type==="resume"||f.type==="grille"||f.type==="calcul"){}
   else if(o[f.id]===undefined)o[f.id]=f.type==="case"?false:""})})}
 function gCalcText(M,cr){const c=cr.calcul,src=x=>{if(typeof x==="number")return String(x);const f=gField(M,x.champ);if(!f)return"?";let t=`« ${f.label} »`;if(x.agg)t=`${AGG_FR[x.agg]||x.agg} de ${t}${x.colonne?` (${x.colonne})`:""}`;if(x.mesure)t=`${MES_FR[x.mesure]||x.mesure} de ${t}${x.cible!==undefined?` (cible : ${src(x.cible)}, ± ${x.tolerance||5} s)`:""}`;return t};
   if(c.type==="autoeval")return"Autoévaluation de l'élève";
@@ -1191,7 +1246,7 @@ function gCalcText(M,cr){const c=cr.calcul,src=x=>{if(typeof x==="number")return
   if(c.type==="ecart")return`Écart entre ${src(c.source)} et ${src(c.cible)} : D4 si ≤ ${c.seuils[0]}, D3 ≤ ${c.seuils[1]}, D2 ≤ ${c.seuils[2]}`;
   const op=c.sens==="bas"?"≤":"≥";return`${src(c.source)} : D4 si ${op} ${c.seuils[0]}, D3 ${op} ${c.seuils[1]}, D2 ${op} ${c.seuils[2]}`}
 
-/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.20-9) */
+/* Colonne « partenaires » d'un tableau : liste déroulante du groupe avec cases à cocher (2026.11.21-1) */
 function mbList(){const moi=me&&String(me.login||"").toLowerCase();let L;
   if(carnetDoc&&carnetDoc.groupe)L=(carnetDoc.logins||[]).filter(l=>String(l).toLowerCase()!==moi);
   else{if(!ROSTER&&me&&me.role==="eleve"){loadRoster().then(()=>rerenderKeep());return null}L=(ROSTER||[]).map(x=>x.login).filter(l=>l!==moi)}
@@ -1208,7 +1263,7 @@ function mbField(el,e){if(el.dataset.mb===undefined)return false;if(e.type!=="ch
   if(lim!==null&&sel.length>lim){el.checked=false;sel=sel.filter(x=>x!==el.value);toast(lim?`${lim} partenaire${lim>1?"s":""} au plus pour cette figure`:"Indique d'abord combien de personnes il y a dans la figure");return true}
   if(/^seances\.\d+\./.test(k)){const si=+k.split(".")[1];if(data.seances[si]&&data.seances[si].valide)return true}
   setPath(data,k,sel);save();const sm=el.closest("details").querySelector("summary");if(sm)sm.textContent=sel.length?sel.join(", "):"Choisir…";return true}
-/* ===================== Tableau à double entrée (2026.11.20-9) =====================
+/* ===================== Tableau à double entrée (2026.11.21-1) =====================
    Champ calculé « grille » : deux axes (ex. points acros × étoiles collectives), chacun alimenté par une ou plusieurs cases additionnées
    (nombre, compteur, échelle, choix, colonne d'un tableau…). La note est lue au croisement. Un critère « grille » la compte directement en AFL1. */
 const numsOf=a=>(Array.isArray(a)?a:String(a??"").split(/[,;\s]+/)).map(x=>parseFloat(String(x).replace(",","."))).filter(Number.isFinite);
@@ -1231,6 +1286,7 @@ function gAxis(M,s,ax){if(!ax.src.length)return NaN;let tot=0,any=false;
   for(const o of ax.src){const f=gField(M,o.champ);if(!f)continue;let v;
     if(f.type==="choix"){const t=gVal(s,o.champ);if(t===""||t==null)continue;v=choixVal(f,t)}
     else if(f.type==="tableau")v=gSource(M,s,{champ:o.champ,colonne:o.colonne,agg:"somme"});
+    else if(f.type==="calcul")v=gCalc(M,s,f);
     else{const raw=gVal(s,o.champ);if(raw===""||raw==null)continue;v=gSource(M,s,{champ:o.champ})}
     if(Number.isFinite(v)){tot+=v;any=true}}
   return any?tot:NaN}
@@ -1253,7 +1309,7 @@ function gGrilleHTML(M,s,f,lab){const g=gGrille(M,s,f),mx=g.max,vide=!mx;
     ${tab}<div class="hint">Calculé automatiquement. ${esc(f.lignes.titre)} = ${src(f.lignes)} · ${esc(f.colonnes.titre)} = ${src(f.colonnes)}.</div></div>`}
 /* Éditeur : axes (titre, cases additionnées, paliers) et notes du tableau */
 function mGrilleEd(M,p,f){const G=normGrille(f);
-  const opts=allFields(M,["nombre","compteur","echelle","choix","case","temps"]).filter(([v])=>v!==p),tabs=[];
+  const opts=allFields(M,["nombre","compteur","echelle","choix","case","temps","calcul"]).filter(([v])=>v!==p),tabs=[];
   M.sections.forEach(S=>S.champs.forEach(c=>{if(c.type==="tableau")(c.colonnes||[]).filter(k=>k.type==="nombre").forEach(k=>tabs.push([S.id+"."+c.id+"#"+k.id,`${S.titre} › ${c.label} › colonne « ${k.label} »`]))}));
   const self=p.split(".");const selfPath=(()=>{const S=M.sections[+self[1]];return S?S.id+"."+S.champs[+self[3]].id:""})();
   const axEd=(k,ax)=>{const on=new Set(ax.src.map(o=>o.champ+(o.colonne?"#"+o.colonne:"")));
@@ -1310,6 +1366,8 @@ function gFieldHTML(M,s,S,f,base,L,V,deg){const lockF=!L&&f.type!=="resume"&&(!P
         ${meta||(!L&&rows.length>1)?`<div class="ex-meta">${meta}${!L&&rows.length>1?`<span class="spacer"></span><button class="btn ghost small" data-act="gDelRow" data-sec="${S.id}" data-f="${f.id}" data-i="${ri}" aria-label="Retirer l'exercice">Retirer</button>`:""}</div>`:""}</div>`}).join("")}
         ${L?"":`<button class="btn small" data-act="gAddRow" data-sec="${S.id}" data-f="${f.id}" style="justify-self:start;margin-top:8px">+ Exercice</button>`}</div>`;break}
     case"grille":inner=gGrilleHTML(M,s,f,lab);break;
+    case"calcul":inner=gCalcHTML(M,s,f,lab);break;
+    case"pseudo":inner=`<div class="f"><span class="mlab">${lab}</span><div class="ps-auto" id="${id}">🔒 ${v?esc(v):`<span class="hint">${f.qui==="juge"?"pseudo du coach (rempli quand il ouvre la page)":"ton pseudo (rempli automatiquement)"}</span>`}</div></div>`;break;
     case"resume":{const r=f.src||{},th=gTheme(M,s),p=data.profil,ex=(Array.isArray(gVal(s,r.exos))?gVal(s,r.exos):[]).filter(e=>e&&e.nom),n=parseInt(num(gVal(s,r.tours)))||0,prev=parseT(gVal(s,r.temps));
       const lines=ex.map(e=>{let det;if(e.type==="haltero"){const c=num(e.charge),rm=rmFor(p,e.nom);det=c>0?`${fmtN(c)} kg${rm>0?` <span class="hint">· ${Math.round(c/rm*100)} %</span>`:""}`:'<span class="ko">charge ?</span>'}
         else det=e.niveau?esc(e.niveau):'<span class="hint">niveau non précisé</span>';
@@ -1318,7 +1376,7 @@ function gFieldHTML(M,s,S,f,base,L,V,deg){const lockF=!L&&f.type!=="resume"&&(!P
         ${r.tours||r.temps?`<div class="rs-head">${n||"?"} tour${n>1?"s":""} <span>·</span> ${isNaN(prev)?"? ":fmtT(prev)} par tour</div>`:""}
         ${lines?`<ol class="rs">${lines}</ol>`:'<p class="hint" style="margin:0">Conçois tes exercices ci-dessus.</p>'}`;return inner}
     default:inner=`<label class="f">${lab}<input id="${id}" data-k="${k}" value="${esc(v)}"></label>`}
-  const dh=DIFF&&f.type!=="resume"&&f.type!=="grille"?diffChip(M,S,f,s):"";
+  const dh=DIFF&&!["resume","grille","calcul","pseudo"].includes(f.type)?diffChip(M,S,f,s):"";
   const out=`<div class="gf st${dh?" cd-on":""}">${inner}${help}${dh}${st}</div>`;
   return lockF?`<fieldset class="lock" disabled style="border:0;padding:0;margin:0;min-width:0">${out}</fieldset>`:out}
 let GRES=null;
@@ -1330,7 +1388,7 @@ function gStampMap(M,res){const m={};res.R.forEach(x=>{const c=x.cr.calcul;if(!x
 function gPassStamps(M,path){const o={};if(!GRES)return o;GRES.R.forEach(x=>{const c=x.cr.calcul;if(!c.source||c.source.champ!==path)return;
   const k=c.type==="rythme"?"rythme":{norep:"norep",adaptations:"adapt",proportion_dans_cible:"temps",nb_hors_cible:"temps",termine:"tours",temps_total:"tours"}[c.source.mesure]||"tours";
   o[k]=o[k]?Math.min(o[k],x.deg||0)||null:x.deg;if(c.source.cible!==undefined&&!o.cible)o.cible=c.source});return o}
-function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(M,s);const i0=data.seances.indexOf(s),base=`seances.${i0}.valeurs`;
+function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(M,s);gAutoPseudo(M,s);const i0=data.seances.indexOf(s),base=`seances.${i0}.valeurs`;
   const cdoc=!PREVIEW&&!VUE&&carnetId&&CORRS[carnetId+"__"+s.id]||null,eleveC=!RO&&!COACH&&!CORR&&cdoc;
   let raw=null;if(eleveC&&CVIEW===s.id){raw=s;s=corrApply(s,cdoc);gEnsure(M,s);s.valide=true}
   DIFF=CORR?{orig:CORR.orig,who:"prof"}:raw?{orig:raw,who:"eleve",coachLogin:raw.coachLogin}:null;
@@ -1339,6 +1397,7 @@ function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(
   const auto=M.criteres.filter(c=>c.calcul.type==="autoeval");
   let no=0;const secs=M.sections.map((S,si)=>S.champs.length&&S.champs.every(f=>f.type==="resume")?`<section class="card resume" id="gsec-${si}">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V)).join("")}</section>`:`<section class="card sec" id="gsec-${si}"><div class="sec-h"><span class="num">${++no}</span><h3>${esc(S.titre)}</h3>${V&&sm["@"+S.id]?`<span class="spacer"></span>${stamp(sm["@"+S.id])}`:""}</div>
     ${S.consigne?`<p class="hint" style="margin:-4px 0 10px">${esc(S.consigne)}</p>`:""}<div class="stack" style="gap:12px">${S.champs.map(f=>gFieldHTML(M,s,S,f,base,L,V,sm[S.id+"."+f.id])).join("")}</div></section>`).join("");
+  if(M.gabarit)no=1;
   const ae=auto.length?`<section class="card sec"><div class="sec-h"><span class="num">${no+1}</span><h3>Je m'autoévalue</h3></div><p class="hint" style="margin:-4px 0 10px">Touche un niveau pour lire ses critères.</p>
     <div class="stack" style="gap:12px">${auto.map(c=>`<div class="ae"><div class="row"><strong>${esc(c.afl)} · ${esc(c.label)}</strong>${V?`<span class="spacer"></span>${stamp(s.autoeval[c.id]||null)}`:""}</div><div class="lvls">${[1,2,3,4].map(d=>`<button class="lvl d${d}${s.autoeval[c.id]===d?" on":""}" data-act="gLvl" data-c="${c.id}" data-d="${d}"><b>D${d}</b><span>${esc((c.descripteurs[d-1]||"").slice(0,38))}${(c.descripteurs[d-1]||"").length>38?"…":""}</span></button>`).join("")}</div>${DIFF&&((DIFF.orig.autoeval||{})[c.id]||null)!==(s.autoeval[c.id]||null)?`<div class="cdiff"><span class="cd-who">${DIFF.who==="prof"?(carnetDoc&&carnetDoc.groupe?"👥 Groupe":"👤 Élève"):"👤 Toi"}</span> ${(DIFF.orig.autoeval||{})[c.id]?"D"+DIFF.orig.autoeval[c.id]:"rien"} <span class="cd-ar">→</span> <b>Prof : ${s.autoeval[c.id]?"D"+s.autoeval[c.id]:"rien"}</b></div>`:""}</div>`).join("")}</div></section>`:"";
   const html=`<div class="stack seance" style="--th:var(--accent)">
@@ -1349,7 +1408,7 @@ function gSeance(s){if(!s){cur=null;return gListe()}const M=MOD,w=PW(M);gEnsure(
     <div class="hero-main"><div><h2 class="hero-t" style="font-size:2.1rem">${esc(M.titre)}</h2><div class="hero-sub">${th?`<strong>${esc(th.label)}</strong> · ${esc(th.desc||"")}${th.reps?`<br>${th.reps[0]}–${th.reps[1]} répétitions`:""}${th.pct?` · haltéro ${th.pct[0]}–${th.pct[1]} % du 1RM`:""}`:esc(M.description||"")}</div></div>${V?gRing(res):""}</div>
     ${M.themes.length&&!L&&!CORR?`<div class="pills" style="grid-template-columns:repeat(${Math.min(3,M.themes.length)},minmax(0,1fr))">${M.themes.map(t=>`<label title="${esc(t.desc)}"><input type="radio" name="gth" data-k="seances.${i0}.theme" data-rerender value="${t.id}" ${s.theme===t.id?"checked":""}>${esc(t.label)}</label>`).join("")}</div>`:""}
     ${L||CORR||M.pages!=="seance"?"":`<label class="hero-ep"><input type="checkbox" id="g-ep" data-k="seances.${i0}.epreuve" data-t="bool" data-rerender ${s.epreuve?"checked":""}> Séance d'épreuve</label>`}${isGroupe()?`<div class="hint" style="color:#cfd6dc;margin-top:6px">👥 Page partagée avec ${esc((carnetDoc.logins||[]).filter(l=>l!==me.login).join(", "))}</div>`:""}</section>
-  <fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${secs}${ae}</div></fieldset>${gDatalist(M,s)}
+  <fieldset class="lock" ${L?"disabled":""}><legend class="sr">Séance</legend><div class="stack">${M.gabarit?ffHTML(M,s,base,()=>L,V,sm):secs}${ae}</div></fieldset>${gDatalist(M,s)}
   ${V?gCorrHTML(M,res):""}
   ${CORR?corrBar(M,s):raw?"":PREVIEW?`<div class="valid-bar"><button class="btn big" data-act="gTest">${V?"Revenir en saisie":"🧪 Tester la correction"}</button></div>`:V?(RO?`<div class="valid-bar"><button class="btn big" data-act="unlock">🔓 Déverrouiller la ${w.one} pour l'élève</button></div>`:""):RO?`<p class="hint" style="text-align:center">${w.One} pas encore validée par l'élève.</p>`:`<div class="valid-bar"><button class="btn big go-valid" data-act="gValidate"><span>🏁 ${w.val}</span><small>La ${w.one} ne pourra plus être modifiée${isGroupe()?" (pour tout le groupe)":""}</small></button></div>`}</div>`;DIFF=null;return html}
 function gRing(res){const ok=res.complete,v=ok?res.tot:res.n1,max=ok?20:res.max1,f=Math.max(0,Math.min(1,v/max)),R=34,Lg=2*Math.PI*R;
@@ -1402,7 +1461,7 @@ function gModalLvl(cid,d){const c=MOD.criteres.find(x=>x.id===cid),s=curS();
 /* --- Activités : chargement des modèles --- */
 async function loadActs(classeDoc){const ids=(classeDoc&&classeDoc.activites)||[];const list=[];
   for(const id of ids){try{const m=await fb.getModele(id);if(m&&m.modele)list.push({id,titre:m.modele.titre,ca:m.modele.ca,desc:m.modele.description,doc:m})}catch(e){console.warn(e)}}return list}
-async function openCarnetModele(act){go("loading",{msg:"Ouverture du carnet…"});
+async function openCarnetModele(act){RETRY=()=>openCarnetModele(act);go("loading",{msg:"Ouverture du carnet…"});
   try{if(act===CA5_ID){const r=await ca5Modele(me.profId);MODDOC=r.doc;MOD=r.M}
     else{const md=actsList.find(a=>a.id===act)||{doc:await fb.getModele(act)};if(!md.doc)throw{code:"not-found"};MODDOC=md.doc;MOD=normModele(md.doc.modele||md.doc.brouillon)}
     activite=act;RO=false;PREVIEW=false;MODBASE=MOD;let c;
@@ -1422,21 +1481,26 @@ function gRowStats(r){if(!r.c)return null;const d={profil:{repartition:"4-4",...
   const M=modFor(MODBASE||MOD,r.e.id);d.seances.forEach(x=>gEnsure(M,x));const a3d=a3Of(r.c,r.e.id);
   const res=last?gCorrect(M,last,d.profil):null,m3=REPART[d.profil.repartition||"4-4"][1],a3=a3d?m3*a3d/4:null;
   const nc=r.ss.filter(x=>CORRS[r.c.id+"__"+x.id]).length;
-  return{nv:V.length,n:d.seances.length,res,ep:!!ep.length,m3,a3,tot:res&&a3!==null?res.n1+res.a2.p+a3:null,ae3:res&&res.a3.d,nc}}
-function gSuivi(){const rep=getReperes(classe.id),JG=MOD.partage==="coach"&&MOD.sections.some(S=>S.champs.some(f=>f.coach));
+  const m2=REPART[d.profil.repartition||"4-4"][0],q={AFL1:qsAfl(r.e.id,"AFL1",res?res.max1:((M.bareme&&M.bareme.afl1&&M.bareme.afl1.max)||12),res?res.n1:null),AFL2:qsAfl(r.e.id,"AFL2",m2,res?res.a2.p:null),AFL3:qsAfl(r.e.id,"AFL3",m3,a3)};
+  const v1=q.AFL1?q.AFL1.val:res&&res.n1,v2=q.AFL2?q.AFL2.val:res&&res.a2.p,v3=q.AFL3?q.AFL3.val:a3;
+  const tot=[v1,v2,v3].some(x=>x===null||x===undefined)?null:Math.round((v1+v2+v3)*10)/10;
+  return{nv:V.length,n:d.seances.length,res,ep:!!ep.length,m3,a3,tot,ae3:res&&res.a3.d,nc,q}}
+function qsCell(e,S,afl){const P=afl==="AFL1"?((MOD.bareme&&MOD.bareme.afl1&&MOD.bareme.afl1.max)||12):4,x=S&&S.q?S.q[afl]:qsAfl(e.id,afl,P,null);if(!x)return`<td class="n">–</td>`;
+  return`<td class="noclk n"><input data-qsn="${e.id}|${afl}" value="${x.manuel===null?"":fmtN(x.manuel)}" placeholder="${x.auto===null?"–":fmtN(x.auto)}" inputmode="decimal" style="width:58px" aria-label="${afl} retenu"><div class="hint">/ ${fmtN(x.P)} · 📝 ${x.n}/${x.tot}</div></td>`}
+function gSuivi(){const rep=getReperes(classe.id),JG=MOD.partage==="coach"&&MOD.sections.some(S=>S.champs.some(f=>f.coach)),QA=qsAfls(),qc=(e,S)=>QA.map(a=>qsCell(e,S,a)).join("");
   const jCell=e=>{if(!JG)return"";const j=jugeDe(e.id);return`<td class="n">${j?`<strong>${fmtN(j.note)}</strong><span class="hint"> / ${fmtN(j.max)}</span><div class="hint">${j.n} p. · ${j.ec} écart${j.ec>1?"s":""}</div>`:"–"}</td>`};
   const rows=suivi.rows.map((r,i)=>{const S=gRowStats(r);const name=`<strong>N°${r.e.numero}</strong>${rep[r.e.id]?` · ${esc(rep[r.e.id])}`:""}<div class="hint"><code>${esc(r.e.login)}</code>${S&&S.nc?` · ✏️ ${S.nc}`:""}</div>`;
-    if(!S)return`<tr><td>${name}</td><td colspan="5" class="hint">Carnet pas encore ouvert</td>${jCell(r.e)}</tr>`;
+    if(!S)return`<tr><td>${name}</td><td colspan="5" class="hint">Carnet pas encore ouvert</td>${qc(r.e,null)}${jCell(r.e)}</tr>`;
     return`<tr class="clk" data-act="openEleve" data-i="${i}"><td>${name}</td><td class="n">${S.nv}<span class="hint"> / ${S.n}</span></td><td class="n">${S.res&&S.res.complete?fmtN(S.res.tot):"–"}</td><td class="n">${S.res?fmtN(S.res.n1):"–"}${S.ep?" ★":""}</td>
     <td class="noclk"><select id="a3-${i}" data-a3="${i}" aria-label="AFL3"><option value="">—</option>${[1,2,3,4].map(d=>`<option value="${d}" ${a3Of(r.c,r.e.id)==d?"selected":""}>D${d}</option>`).join("")}</select><div class="hint">/ ${S.m3}${S.ae3?` · auto D${S.ae3}`:""}${r.c.groupe?` · 👥 ${(r.c.logins||[]).length}`:""}</div></td>
-    <td class="n"><strong>${S.tot===null?"–":fmtN(S.tot)}</strong></td>${jCell(r.e)}</tr>`}).join("");
+    <td class="n"><strong>${S.tot===null?"–":fmtN(S.tot)}</strong></td>${qc(r.e,S)}${jCell(r.e)}</tr>`}).join("");
   return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="backClasse">← ${esc(classe.nom)}</button><span class="spacer"></span><button class="btn small" data-act="gExport">Exporter (.csv)</button><button class="btn small" data-act="openModele" data-id="${suivi.act}">Modifier le carnet</button></div>
   <div class="class-hero"><span class="eyebrow">${esc(MOD.ca||"")} · ${esc(classe.nom)}</span><h2>${esc(MOD.titre)}</h2></div>
   <section class="card"><div class="sec-h"><h3>Carnets des élèves</h3><span class="hint">Touchez une ligne pour ouvrir le carnet</span></div>
-  ${rows?`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Séances validées</th><th class="n">Dernière note /20</th><th class="n">AFL1</th><th>AFL3 prof</th><th class="n">Total /20</th>${JG?'<th class="n">⚖️ Note de juge</th>':""}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
-  <p class="hint" style="margin:8px 0 0">Total = AFL1 et AFL2 de la séance d'épreuve (★) ou de la dernière séance validée + AFL3 fixé par vous. Les pages que vous avez corrigées (✏️) sont notées avec vos choix.${JG?` Note de juge : moyenne des pages jugées par l'élève, − ${fmtN(jugeCfg(MOD).perte)} pt par écart avec votre correction.`:""}</p></section></div>`}
+  ${rows?`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Séances validées</th><th class="n">Dernière note /20</th><th class="n">AFL1</th><th>AFL3 prof</th><th class="n">Total /20</th>${QA.map(a=>`<th class="n">📝 ${a} retenu</th>`).join("")}${JG?'<th class="n">⚖️ Note de juge</th>':""}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="hint">Aucun élève dans cette classe.</p>`}
+  <p class="hint" style="margin:8px 0 0">Total = AFL1 et AFL2 de la séance d'épreuve (★) ou de la dernière séance validée + AFL3 fixé par vous. Les pages que vous avez corrigées (✏️) sont notées avec vos choix.${QA.length?` 📝 ${QA.join(", ")} retenu : note du QCM + reste venant du carnet ; tapez une note pour la remplacer (vide = calcul automatique), elle compte dans le Total.`:""}${JG?` Note de juge : moyenne des pages jugées par l'élève, − ${fmtN(jugeCfg(MOD).perte)} pt par écart avec votre correction.`:""}</p></section></div>`}
 
-/* ===================== Correction du prof (2026.11.20-9) =====================
+/* ===================== Correction du prof (2026.11.21-1) =====================
    Le prof ouvre la page d'un élève et déplace les marqueurs (réponses de l'élève, cases du juge / observateur, autoévaluation).
    Ses choix sont rangés à part (corrections/{carnetId__sid}) : la page de l'élève n'est jamais écrasée.
    Chaque case du juge modifiée par le prof = un écart : la note de juge baisse automatiquement.
@@ -1460,7 +1524,7 @@ function diffChip(M,S,f,s){const p=S.id+"."+f.id,o=gVal(DIFF.orig,p),v=gVal(s,p)
   return`<div class="cdiff${f.coach&&DIFF.orig.coachUid?" juge":""}"><span class="cd-who">${diffWho(f)}</span> ${esc(fmtCVal(f,o))} <span class="cd-ar">→</span> <b>Prof : ${esc(fmtCVal(f,v))}</b></div>`}
 function corrOverlay(){const M=MOD,o=CORR.orig,w=data.seances[CORR.i],old=CORRS[CORR.key]||{},val={},ae={};
   Object.entries(old.valeurs||{}).forEach(([a,x])=>{if(!M.sections.some(S=>S.id===a))val[a]=x});/* parties individuelles des autres membres du groupe */
-  M.sections.forEach(S=>S.champs.forEach(f=>{if(f.type==="resume"||f.type==="grille")return;const p=S.id+"."+f.id,b=gVal(w,p);if(cNorm(gVal(o,p))!==cNorm(b))(val[S.id]=val[S.id]||{})[f.id]=clone(b??null)}));
+  M.sections.forEach(S=>S.champs.forEach(f=>{if(["resume","grille","calcul","pseudo"].includes(f.type))return;const p=S.id+"."+f.id,b=gVal(w,p);if(cNorm(gVal(o,p))!==cNorm(b))(val[S.id]=val[S.id]||{})[f.id]=clone(b??null)}));
   Object.entries(old.autoeval||{}).forEach(([k,v])=>{if(!M.criteres.some(c=>c.id===k))ae[k]=v});
   M.criteres.filter(c=>c.calcul.type==="autoeval").forEach(c=>{const a=(o.autoeval||{})[c.id]||null,b=(w.autoeval||{})[c.id]||null;if(a!==b)ae[c.id]=b});
   return{valeurs:val,autoeval:ae}}
@@ -1502,7 +1566,7 @@ function corrEleveCard(s,c,w,on){const n=c.nbModifs||0;
   return`<section class="card corr-el"><div class="row"><span style="font-size:1.6rem">📝</span><div style="flex:1;min-width:170px"><strong>Ton prof a corrigé cette ${w.one}</strong><div class="hint">${n?`${n} réponse${n>1?"s":""} déplacée${n>1?"s":""} par ton prof.`:"Ton prof est d'accord avec toutes tes réponses."}${on?" En orange : ta réponse (ou celle de ton observateur) et celle du prof.":""}</div></div>
   <button class="btn ${on?"":"primary"} small" data-act="cView">${on?"Revoir ma version":"Voir la correction"}</button></div></section>`}
 /* --- Onglet Correction de la classe --- */
-async function openCorrTab(){go("loading",{msg:"Chargement des corrections…"});
+async function openCorrTab(){RETRY=()=>openCorrTab();go("loading",{msg:"Chargement des corrections…"});
   try{const L=await fb.listCorrections(me.uid,classe.id);const acts=(classeDossiers||[]).flatMap(x=>x.carnets.map(k=>({id:k.id,titre:k.titre,pub:k.pub,dos:x.d.titre})));
     (classeActs||[]).forEach(a=>{if(!acts.some(x=>x.id===a.id))acts.push({id:a.id,titre:a.titre,pub:true})});
     L.forEach(c=>{if(!acts.some(x=>x.id===c.activite))acts.push({id:c.activite,titre:c.activite===CA5_ID?"Cross training CA5":"Carnet",pub:true})});
@@ -1548,7 +1612,7 @@ function corrField(el,e){
 function jugeDe(uid){const L=Object.values(CORRS).filter(c=>c.coachUid===uid&&c.jugeNote!=null);if(!L.length)return null;
   return{n:L.length,note:Math.round(L.reduce((a,c)=>a+c.jugeNote,0)/L.length*10)/10,max:L[0].jugeMax,ec:L.reduce((a,c)=>a+(c.ecarts||0),0)}}
 
-/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.20-9) =====================
+/* ===================== Bac à sable : « ▶ Essayer » avec un carnet rempli (2026.11.21-1) =====================
    Données d'exemple, groupe factice déjà formé, vue observateur avec choix de l'observateur. Rien n'est enregistré. */
 let SBXOBS=false;
 const sbxOn=()=>PREVIEW&&!!SBX&&!!modeleEdit&&modeleEdit.tab==="apercu";
@@ -1556,6 +1620,8 @@ const SBX_LOGINS=["eleve-02","eleve-05","eleve-08","eleve-11","eleve-14","eleve-
 function sbxRand(seed){let x=seed*9301+49297;return()=>{x=(x*9301+49297)%233280;return x/233280}}
 function sbxFillField(M,s,S,f,R){const o=s.valeurs[S.id],pick=a=>a[Math.floor(R()*a.length)],lab=norm(f.label);
   switch(f.type){
+    case"pseudo":o[f.id]=f.qui==="juge"?"eleve-02":"eleve-01";break;
+    case"calcul":break;
     case"texte":o[f.id]=/objectif|projet|but/.test(lab)?"Tenir mon allure jusqu'au bout":/echauf/.test(lab)?"Footing 5 min + gammes":"Exemple de réponse";break;
     case"texte_long":o[f.id]=/conseil|comment/.test(lab)?"Garde le dos droit et respire sur l'effort.":"J'ai bien tenu le rythme au début, je dois mieux gérer ma récupération à la fin.";break;
     case"nombre":o[f.id]=String(f.unite==="bpm"||/cardia|bpm/.test(lab)?150+Math.floor(R()*30):/tour/.test(lab)?4:5+Math.floor(R()*15));break;
@@ -1610,8 +1676,8 @@ function sbxField(el,e){if(el.dataset.sbx===undefined)return false;if(e.type!=="
 
 /* --- Modèles : liste et éditeur avec l'IA --- */
 let ca5Doc=null;
-async function openModeles(){go("loading");try{const all=await fb.listModeles(me.uid);ca5Doc=all.find(m=>m.id===ca5DocId(me.uid))||null;modeles=all.filter(m=>m.id!==ca5DocId(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("modeles")}catch(e){go("error",{msg:authMsg(e)})}}
-async function openCa5(){go("loading");try{await loadClasses();ca5Doc=await fb.getModele(ca5DocId(me.uid)).catch(()=>null);const d=ca5Doc||{};
+async function openModeles(){RETRY=()=>openModeles();go("loading");try{const all=await fb.listModeles(me.uid);ca5Doc=all.find(m=>m.id===ca5DocId(me.uid))||null;modeles=all.filter(m=>m.id!==ca5DocId(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("modeles")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openCa5(){RETRY=()=>openCa5();go("loading");try{await loadClasses();ca5Doc=await fb.getModele(ca5DocId(me.uid)).catch(()=>null);const d=ca5Doc||{};
   startEditor({id:ca5Doc?ca5Doc.id:null,fixedId:ca5DocId(me.uid),builtin:true,modele:d.modele||CA5_MODELE,brouillon:d.brouillon||null,statut:d.statut||"publie",publieLe:d.publieLe||null})}catch(e){go("error",{msg:authMsg(e)})}}
 function vModeles(){const st=m=>m.modele&&m.statut!=="brouillon"?'<span class="chip" style="border-color:var(--d4);color:var(--d4)">Publié</span>':m.modele?'<span class="chip" style="border-color:var(--d2);color:#8a6400">Bac à sable · version publiée en ligne</span>':'<span class="chip">Bac à sable</span>';
   const c5=ca5Doc||{modele:CA5_MODELE,statut:"publie"},M5=c5.brouillon||c5.modele||CA5_MODELE;
@@ -1650,6 +1716,8 @@ function mFieldEd(M,si,fi,f){const p=`sections.${si}.champs.${fi}`;let extra="";
     ${c.type==="membres"?`<div style="grid-column:1/-1">${mSel(`${p}.colonnes.${ci}.nbCol`,c.nbCol||"",[["","Pas de limite"],...(f.colonnes||[]).filter(k=>k.type==="nombre").map(k=>[k.id,`Nombre de partenaires = « ${k.label} » − 1`])],"Combien de partenaires ?")}<p class="hint" style="margin:4px 0 0">L'élève coche ses partenaires dans la liste de son groupe (ou de sa classe).</p></div>`:""}</div>`).join("")}<button class="btn small" data-act="mAddCol" data-si="${si}" data-fi="${fi}" style="justify-self:start">+ Colonne</button></div>`;
   if(f.type==="exercices")extra=mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Lignes au départ");
   if(f.type==="grille")extra=mGrilleEd(M,p,f);
+  if(f.type==="calcul")extra=mCalcEd(M,p,si,fi,f);
+  if(f.type==="pseudo")extra=mSel(p+".qui",f.qui||"eleve",[["eleve","L'élève qui pratique (propriétaire de la page)"],["juge","Le coach / juge / observateur"]],"Pseudo de qui ?","data-rerender")+`<p class="hint" style="margin:0">Jamais de nom ni de prénom : la case affiche le pseudo choisi dans l'appli, rempli automatiquement.</p>`;
   if(f.type==="resume"){const sr=f.src||{};extra=`${mSel(p+".src.exos",sr.exos||"",[["","—"],...allFields(M,["exercices"])],"Exercices résumés")}<div class="grid2">${mSel(p+".src.tours",sr.tours||"",[["","—"],...allFields(M,["nombre"])],"Nombre de tours")}${mSel(p+".src.temps",sr.temps||"",[["","—"],...allFields(M,["temps"])],"Temps par tour")}</div>`}
   if(f.type==="passages")extra=`<div class="grid2">${mIn(p+".nb",f.nb,'data-mt="num" inputmode="numeric"',"Nombre de tours")}${mSel(p+".nbChamp",f.nbChamp||"",[["","Nombre fixe"],...allFields(M,["nombre"])],"ou lu dans la case","data-rerender")}</div><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.noRep" data-mt="bool" ${f.noRep?"checked":""} style="width:20px;height:20px"> Compteur de NO REP par tour</label>
     <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.adapt" data-mt="bool" ${f.adapt?"checked":""} style="width:20px;height:20px"> Bouton adaptation par tour</label>`;
@@ -1657,10 +1725,10 @@ function mFieldEd(M,si,fi,f){const p=`sections.${si}.champs.${fi}`;let extra="";
     <button class="btn ghost small" data-act="mUpChamp" data-si="${si}" data-fi="${fi}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="mDownChamp" data-si="${si}" data-fi="${fi}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="mDelChamp" data-si="${si}" data-fi="${fi}" aria-label="Supprimer la case">✕</button></div>
     <div class="grid2">${mIn(p+".label",f.label,"","Intitulé")}${mSel(p+".type",f.type,Object.entries(G_TYPES),"Type de case","data-rerender")}</div>
     ${extra}
-    ${M.partage==="coach"&&f.type!=="resume"?`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.coach" data-mt="bool" ${f.coach?"checked":""} style="width:20px;height:20px"> 📣 Remplie par le coach</label>`:""}
+    ${M.partage==="coach"&&!["resume","calcul","pseudo","grille"].includes(f.type)?`<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.coach" data-mt="bool" ${f.coach?"checked":""} style="width:20px;height:20px"> 📣 Remplie par le coach</label>`:""}
     <details class="madv"><summary>Plus d'options</summary><div class="stack" style="gap:8px;margin-top:8px"><div class="grid2">${mIn(p+".unite",f.unite,"","Unité (facultatif)")}${mIn(p+".aide",f.aide,"","Aide pour l'élève")}</div>
     <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" data-m="${p}.requis" data-mt="bool" ${f.requis?"checked":""} style="width:20px;height:20px"> Obligatoire pour valider</label></div></details></div>`}
-function mCritEd(M,ci,c){const p=`criteres.${ci}`,cal=c.calcul||{type:"autoeval"};const nums=allFields(M,["nombre","temps","echelle","compteur","case","choix","tableau","passages"]);
+function mCritEd(M,ci,c){const p=`criteres.${ci}`,cal=c.calcul||{type:"autoeval"};const nums=allFields(M,["nombre","temps","echelle","compteur","case","choix","tableau","passages","calcul"]);
   let cfg="";const srcF=cal.source&&gField(M,cal.source.champ);
   if(cal.type==="seuils"||cal.type==="ecart"){
     cfg+=mSel(p+".calcul.source.champ",cal.source&&cal.source.champ||"",[["","— choisir une case —"],...nums],"Case mesurée","data-rerender");
@@ -1704,6 +1772,7 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=(()=>{const p=E.
       ${M.partage==="groupe"?mSel(`sections.${si}.portee`,S.portee||"collective",[["collective","👥 Collective : une seule réponse pour le groupe"],["individuelle","👤 Individuelle : chaque élève du groupe remplit la sienne"]],"Partie"):""}
       <div class="stack" style="gap:10px;margin-top:10px">${S.champs.map((f,fi)=>mFieldEd(M,si,fi,f)).join("")}</div>
       <div style="margin-top:10px">${vBlocs(si)}</div></section>`).join("")+`<button class="btn" data-act="mAddSec">+ Ajouter une partie</button>`;
+  if(E.tab==="seance"&&M.gabarit)body=ffEdCard(M)+body;
   if(E.tab==="criteres")body=`<p class="hint" style="margin:0">Chaque critère a 4 degrés. Choisissez s'il est corrigé automatiquement à partir d'une case, ou par l'autoévaluation de l'élève.${M.criteres.length?"":" Aucun critère : le carnet n'est pas noté."}</p>`+M.criteres.map((c,ci)=>mCritEd(M,ci,c)).join("")+`<button class="btn" data-act="mAddCrit">+ Ajouter un critère</button>
     <details class="card madv"><summary>Barème AFL1 (note sur ${M.bareme.afl1.max}, proportionnelle par défaut)</summary><div style="margin-top:10px">${mIn("bareme.afl1.max",M.bareme.afl1.max,'data-mt="num" inputmode="numeric" style="max-width:120px"',"Note maximale")}
     <p class="hint">Table de conversion (facultative) : à partir de tant de points, la note vaut… Sans table, la note est proportionnelle aux points.</p>
@@ -1736,21 +1805,23 @@ function vModele(){const E=modeleEdit,M=E.draft,sb=SB(),pubDate=(()=>{const p=E.
 const fileToB64=f=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(",")[1]);r.onerror=ko;r.readAsDataURL(f)});
 async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files[0]:null},f1=fv("#gen-file"),f2=fv("#gen-fiche"),texte=(($("#gen-text")||{}).value||"").trim(),consignes=(($("#gen-cons")||{}).value||"").trim(),mode=(($("#gen-form")||{}).dataset||{}).mode||"ref",err=$("#gen-err");err.textContent="";
   if(mode==="ref"&&!f1&&!texte){err.textContent="Ajoutez le référentiel (fichier ou texte).";return}
-  if(mode==="photo"&&!f2){err.textContent="Prenez en photo ou choisissez votre fiche.";return}
+  if((mode==="photo"||mode==="fidele")&&!f2){err.textContent="Prenez en photo ou choisissez votre fiche.";return}
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.20-9");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.21-1");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
-    const m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-9");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+    let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;m.partage=m.partage==="groupe"?"groupe":"coach";
+      try{const pr=/pdf/i.test(f2.type)||/\.pdf$/i.test(f2.name)?await pdfParts(f2,()=>{}):{type:"images",parts:await imageParts(f2)};m.gabarit.ficheId=await fb.addFiche({profId:me.uid,activite:dossier?dossier.id:"",titre:"Fiche d'origine · "+String(m.titre||f2.name).slice(0,60),type:pr.type,origine:true},pr.parts)}catch(x){console.warn("fiche d'origine",x)}}
+    else m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:m});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
 async function iaModifier(){const req=$("#ia-req").value.trim(),err=$("#ia-err");if(!req){err.textContent="Écrivez votre demande.";return}
   const fl=$("#ia-file")&&$("#ia-file").files[0];if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.20-9");const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.20-9");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.21-1");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(m);modeleEdit.dirty=true;iaBusy=false;setPreview();rerenderKeep();toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1842,7 +1913,7 @@ const actKey=()=>route.name==="modele"&&modeleEdit?(modeleEdit.builtin?CA5_ID:mo
 const ficheProf=()=>route.name==="modele"?me.uid:RO?me.uid:me.profId;
 async function loadFiches(force){const k=ficheProf()+"|"+actKey();if(!actKey())return;if(!force&&fichesKey===k)return;
   try{fiches=(await fb.listFiches(ficheProf(),actKey())).sort((a,b)=>(a.ordre||0)-(b.ordre||0)||String(a.titre).localeCompare(String(b.titre),"fr"));fichesKey=k}catch(e){console.error(e);fiches=[];toast(authMsg(e))}}
-async function openFiches(){view="fiches";cur=null;ficheOpen=null;render();await loadFiches();render()}
+async function openFiches(){RETRY=()=>openFiches();view="fiches";cur=null;ficheOpen=null;render();await loadFiches();render()}
 function ficheIcon(f){return f.type==="texte"?"📝":f.type==="pdf"?"📄":"🖼️"}
 function vFicheViewer(f){const d=ficheData[f.id];
   if(f.type==="texte")return`<div class="fiche-txt">${esc(f.texte||"")}</div>`;
@@ -1909,7 +1980,7 @@ const isGroupe=()=>!!(carnetDoc&&carnetDoc.groupe);
 function modFor(M,uid){if(!M||M.partage!=="groupe"||!uid)return M;
   const ind=new Set(M.sections.filter(S=>S.portee==="individuelle").map(S=>S.id)),sfx="__"+uid;
   const mp=p=>{if(!p||typeof p!=="string")return p;const i=p.indexOf(".");const a=i<0?p:p.slice(0,i);return ind.has(a)?a+sfx+(i<0?"":p.slice(i)):p};
-  const M2=clone(M);M2.sections.forEach(S=>{if(ind.has(S.id)){S.base=S.id;S.id=S.id+sfx}S.champs.forEach(f=>{if(f.nbChamp)f.nbChamp=mp(f.nbChamp);if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src.forEach(x=>x.champ=mp(x.champ)));else if(f.src)Object.keys(f.src).forEach(k=>f.src[k]=mp(f.src[k]))})});
+  const M2=clone(M);M2.sections.forEach(S=>{if(ind.has(S.id)){S.base=S.id;S.id=S.id+sfx}S.champs.forEach(f=>{if(f.nbChamp)f.nbChamp=mp(f.nbChamp);if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src.forEach(x=>x.champ=mp(x.champ)));else if(f.type==="calcul")(f.src||[]).forEach(x=>x.champ=mp(x.champ));else if(f.src)Object.keys(f.src).forEach(k=>f.src[k]=mp(f.src[k]))})});
   const fixC=c=>{if(!c)return;if(c.source){c.source.champ=mp(c.source.champ);if(c.source.cible&&typeof c.source.cible==="object")c.source.cible.champ=mp(c.source.cible.champ)}
     if(c.cible&&typeof c.cible==="object")c.cible.champ=mp(c.cible.champ);if(c.condition)c.condition.champ=mp(c.condition.champ);if(c.champs)c.champs=c.champs.map(mp);if(c.champ)c.champ=mp(c.champ)};
   const paths=c=>[c.source&&c.source.champ,c.champ,...(c.champs||[])].filter(Boolean);
@@ -1958,32 +2029,36 @@ function vSansGroupe(){return`<div class="stack"><div class="class-hero"><span c
   <div class="err" id="grp-err"></div><button class="btn primary" data-act="grpCreate">Créer mon groupe</button>
   <button class="btn ghost small" data-act="grpRefresh">J'ai été ajouté·e : actualiser</button></section></div>`}
 /* --- Élève : dossiers de la classe --- */
-async function loadClasseDossiers(cl){const ids=(cl&&cl.dossiers)||null;if(!ids)return null;const out=[];
-  for(const id of ids){try{const d=await fb.getDossier(id);if(d)out.push(d)}catch(e){console.warn(e)}}return out}
-async function itemsOf(d,profId){const out=[];
-  for(const it of d.items||[]){try{
-    if(it.t==="carnet"){if(it.id===CA5_ID){const r=await ca5Modele(profId);out.push({...it,titre:r.M.titre,M:r.M,doc:r.doc,pub:true})}
-      else{const m=await fb.getModele(it.id);if(m)out.push({...it,titre:(m.modele||m.brouillon||{}).titre||m.titre,doc:m,pub:!!m.modele,statut:m.statut})}}
-    else if(it.t==="outil")out.push({...it,titre:it.titre||OUTILS[it.kind].nom,pub:true});
-    else{const f=await fb.getFiche(it.id);if(f)out.push({...it,titre:f.titre,f})}}catch(e){console.warn(e)}}return out}
-async function openDossier(id){go("loading",{msg:"Ouverture de l'activité…"});if(!dossier||dossier.id!==id)dosTab="act";
+async function loadClasseDossiers(cl){const ids=(cl&&cl.dossiers)||null;if(!ids)return null;
+  const r=await Promise.all(ids.map(id=>fb.getDossier(id).catch(e=>{console.warn(e);return null})));return r.filter(Boolean)}
+async function itemsOf(d,profId){
+  const one=async it=>{try{
+    if(it.t==="carnet"){if(it.id===CA5_ID){const r=await ca5Modele(profId);return{...it,titre:r.M.titre,M:r.M,doc:r.doc,pub:true}}
+      const m=await fb.getModele(it.id);return m?{...it,titre:(m.modele||m.brouillon||{}).titre||m.titre,doc:m,pub:!!m.modele,statut:m.statut}:null}
+    if(it.t==="outil")return{...it,titre:it.titre||OUTILS[it.kind].nom,pub:true};
+    if(it.t==="qcm"){const q=await fb.getQcm(it.id);return q?{...it,titre:q.titre||"QCM",q,pub:true}:null}
+    const f=await fb.getFiche(it.id);return f?{...it,titre:f.titre,f}:null}catch(e){console.warn(e);return null}};
+  return(await Promise.all((d.items||[]).map(one))).filter(Boolean)}
+async function openDossier(id){RETRY=()=>openDossier(id);go("loading",{msg:"Ouverture de l'activité…"});if(!dossier||dossier.id!==id)dosTab="act";
   try{const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};activite=null;
     dossierItems=await itemsOf(d,me.role==="eleve"?me.profId:me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;
     if(me.role==="eleve"&&dossierItems.some(x=>x.t==="outil")){try{[eleveSessions,eleveClasse]=await Promise.all([fb.listSessionsActives(me.classeId,me.profId),fb.getClasse(me.classeId)])}catch(e){console.warn(e);eleveSessions=[]}}
+    qRepsDos={};const qq=dossierItems.filter(x=>x.t==="qcm");if(me.role==="eleve"&&qq.length){try{const[cl,...rs]=await Promise.all([fb.getClasse(me.classeId).catch(()=>eleveClasse),...qq.map(x=>VUE?null:fb.getQcmRep(x.id+"__"+me.uid).catch(()=>null))]);if(cl)eleveClasse=cl;qq.forEach((x,k)=>{if(rs[k])qRepsDos[x.id]=rs[k]})}catch(e){console.warn(e)}}
     go("dossier")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 let dosTab="act";
 function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche"||x.pub),carnets=its.filter(x=>x.t==="carnet"),k=CA_FR[d.ca]?d.ca:"";
   const item=x=>{if(x.t==="outil"){const s=(eleveSessions||[]).find(z=>z.outilId===x.id&&z.active),ok=x.kind!=="feuille"||s;
       return`<div class="dl-it outil"><span class="dl-ic">${IC.tool}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.kind==="feuille"||x.kind==="co"?(s?`Séance du ${fmtDate(s.date)} en cours`:"Pas de séance ouverte"):"Outil"}</small></div><button class="dl-go" data-act="openOutil" data-id="${x.id}" ${ok?"":'aria-disabled="true"'}>${ok?`Ouvrir ${IC.arrow}`:"Fermé"}</button></div>`}
+    if(x.t==="qcm"){const o=qOuvertPour(eleveClasse,x.id),r=qRepsDos[x.id];return`<div class="dl-it fiche"><span class="dl-ic">📝</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}QCM · ${r?"fait ✓":o?"disponible":"pas encore ouvert"}</small></div><button class="dl-go" data-act="qOpen" data-id="${x.id}" ${o||r||VUE?"":'aria-disabled="true"'}>${r?`Voir ${IC.arrow}`:o||VUE?`Faire ${IC.arrow}`:"Fermé"}</button></div>`}
     if(x.t==="carnet")return`<div class="dl-it carnet"><span class="dl-ic">${IC.kettle}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}${x.M&&x.M.partage==="groupe"?"Carnet de groupe":"Carnet"}</small></div><button class="dl-go" data-act="openAct" data-a="${x.id}">Ouvrir ${IC.arrow}</button></div>`;
     const o=ficheOpen===x.id;return`<div class="dl-it fiche${o?" open":""}"><span class="dl-ic">${IC.certif}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>${IC.folder}Fiche</small></div><button class="dl-go" data-act="showFiche" data-id="${x.id}" aria-expanded="${o}">${o?"Fermer":`Voir ${IC.arrow}`}</button>${o?`<div class="dl-fb">${vFicheViewer(x.f)}</div>`:""}</div>`};
   return`<div class="shell-home dos">
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.20-9" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
-  ${dosTab==="res"?coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-1" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  ${dosTab==="res"?qResItems(its)+coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
 async function migrerDossiers(){try{const pr=await fb.getPrefs(me.uid).catch(()=>null);if(pr&&pr.dossiersOk)return;
@@ -1994,18 +2069,18 @@ async function migrerDossiers(){try{const pr=await fb.getPrefs(me.uid).catch(()=
     for(const m of mods){if(m.id===ca5DocId(me.uid))continue;const M=m.brouillon||m.modele||{};map[m.id]=await fb.createDossier({profId:me.uid,titre:M.titre||m.titre||"Activité",ca:M.ca||m.ca||"",desc:"",items:[{t:"carnet",id:m.id},...fOf(m.id)]})}
     await loadClasses();for(const c of classes){const ds=[map[CA5_ID],...(c.activites||[]).map(a=>map[a]).filter(Boolean)];await fb.updateClasse(c.id,{dossiers:ds});c.dossiers=ds}
     await fb.setPrefs(me.uid,{dossiersOk:true})}catch(e){console.error("migration dossiers",e)}}
-async function openDossiers(){go("loading");try{await migrerDossiers();await loadClasses();dossiers=(await fb.listDossiers(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("dossiers")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openDossiers(){RETRY=()=>openDossiers();go("loading");try{await migrerDossiers();await loadClasses();dossiers=(await fb.listDossiers(me.uid)).sort((a,b)=>String(a.titre).localeCompare(String(b.titre),"fr"));go("dossiers")}catch(e){go("error",{msg:authMsg(e)})}}
 function vDossiers(){return`<div class="stack"><h2>Mes activités</h2>
   <p class="hint" style="margin:-6px 0 0">Chaque activité est un dossier : vous y rangez les carnets (carnet d'entraînement, feuille de poule…) et les fiches ressources (consignes, référentiel…). Vous l'activez ensuite pour vos classes.</p>
   ${dossiers.length?`<div class="grid-cards">${dossiers.map(d=>`<button class="class-card" data-act="openDossierEd" data-id="${d.id}"><span class="act-ca">${esc(d.ca||"")}</span><span class="cc-n" style="font-size:1.3rem">${esc(d.titre)}</span><span class="hint">${(d.items||[]).filter(x=>x.t==="carnet").length} carnet(s) · ${(d.items||[]).filter(x=>x.t==="fiche").length} fiche(s)</span><span class="chip">${classes.filter(c=>(c.dossiers||[]).includes(d.id)).map(c=>esc(c.nom)).join(", ")||"Aucune classe"}</span></button>`).join("")}</div>`:""}
   <form class="card" id="new-dossier"><div class="sec-h"><h3>Nouvelle activité</h3></div><div class="grid2"><label class="f">Nom<input id="nd-t" required maxlength="60" placeholder="ex. Acrosport"></label><label class="f">Champ d'apprentissage<select id="nd-ca">${["","CA1","CA2","CA3","CA4","CA5"].map(x=>`<option>${x}</option>`).join("")}</select></label></div>
   <button class="btn primary" type="submit" style="margin-top:10px">Créer l'activité</button></form></div>`}
-async function openDossierEd(id){shareOpen=false;go("loading");try{await loadClasses();const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};dosGen=false;CR=null;
+async function openDossierEd(id){RETRY=()=>openDossierEd(id);shareOpen=false;go("loading");try{await loadClasses();const d=await fb.getDossier(id);if(!d)throw{code:"not-found"};dossier=d;dossierCtx={id};dosGen=false;CR=null;
   dossierItems=await itemsOf(d,me.uid);fiches=dossierItems.filter(x=>x.t==="fiche").map(x=>x.f);ficheOpen=null;go("dossierEd")}catch(e){go("error",{msg:authMsg(e)})}}
 function vDossierEd(){const d=dossier,its=dossierItems;
   const st=x=>x.id===CA5_ID?(x.doc?(x.doc.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié · votre version"):"Publié · version d'origine"):x.pub?(x.statut==="brouillon"?"Bac à sable · version publiée en ligne":"Publié"):"Bac à sable · pas encore visible";
   const rows=its.map((x,i)=>`<div class="doc-row${x.t==="fiche"&&ficheOpen===x.id?" open":""}"><div class="row" style="gap:6px;flex-wrap:nowrap">
-    ${x.t==="outil"?`<div class="doc-item outil" style="flex:1;cursor:default"><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><input data-outil-titre="${x.id}" value="${esc(x.titre)}" maxlength="40" aria-label="Nom de l'outil"><span class="hint">${OUTILS[x.kind].nom} · séances${x.kind==="co"?"":" et réglages"} : Classes › la classe › Activités</span></span>${x.kind==="co"?`<button class="chip cc-go" data-act="ccOpen" data-id="${x.id}">Cartons et correction →</button>`:""}</div>`:x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
+    ${x.t==="qcm"?`<button class="doc-item" data-act="qOpenEd" data-id="${x.id}" style="flex:1"><span class="di-ic">📝</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">QCM · ${x.q.questions.length} question${x.q.questions.length>1?"s":""} · ${x.q.afl} · noté sur ${fmtN(qNorm(x.q).sur)}</span></span><span class="chip">Modifier →</span></button>`:x.t==="outil"?`<div class="doc-item outil" style="flex:1;cursor:default"><span class="di-ic">${OUTILS[x.kind].ic}</span><span class="di-t"><input data-outil-titre="${x.id}" value="${esc(x.titre)}" maxlength="40" aria-label="Nom de l'outil"><span class="hint">${OUTILS[x.kind].nom} · séances${x.kind==="co"?"":" et réglages"} : Classes › la classe › Activités</span></span>${x.kind==="co"?`<button class="chip cc-go" data-act="ccOpen" data-id="${x.id}">Cartons et correction →</button>`:""}</div>`:x.t==="carnet"?`<button class="doc-item carnet" data-act="openModele" data-id="${x.id}" style="flex:1"><span class="di-ic">📒</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">${st(x)}</span></span><span class="chip">Modifier →</span></button>`
       :`<button class="doc-item" data-act="showFiche" data-id="${x.id}" style="flex:1"><span class="di-ic">${ficheIcon(x.f)}</span><span class="di-t"><strong>${esc(x.titre)}</strong><span class="hint">Fiche${x.f.type==="pdf"?" PDF":x.f.type==="texte"?" texte":` · ${x.f.nb} page${x.f.nb>1?"s":""}`}</span></span><span class="chip">${ficheOpen===x.id?"Fermer":"Voir"}</span></button>`}
     <div class="stack" style="gap:2px"><button class="btn ghost small" data-act="dosUp" data-i="${i}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="dosDown" data-i="${i}" aria-label="Descendre">↓</button></div><button class="btn ghost small danger" data-act="dosDel" data-i="${i}" aria-label="Retirer">✕</button></div>
     ${x.t==="fiche"&&ficheOpen===x.id?`<div class="fiche-b"><label class="f">Titre<input data-fiche-titre="${x.id}" value="${esc(x.titre)}" maxlength="80"></label>${vFicheViewer(x.f)}</div>`:""}</div>`).join("");
@@ -2017,6 +2092,8 @@ function vDossierEd(){const d=dossier,its=dossierItems;
   <section class="card"><div class="sec-h"><h3>Documents de l'activité</h3><span class="hint">Ce que l'élève trouve dans le dossier</span></div>
     ${rows?`<div class="docs">${rows}</div>`:'<p class="hint" style="margin:0">Le dossier est vide : ajoutez un carnet ou une fiche ci-dessous.</p>'}</section>
   ${vCreer(hasCa5)}
+  <section class="card stack" style="gap:8px"><h3>Ajouter un QCM</h3><p class="hint" style="margin:0">Questions à choix multiples corrigées automatiquement ; la note peut compter dans un AFL du carnet. L'IA peut écrire les questions à partir d'une fiche.</p>
+    <div class="row"><button class="btn" data-act="qOpenEd">📝 Nouveau QCM</button></div></section>
   <section class="card stack" style="gap:8px"><h3>Ajouter un outil</h3><p class="hint" style="margin:0">Feuille de match : poules de 3 à 8 joueurs sur 1 à 4 terrains, scores reportés par les élèves arbitres. Scoreur : compteur de points avec bonus et chrono. Course d'orientation : formats de course, cartons de contrôle corrigés automatiquement, chrono.</p>
     <div class="row"><button class="btn" data-act="dosAddOutil" data-k="feuille">🏆 Feuille de match</button><button class="btn" data-act="dosAddOutil" data-k="scoreur">⏱️ Scoreur</button><button class="btn" data-act="dosAddOutil" data-k="co">🧭 Course d'orientation</button></div></section>
   <form class="card stack" id="fiche-form" style="gap:10px"><h3>Ajouter une fiche</h3>
@@ -2034,6 +2111,10 @@ function vGenForm(mode){mode=mode||"ref";const ft=`<p class="hint" style="margin
     <label class="f">Votre fiche (photo prise avec le téléphone, image ou PDF)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
     <label class="f">Précisions (facultatif)<textarea id="gen-cons" placeholder="ex. C'est un camarade qui remplit la fiche · Ajoute un chrono pour le gainage"></textarea></label>
     <details><summary class="hint">Ajouter aussi le référentiel pour la correction (facultatif)</summary><input type="file" id="gen-file" accept="application/pdf,image/*"></details>${go}${ft}</form>`;
+  if(mode==="fidele")return`<form class="stack" id="gen-form" data-mode="fidele" style="gap:10px">
+    <p class="hint" style="margin:0">L'IA redessine votre fiche à l'identique (tableaux, couleurs, intitulés) et rend chaque case cliquable. Elle ajoute seulement le pseudo de l'élève et le choix d'un coach : le coach remplit la fiche depuis son téléphone. Elle compte dans la note comme un carnet (critères, votre correction, note de juge).</p>
+    <label class="f">Votre fiche d'observation (photo, image ou PDF d'une page)<input type="file" id="gen-fiche" accept="application/pdf,image/*"></label>
+    <label class="f">Précisions (facultatif)<textarea id="gen-cons" placeholder="ex. Une fiche par séance · Le total des réussites compte pour l'AFL1 · L'élève remplit lui-même son ressenti"></textarea></label>${go}${ft}</form>`;
   if(mode==="phrase")return`<form class="stack" id="gen-form" data-mode="phrase" style="gap:10px">
     <label class="f">Décrivez le carnet en une ou deux phrases<textarea id="gen-cons" rows="3" placeholder="ex. Fiche d'observation du smash en badminton, remplie par un camarade, avec le nombre de smashs réussis et 3 critères techniques"></textarea></label>${go}${ft}</form>`;
   return`<form class="stack" id="gen-form" data-mode="ref" style="gap:10px">
@@ -2047,8 +2128,8 @@ async function dosAddCarnet(id){if(!dossierCtx)return;const d=await fb.getDossie
   dossier=d;await dosItems([...(d.items||[]),{t:"carnet",id}])}
 async function toggleDossierClasse(cid,on){const c=classes.find(x=>x.id===cid);if(!c)return;const ds=new Set(c.dossiers||[]);on?ds.add(dossier.id):ds.delete(dossier.id);
   try{await fb.updateClasse(cid,{dossiers:[...ds]});c.dossiers=[...ds];toast(on?`Activité visible pour ${c.nom}`:`Activité retirée pour ${c.nom}`)}catch(e){toast(authMsg(e))}}
-async function loadClasseActs(cl){const ds=await loadClasseDossiers(cl);if(!ds)return null;const out=[];
-  for(const d of ds){const its=await itemsOf(d,me.uid);out.push({d,all:its,carnets:its.filter(x=>x.t==="carnet"),outils:its.filter(x=>x.t==="outil")})}return out}
+async function loadClasseActs(cl){const ds=await loadClasseDossiers(cl);if(!ds)return null;
+  const all=await Promise.all(ds.map(d=>itemsOf(d,me.uid)));return ds.map((d,k)=>{const its=all[k];return{d,all:its,carnets:its.filter(x=>x.t==="carnet"),outils:its.filter(x=>x.t==="outil")}})}
 
 
 /* ====================================================================
@@ -2056,7 +2137,7 @@ async function loadClasseActs(cl){const ds=await loadClasseDossiers(cl);if(!ds)r
    ==================================================================== */
 let stockList=[],stockDos=null,stockOpen=null,stockBusy="",shareOpen=false;
 const actKeyOf=t=>norm(String(t||"")).replace(/[^a-z0-9]+/g," ").trim()||"activite";
-async function openStock(){go("loading",{msg:"Ouverture du stock…"});try{stockList=[...STOCK_INT,...await fb.listStock()];stockDos=null;stockOpen=null;go("stock")}catch(e){go("error",{msg:authMsg(e)})}}
+async function openStock(){RETRY=()=>openStock();go("loading",{msg:"Ouverture du stock…"});try{stockList=[...STOCK_INT,...await fb.listStock()];stockDos=null;stockOpen=null;go("stock")}catch(e){go("error",{msg:authMsg(e)})}}
 function stockFolders(){const m=new Map();stockList.forEach(e=>{const k=e.cle||actKeyOf(e.titre);if(!m.has(k))m.set(k,{cle:k,titre:e.titre,ca:e.ca,items:[]});m.get(k).items.push(e)});
   return[...m.values()].sort((a,b)=>a.titre.localeCompare(b.titre,"fr"))}
 function vStockEntry(e){const open=stockOpen===e.id;
@@ -2152,7 +2233,7 @@ async function saveScore(el){if(!FE)return;const k=el.dataset.ms,a=el.dataset.a,
   const va=ia.value.trim(),vb=ib.value.trim();if((va==="")!==(vb==="")&&!(va===""&&vb===""))return;/* attendre les deux scores */
   const pi=parseInt(k.slice(1));const data=va===""?{a,b,pi,sa:null,sb:null,arbitre:null,maj:new Date().toISOString()}:{a,b,pi,sa:Math.max(0,parseInt(va)||0),sb:Math.max(0,parseInt(vb)||0),arbitre:FE.S.id==="local"?"":(me.pseudo||me.login||"prof"),maj:new Date().toISOString()};
   try{await matchSet(FE.S.id,k,data);toast("Score enregistré")}catch(e){toast(authMsg(e))}}
-async function openFeuille(sid){go("loading",{msg:"Ouverture de la feuille de match…"});
+async function openFeuille(sid){RETRY=()=>openFeuille(sid);go("loading",{msg:"Ouverture de la feuille de match…"});
   try{const S=await fb.getSession(sid);if(!S)throw{code:"not-found"};FE={S,M:{}};await chargerPseudos(S.noms);
     if(matchUnsub)matchUnsub();matchUnsub=fb.watchMatchs(sid,list=>{if(!FE||FE.S.id!==sid)return;FE.M=Object.fromEntries(list.map(x=>[x.id,x]));if(["feuille","outilProf"].includes(route.name))rerenderKeep()});go("feuille")}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
@@ -2201,7 +2282,7 @@ document.addEventListener("click",e=>{if(e.target.closest("#scoreur"))scClick(e)
 document.addEventListener("change",e=>{const i=e.target.closest("[data-scc]");if(i&&SC){SC.cfg=editCfg(SC.cfg,i.dataset.scc,i.value);lsSet("scoreurCfg",SC.cfg);scRender()}});
 document.addEventListener("input",e=>{const i=e.target.closest("[data-scn]");if(i&&SC){SC[i.dataset.scn].nom=i.value;const em=i.parentElement.querySelector(".sc-emb");if(em)em.textContent=(i.value.trim()[0]||"?").toUpperCase()}});
 /* --- Prof : réglages et séances d'un outil pour une classe --- */
-async function openOutilProf(cid,did,oid){go("loading",{msg:"Chargement…"});
+async function openOutilProf(cid,did,oid){RETRY=()=>openOutilProf(cid,did,oid);go("loading",{msg:"Chargement…"});
   try{const cls=await fb.getClasse(cid),d=await fb.getDossier(did),item=(d.items||[]).find(x=>x.id===oid);if(!item)throw{code:"not-found"};
     if(item.kind==="co"){await openCoProf(cls,d,item);return}
     const [sessions,eleves]=await Promise.all([fb.listSessions(me.uid,cid,oid),fb.listEleves(cid)]);eleves.sort((a,b)=>a.numero-b.numero);
@@ -2211,7 +2292,7 @@ async function openOutilProf(cid,did,oid){go("loading",{msg:"Chargement…"});
     if(act){await openFeuilleProf(act)}else{OP.draft=newDraft();FE=null;if(matchUnsub){matchUnsub();matchUnsub=null}go("outilProf")}}
   catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
 function newDraft(){const n=OP.eleves.length,k=OP.item.kind==="feuille"?Math.max(1,Math.round(n/5)):0;return{date:today(),reglages:clone(OP.cfgCls),nbP:k,aff:{}}}
-async function openFeuilleProf(S){FE={S,M:{}};await chargerPseudos(S.noms);if(matchUnsub)matchUnsub();matchUnsub=fb.watchMatchs(S.id,list=>{if(!FE||FE.S.id!==S.id)return;FE.M=Object.fromEntries(list.map(x=>[x.id,x]));if(route.name==="outilProf")rerenderKeep()});go("outilProf")}
+async function openFeuilleProf(S){RETRY=()=>openFeuilleProf(S);FE={S,M:{}};await chargerPseudos(S.noms);if(matchUnsub)matchUnsub();matchUnsub=fb.watchMatchs(S.id,list=>{if(!FE||FE.S.id!==S.id)return;FE.M=Object.fromEntries(list.map(x=>[x.id,x]));if(route.name==="outilProf")rerenderKeep()});go("outilProf")}
 function vCfgEd(c,pre){return`<div class="grid2"><label class="f">Nombre de bonus<select data-cfg="${pre}" data-k2="nb">${[0,1,2,3].map(n=>`<option value="${n}" ${c.bonus.length===n?"selected":""}>${n}</option>`).join("")}</select></label>
     <label class="f">Durée d'un match (min, 0 = chrono libre)<input data-cfg="${pre}" data-k2="duree" inputmode="decimal" value="${c.duree||0}"></label></div>
     ${c.bonus.map((b,i)=>`<div class="grid2"><label class="f">Bonus ${i+1} : nom<input data-cfg="${pre}" data-k2="bl${i}" maxlength="14" value="${esc(b.label)}"></label><label class="f">Valeur (points)<input data-cfg="${pre}" data-k2="bv${i}" inputmode="numeric" value="${b.val}"></label></div>`).join("")}
@@ -2329,7 +2410,7 @@ function conseils(a,P){if(!a)return[];const out=[],r=scoreAct(a,P);if(!r)return[
   const le=lvl3(+a.ecran||0,P.ecran.seuils);if(le)out.push({ic:"📱",t:"Beaucoup de temps d'écran",d:"Pose ton téléphone 1 h avant de dormir et remplace une partie de ce temps par une activité dehors."});
   if(!out.length)out.push({ic:"🏆",t:"Tout est dans le vert !",d:"Garde ce rythme et pense à varier les activités : endurance, renforcement, souplesse."});
   return out}
-async function openHome(){go("loading",{msg:"Chargement de ton espace…"});
+async function openHome(){RETRY=()=>openHome();go("loading",{msg:"Chargement de ton espace…"});
   try{const[pc,ac,actus,cls,sess]=await Promise.all([fb.getProfCfg(me.profId).catch(()=>null),fb.getActivite(me.uid).catch(()=>null),fb.listActus(me.profId).catch(()=>[]),fb.getClasse(me.classeId).catch(()=>null),fb.listSessionsActives(me.classeId,me.profId).catch(()=>[])]);
     H={pc:normPC(pc),ac,cls,sessions:sess,actus:actus.filter(x=>String(x.date||"")>=today()&&(!(x.classes||[]).length||(x.classes||[]).includes(me.classeId))).sort((a,b)=>String(a.date).localeCompare(String(b.date)))};
     eleveClasse=cls;eleveSessions=sess;go("home");vgInit()}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
@@ -2360,18 +2441,18 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
   <section class="ec-today"><div class="ec-tag"><span class="ec-tagic">${IC.cal}</span>Séance d'aujourd'hui</div>
     <div class="ec-tbody"><span class="ec-run" aria-hidden="true">${IC.runner}</span><span class="ec-chev" aria-hidden="true">›</span><div>
     ${isToday||feuilles.length?`${isToday?`<b>${esc(sj.titre||"Séance du jour")}</b>`:`<b>Feuille de match ouverte</b>`}
-      <div class="ec-docs">${docs.map(it=>`<button data-act="sjOpen" data-d="${sj.dossierId}" data-id="${it.id}" data-t="${it.t}"><span>${it.t==="carnet"?IC.kettle:it.t==="outil"?IC.tool:IC.certif}</span>${esc(it.titre||"Document")}</button>`).join("")}${feuilles.map(s=>`<button data-act="sjFeuille" data-id="${s.id}"><span>${IC.trophy}</span>${esc(s.titre||"Feuille de match")}</button>`).join("")}</div>
+      <div class="ec-docs">${docs.map(it=>`<button data-act="sjOpen" data-d="${it.d||sj.dossierId}" data-id="${it.id}" data-t="${it.t}"><span>${it.t==="carnet"?IC.kettle:it.t==="outil"?IC.tool:it.t==="qcm"?"📝":IC.certif}</span>${esc(it.titre||"Document")}</button>`).join("")}${feuilles.map(s=>`<button data-act="sjFeuille" data-id="${s.id}"><span>${IC.trophy}</span>${esc(s.titre||"Feuille de match")}</button>`).join("")}</div>
       ${isToday&&!docs.length&&!feuilles.length?`<small>Ton enseignant n'a pas encore déposé de document pour cette séance.</small>`:""}`
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.20-9" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-1" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
     <button data-act="toolFeuille" class="fm"><span class="ec-tic">🏆</span><b>Feuille de match</b><small>Organise tes matchs et compétitions</small><span class="ec-tch">${IC.chev}</span></button></div></div>`}
 async function sjOpen(did,id,t){await openDossier(did);if(route.name!=="dossier")return;const x=dossierItems.find(y=>y.id===id);if(!x){toast("Document introuvable");return}
-  if(t==="carnet"){openCarnetEleve(id);return}if(t==="fiche"){showFiche(id);return}ouvrirOutilEleve(x)}
+  if(t==="carnet"){openCarnetEleve(id);return}if(t==="fiche"){showFiche(id);return}if(t==="qcm"){openQcmEleve(id,"enclasse");return}ouvrirOutilEleve(x)}
 /* --- Profil élève --- */
 function vProfilEl(){const a=H.ac&&H.ac.semaine===semaineId()?H.ac:{};const hm=m=>m?`${Math.floor(m/60)}:${String(Math.round(m%60)).padStart(2,"0")}`:"";
   return`<div class="shell-home"><section class="h-hero small"><div class="h-stripes" aria-hidden="true"></div><div><div class="h-date">MON PROFIL</div><h1><span>${esc(me.pseudo||me.login)}</span></h1><p>${esc(me.login)}</p></div>${avatarHTML()}</section>
@@ -2395,7 +2476,7 @@ async function savePseudoAvatar(av){if(apercuBloque())return;try{await fb.update
 function shTab(t){if(t==="enclasse"){openActs();return}go(t)}
 /* --- Prof : réglages de l'accueil élèves --- */
 let PA=null;
-async function openProfAccueil(){go("loading");try{await loadClasses();const[pc,actus]=await Promise.all([fb.getProfCfg(me.uid).catch(()=>null),fb.listActus(me.uid).catch(()=>[])]);
+async function openProfAccueil(){RETRY=()=>openProfAccueil();go("loading");try{await loadClasses();const[pc,actus]=await Promise.all([fb.getProfCfg(me.uid).catch(()=>null),fb.listActus(me.uid).catch(()=>[])]);
   PA={pc:normPC(pc),actus:actus.sort((a,b)=>String(a.date).localeCompare(String(b.date))),edit:null};go("profAccueil")}catch(e){go("error",{msg:authMsg(e)})}}
 function vProfAccueil(){const P=PA.pc,sem=semaineId();const num=(k,v,l,at="")=>`<label class="f">${l}<input data-pa="${k}" inputmode="decimal" value="${v}" ${at}></label>`;
   return`<div class="stack"><h2>Accueil des élèves</h2><p class="hint" style="margin:-6px 0 0">Ce que vos élèves voient en ouvrant l'appli : leur score d'activité physique, vos actualités et les défis de la semaine.</p>
@@ -2435,7 +2516,7 @@ function paField(k,v){const o=clone(PA.pc);setPath(o,k,v);PA.pc=normPC(o)}
 function vSeanceJourProf(){const sj=classe.seanceJour||{},isT=sj.date===today(),ds=classeDossiers||[],dsel=ds.find(x=>x.d.id===(SJ.d||sj.dossierId))||ds[0];
   return`<section class="card stack" style="gap:8px"><div class="sec-h"><h3>📌 Séance d'aujourd'hui</h3><span class="spacer"></span><span class="hint">${isT?`Affichée aux élèves : ${esc(sj.titre||"")}`:"Rien d'affiché aujourd'hui"}</span></div>
     ${ds.length?`<label class="f">Activité<select id="sj-d">${ds.map(x=>`<option value="${x.d.id}" ${dsel&&dsel.d.id===x.d.id?"selected":""}>${esc(x.d.titre)}</option>`).join("")}</select></label>
-    <div class="f"><span class="mlab">Documents mis en avant</span><div class="mchecks">${(dsel&&dsel.all||[]).map(x=>`<label><input type="checkbox" class="sj-it" value="${x.id}" ${isT&&sj.dossierId===dsel.d.id&&(sj.items||[]).some(i=>i.id===x.id)?"checked":""}> ${x.t==="carnet"?"📒":x.t==="outil"?OUTILS[x.kind].ic:"📄"} ${esc(x.titre)}</label>`).join("")||'<span class="hint">Activité vide.</span>'}</div></div>
+    <div class="f"><span class="mlab">Documents mis en avant</span><div class="mchecks">${(dsel&&dsel.all||[]).map(x=>`<label><input type="checkbox" class="sj-it" value="${x.id}" ${isT&&sj.dossierId===dsel.d.id&&(sj.items||[]).some(i=>i.id===x.id)?"checked":""}> ${x.t==="carnet"?"📒":x.t==="outil"?OUTILS[x.kind].ic:x.t==="qcm"?"📝":"📄"} ${esc(x.titre)}</label>`).join("")||'<span class="hint">Activité vide.</span>'}</div></div>
     <div class="row"><button class="btn primary small" data-act="sjSave">Afficher pour aujourd'hui</button>${isT?`<button class="btn ghost small" data-act="sjClear">Retirer</button>`:""}</div>`:'<p class="hint" style="margin:0">Activez d\'abord une activité pour cette classe.</p>'}</section>`}
 let SJ={};
 
@@ -2462,7 +2543,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.20-9" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-1" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2495,14 +2576,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.20-9" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-1" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisSem(P);DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.20-9" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-1" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -2557,6 +2638,8 @@ const BLOCS={
   nombre:{ic:"🔢",lab:"Nombre",mk:()=>FX(newId("c"),"nombre","Nombre")},
   choix:{ic:"🔘",lab:"Choix",mk:()=>FX(newId("c"),"choix","Choix",{options:["Choix 1","Choix 2"]})},
   note:{ic:"⭐",lab:"Note sur 10",mk:()=>FX(newId("c"),"echelle","Note",{min:0,max:10})},
+  calcul:{ic:"➕",lab:"Total calculé",mk:si=>{const S=modeleEdit&&modeleEdit.draft.sections[si];const src=S?S.champs.filter(c=>["nombre","compteur","echelle","choix"].includes(c.type)).map(c=>({champ:S.id+"."+c.id})):[];return FX(newId("c"),"calcul","Total",{op:"somme",src,requis:false})}},
+  pseudo:{ic:"🪪",lab:"Pseudo",mk:()=>FX(newId("c"),"pseudo","Élève",{qui:"eleve",requis:false})},
   grille:{ic:"🧮",lab:"Tableau à double entrée (note)",mk:()=>FX(newId("c"),"grille","Note lue dans le tableau",{requis:false,lignes:{titre:"Points",src:[],seuils:[0,5,10]},colonnes:{titre:"Étoiles",src:[],seuils:[0,4,8]},notes:[{v:[2,3,4]},{v:[4,6,8]},{v:[6,9,12]}]})}};
 /* Une ligne = une case : le type est deviné, et peut être forcé par (compteur) (temps) (note) (oui/non) (texte) (nombre) en fin de ligne */
 function lignesChamps(txt,def,coach){return String(txt||"").split(/\n/).map(x=>x.replace(/^[\s\-•*·]+/,"").trim()).filter(Boolean).slice(0,20).map(l=>{
@@ -2564,7 +2647,10 @@ function lignesChamps(txt,def,coach){return String(txt||"").split(/\n/).map(x=>x
   if(m){l=l.slice(0,m.index).trim();const t=norm(m[1]).replace(/\s/g,"");k=t==="chrono"?"temps":t==="oui/non"?"check":t}
   else{const n=norm(l);k=/^(nombre|nb|combien)\b|repetition|\breps?\b|\bfois\b|touches|\bpoints?\b|\bpasses\b|reussi|valides?\b|\bfautes?\b|\berreurs?\b/.test(n)?"compteur":/\btemps\b|duree|chrono|secondes|\bsec\b|tenu/.test(n)?"temps":/\bnote\b|\/ ?10|sur 10/.test(n)?"note":def}
   const f=k==="compteur"?FX(newId("c"),"compteur",l):k==="temps"?FX(newId("c"),"temps",l):k==="note"?FX(newId("c"),"echelle",l,{min:0,max:10}):k==="nombre"?FX(newId("c"),"nombre",l):k==="texte"?FX(newId("c"),"texte_long",l):FX(newId("c"),"choix",l,{options:["Oui","En cours","Non"]});
-  f.label=f.label.slice(0,80);if(coach)f.coach=true;return f})}
+  f.label=f.label.slice(0,80);if(coach)f.coach=true;
+  if(estNomEleve(l)){f.type="pseudo";delete f.options;f.qui=coach||estNomJuge(l)?"juge":"eleve";f.coach=f.qui==="juge";f.requis=false}
+  else if(/^(total|somme|score|nombre total|moyenne)\b/.test(norm(l))){f.type="calcul";delete f.options;f.op=/moyenne/.test(norm(l))?"moyenne":"somme";f.src=[];f.requis=false;f.coach=false}
+  return f})}
 const DESC4=(a,b,c,d)=>[a,b,c,d];
 const TPL={
   muscu:{ic:"🏋️",nom:"Carnet de musculation",d:"Séries, charges, répétitions, ressenti",qui:"aucun",pages:"seance",
@@ -2606,11 +2692,11 @@ function crBuild(){const t=TPL[CR.k],b=t.build(CR),dz=typeof dossier!=="undefine
 function crCreate(){if(CR.k==="observation"||CR.k==="juge"){if(!String(CR.lignes).trim()){toast("Écrivez au moins un critère (une ligne = un critère).");return}}
   const m=crBuild();CR=null;startEditor({modele:null,brouillon:m});toast("Carnet prêt en bac à sable : ajustez-le, puis publiez")}
 function vCreer(hasCa5){const opt=(k,v,l,ic)=>`<button type="button" class="cr-o" data-act="crSet" data-k="${k}" data-v="${v}" aria-pressed="${String(CR[k])===String(v)}">${ic?`<span>${ic}</span>`:""}${l}</button>`;
-  if(dosGen)return`<section class="card stack" style="gap:8px"><div class="row"><button class="btn ghost small" data-act="crIA" data-m="">← Retour</button><h3 style="margin:0">${{photo:"📷 À partir de ma fiche papier",phrase:"💬 Décrire mon carnet",ref:"📑 À partir du référentiel"}[dosGen]||"✨ Avec l'IA"}</h3></div>${vGenForm(dosGen)}</section>`;
+  if(dosGen)return`<section class="card stack" style="gap:8px"><div class="row"><button class="btn ghost small" data-act="crIA" data-m="">← Retour</button><h3 style="margin:0">${{fidele:"🖼️ Ma fiche d'observation cliquable",photo:"📷 À partir de ma fiche papier",phrase:"💬 Décrire mon carnet",ref:"📑 À partir du référentiel"}[dosGen]||"✨ Avec l'IA"}</h3></div>${vGenForm(dosGen)}</section>`;
   if(!CR)return`<section class="card stack" style="gap:10px"><div class="sec-h"><h3>Ajouter un carnet</h3><span class="hint">Choisissez un point de départ, tout reste modifiable</span></div>
     <div class="cr-g">${Object.entries(TPL).map(([k,t])=>`<button class="cr-t" data-act="crTpl" data-k="${k}"><span class="cr-ic">${t.ic}</span><b>${esc(t.nom)}</b><small>${esc(t.d)}</small></button>`).join("")}${hasCa5?"":`<button class="cr-t" data-act="dosAddCa5"><span class="cr-ic">🔥</span><b>Cross training CA5</b><small>Le carnet complet, prêt à l'emploi</small></button>`}</div>
     <div class="sec-h" style="margin-top:4px"><h3 style="font-size:1rem">✨ Ou laissez l'IA le préparer</h3></div>
-    <div class="cr-g ia">${[["photo","📷","Ma fiche papier","Photo ou PDF de la fiche que vous utilisez déjà"],["phrase","💬","En une phrase","« Fiche d'observation du smash en badminton »"],["ref","📑","Mon référentiel","Carnet corrigé fidèlement au référentiel"]].map(([m,ic,l,d])=>`<button class="cr-t" data-act="crIA" data-m="${m}"><span class="cr-ic">${ic}</span><b>${l}</b><small>${esc(d)}</small></button>`).join("")}</div></section>`;
+    <div class="cr-g ia">${[["fidele","🖼️","Ma fiche d'observation cliquable","Même design que votre fiche ; pseudo et coach ajoutés"],["photo","📷","Ma fiche papier","Photo ou PDF de la fiche que vous utilisez déjà"],["phrase","💬","En une phrase","« Fiche d'observation du smash en badminton »"],["ref","📑","Mon référentiel","Carnet corrigé fidèlement au référentiel"]].map(([m,ic,l,d])=>`<button class="cr-t" data-act="crIA" data-m="${m}"><span class="cr-ic">${ic}</span><b>${l}</b><small>${esc(d)}</small></button>`).join("")}</div></section>`;
   const t=TPL[CR.k],lig=CR.k==="observation"||CR.k==="juge";
   return`<section class="card stack cr-q" style="gap:14px"><div class="row"><button class="btn ghost small" data-act="crBack">← Changer</button><h3 style="margin:0">${t.ic} ${esc(t.nom)}</h3></div>
     <div><div class="cr-l">1. Qui remplit ?</div><div class="cr-os">${opt("qui","aucun","L'élève seul","👤")}${opt("qui","coach",CR.k==="observation"||CR.k==="juge"?"Un camarade observateur":"L'élève + un coach","📣")}${opt("qui","groupe","Un groupe","👥")}</div>
@@ -2629,7 +2715,7 @@ function crClick(a,b){
   if(a==="crIA"){CR=null;dosGen=b.dataset.m||false;rerenderKeep();return true}
   if(a==="crSet"){const k=b.dataset.k,v=b.dataset.v;CR[k]=k==="note"?v==="true":v;rerenderKeep();return true}
   if(a==="crGo"){crCreate();return true}
-  if(a==="mAddBloc"&&modeleEdit){const si=+b.dataset.si,B=BLOCS[b.dataset.k];if(!B)return true;const f=B.mk();mutDraft(M=>M.sections[si].champs.push(f));mFocus(M0=>M0.sections[si].id+"-"+f.id);return true}
+  if(a==="mAddBloc"&&modeleEdit){const si=+b.dataset.si,B=BLOCS[b.dataset.k];if(!B)return true;const f=B.mk(si);mutDraft(M=>M.sections[si].champs.push(f));mFocus(M0=>M0.sections[si].id+"-"+f.id);return true}
   if(a==="mPaste"&&modeleEdit){mPasteSi=mPasteSi===+b.dataset.si?null:+b.dataset.si;rerenderKeep();return true}
   if(a==="mPasteGo"&&modeleEdit){const si=+b.dataset.si,ta=$("#mp-"+si),M=modeleEdit.draft,co=M.partage==="coach";const fs=lignesChamps(ta&&ta.value,"check",false);if(!fs.length){toast("Écrivez au moins une ligne.");return true}mPasteSi=null;mutDraft(D=>D.sections[si].champs.push(...fs));toast(fs.length+" case"+(fs.length>1?"s":"")+" ajoutée"+(fs.length>1?"s":"")+(co?" — cochez « Remplie par le coach » si besoin":""));return true}
   return false}
@@ -2649,7 +2735,7 @@ document.addEventListener("click",e=>{const live=e.target.closest("#m-live");if(
 
 
 /* ---------- Didacticiel « ? » des pages de carnet : écrans successifs générés depuis la page ---------- */
-const TUTO_T={texte:"Écris une réponse courte.",texte_long:"Écris quelques phrases avec tes mots.",nombre:"Tape le nombre (le pavé numérique s'ouvre).",temps:"Tape le temps en minutes:secondes, par ex. 1:30.",choix:"Choisis la réponse dans la liste.",case:"Coche la case quand c'est fait.",
+const TUTO_T={pseudo:"Cette case se remplit toute seule avec le pseudo : jamais de nom ni de prénom.",calcul:"Cette case se calcule toute seule à partir des cases au-dessus : tu n'as rien à écrire.",texte:"Écris une réponse courte.",texte_long:"Écris quelques phrases avec tes mots.",nombre:"Tape le nombre (le pavé numérique s'ouvre).",temps:"Tape le temps en minutes:secondes, par ex. 1:30.",choix:"Choisis la réponse dans la liste.",case:"Coche la case quand c'est fait.",
   echelle:"Choisis la valeur qui correspond le mieux.",compteur:"Touche + à chaque fois, − si tu t'es trompé.",tableau:"Remplis une ligne à la fois ; ajoute une ligne avec le bouton +.",passages:"Note ton temps à la fin de chaque tour.",exercices:"Une ligne par exercice : nom, répétitions, charge…",resume:"Se remplit tout seul à partir de tes réponses."};
 function tutoInject(){if(!["carnet","coach","modele"].includes(route.name))return;
   document.querySelectorAll("#main .stack.seance .hero-top").forEach(h=>{if(h.closest("#m-live")||h.querySelector(".tuto-q"))return;
@@ -2663,6 +2749,8 @@ function tutoSteps(root){const M=typeof MOD!=="undefined"?MOD:null,st=[],coachPa
     st.push({el:hero,ti:"👋 Bienvenue",tx:t})}
   [...root.querySelectorAll("section.card")].forEach(sec=>{if(sec.classList.contains("hero")||!sec.offsetParent)return;
     const h=sec.querySelector("h3"),titre=h?h.textContent.trim():"",m=/^gsec-(\d+)$/.exec(sec.id||""),S=m&&M?M.sections[+m[1]]:null;let tx="",lis=[];
+    if(sec.classList.contains("ff-wrap")&&M){const ls=[];M.sections.forEach(S2=>S2.champs.forEach(f=>{if(f.type==="resume")return;const coach=M.partage==="coach"&&f.coach&&!coachPage;ls.push(`<li><b>${esc(f.label)}</b> — ${coach?"📣 rempli par ton coach depuis son téléphone.":esc(f.aide||TUTO_T[f.type]||"")}</li>`)}));
+      st.push({el:sec,ti:(st.length)+". Ta fiche",tx:coachPage?"C'est la fiche de ton enseignant : touche les cases 📣 pour les remplir. Si la fiche est large, fais-la glisser sur le côté.":"C'est la fiche de ton enseignant, comme sur papier. Ton coach remplit les cases 📣 depuis son téléphone ; toi, tu remplis les autres. Si la fiche est large, fais-la glisser sur le côté.",lis:ls.slice(0,14)});return}
     if(S){if(sec.classList.contains("resume")){st.push({el:sec,ti:"📊 Résumé",tx:"Ce résumé se calcule tout seul à partir de ce que tu as rempli."});return}
       if(S.consigne)tx=S.consigne;
       const seen=new Set();S.champs.forEach(f=>{if(f.type==="resume")return;const coach=M.partage==="coach"&&f.coach&&!coachPage;lis.push(`<li><b>${esc(f.label)}</b> — ${coach?"📣 rempli par ton coach depuis son téléphone.":esc(f.aide||TUTO_T[f.type]||"")}</li>`);seen.add(f.type)});
@@ -2699,7 +2787,8 @@ document.addEventListener("click",e=>{const q=e.target.closest(".tuto-q");if(!q)
 
 /* ---------- Mises à jour de l'appli ---------- */
 let majVersion=null;
-const newer=v=>v&&v!==APP_VERSION&&String(v)>String(APP_VERSION);
+const vKey=v=>String(v||"").split(/[.-]/).map(x=>String(parseInt(x)||0).padStart(5,"0")).join(".");
+const newer=v=>v&&v!==APP_VERSION&&vKey(v)>vKey(APP_VERSION);
 function showMaj(v){if(!newer(v))return;majVersion=v;let b=$("#maj");
   if(!b){b=document.createElement("div");b.id="maj";b.className="maj";b.setAttribute("role","status");document.body.prepend(b)}
   const q=new URLSearchParams(location.search),deja=q.get("v")===String(v);
@@ -2709,7 +2798,7 @@ function showMaj(v){if(!newer(v))return;majVersion=v;let b=$("#maj");
   if(document.visibilityState==="hidden")majNow()}
 async function majNow(){try{await Promise.race([flush(),new Promise(r=>setTimeout(r,3000))])}catch(e){}location.replace(location.pathname+"?v="+encodeURIComponent(majVersion||"")+"&t="+Date.now())}
 async function checkVersion(){try{const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;const j=await r.json();showMaj(j.version)}catch(e){}}
-let bc=null;try{bc=new BroadcastChannel("carnet-eps");bc.onmessage=e=>{const d=e.data||{};if(d.type==="hello"&&newer(d.v))showMaj(d.v);else if(d.type==="hello"&&d.v&&String(d.v)<String(APP_VERSION))bc.postMessage({type:"hello",v:APP_VERSION})};bc.postMessage({type:"hello",v:APP_VERSION})}catch(e){}
+let bc=null;try{bc=new BroadcastChannel("carnet-eps");bc.onmessage=e=>{const d=e.data||{};if(d.type==="hello"&&newer(d.v))showMaj(d.v);else if(d.type==="hello"&&d.v&&vKey(d.v)<vKey(APP_VERSION))bc.postMessage({type:"hello",v:APP_VERSION})};bc.postMessage({type:"hello",v:APP_VERSION})}catch(e){}
 checkVersion();setInterval(checkVersion,5*60*1000);
 let partant=false;window.addEventListener("pagehide",()=>{partant=true});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkVersion();else if(majVersion&&!partant)setTimeout(()=>{if(!partant&&document.visibilityState==="hidden")majNow()},1500)});
@@ -2788,7 +2877,7 @@ const fmtDur=ms=>{if(ms==null||isNaN(ms))return"–";const s=Math.max(0,Math.flo
 
 /* ---------- Élève : choisir son carton, chrono, réponses, correction ---------- */
 let CO=null,coTimer=null,coSaveT=null,coWake=null;
-async function openCo(x,tab){go("loading",{msg:"Ouverture de la course d'orientation…"});
+async function openCo(x,tab){RETRY=()=>openCo(x,tab);go("loading",{msg:"Ouverture de la course d'orientation…"});
   try{const all=(await fb.listSessionsOutil(me.classeId,me.profId,x.id).catch(e=>{console.warn(e);return[]})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const S=all.find(s=>s.active)||null;CO={x,S,all,mine:{},corr:{},tab:tab||"run",pick:null,voir:null,hist:null};
     if(S&&!me.apercu){const L=await fb.listMesCourses(S.id,me.uid);L.forEach(c=>CO.mine[c.cartonId]=c);for(const c of L.filter(c=>c.fini))await coLoadCorr(S.id,c.cartonId)}
@@ -2869,11 +2958,13 @@ function coValider(){const c=coRun();if(!c||!c.fin)return;const k=coCarton(c.car
     catch(e){console.error(e);toast(authMsg(e))}})}
 function coBack(){coWakeOff();CO=null;if(dossierCtx)openDossier(dossierCtx.id);else openActs()}
 // Lien « Mes résultats » du dossier de l'activité
+let qRepsDos={};
+function qResItems(its){return its.filter(x=>x.t==="qcm"&&qRepsDos[x.id]).map(x=>`<div class="dl-it fiche"><span class="dl-ic">📝</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Ton QCM : ${qRepsDos[x.id].essais||1} essai${(qRepsDos[x.id].essais||1)>1?"s":""}</small></div><button class="dl-go" data-act="qOpen" data-id="${x.id}">Voir ${IC.arrow}</button></div>`).join("")}
 function coResItems(its){return its.filter(x=>x.t==="outil"&&x.kind==="co").map(x=>`<div class="dl-it outil"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Tes cartons, tes temps et la correction</small></div><button class="dl-go" data-act="coOpenRes" data-id="${x.id}">Voir ${IC.arrow}</button></div>`).join("")}
 
 /* ---------- Prof : formats, cartons et correction (orient/{outilId}) ---------- */
 let CC=null,ccSaveT=null;
-async function openCoCfg(oid,from){go("loading",{msg:"Chargement des cartons…"});
+async function openCoCfg(oid,from){RETRY=()=>openCoCfg(oid,from);go("loading",{msg:"Chargement des cartons…"});
   try{const it=((dossier&&dossier.items)||[]).find(x=>x.id===oid);if(!it)throw{code:"not-found"};let o=await fb.getOrient(oid).catch(()=>null);
     if(!o){o={profId:me.uid,...normCo(CO_DEF)};await fb.setOrient(oid,o)}
     CC={id:oid,it,o:normCo(o),imp:null,open:null,busy:"",msg:"",msgErr:false,saved:true,from:from||null,file:null};go("coCfg")}
@@ -2967,7 +3058,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.20-9");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-1");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
@@ -3017,7 +3108,7 @@ async function coLireXlsx(buf){const get=await coUnzip(buf),P=s=>new DOMParser()
 
 /* ---------- Prof : séance de la classe (cartons autorisés, résultats en direct) ---------- */
 let CP=null,cpUnsub=null;
-async function openCoProf(cls,d,item){
+async function openCoProf(cls,d,item){RETRY=()=>openCoProf(cls,d,item);
   const[o,sessions,eleves0,vig]=await Promise.all([fb.getOrient(item.id).catch(()=>null),fb.listSessions(me.uid,cls.id,item.id),fb.listEleves(cls.id),fb.listVigie(me.uid,cls.id).catch(()=>[])]);
   const eleves=eleves0.sort((a,b)=>(a.numero||0)-(b.numero||0));
   await Promise.all(eleves.map(async e=>{if(pseudoCache[e.id])return;try{const l=await fb.getLogin(e.login);if(l&&l.pseudo)pseudoCache[e.id]=l.pseudo}catch(x){}}));
@@ -3238,3 +3329,261 @@ function vgField(el,e){if(e.type!=="change")return;const k=el.dataset.vg;
 const STOCK_INT=[{id:"int-co",integre:true,titre:"Course d'orientation",cle:actKeyOf("Course d'orientation"),ca:"CA2",signature:"Préconfiguration de l'appli",
   principe:"Course d'orientation (CA2 : adapter son déplacement à des environnements variés). L'élève choisit un carton de contrôle, un chrono impossible à arrêter démarre au départ et s'arrête à son retour au point d'arrivée. Pour chaque balise, il note la réponse trouvée sur le poste ; à la validation, le carton est corrigé automatiquement grâce au document de correction du prof.\nAFL1 : réussite des parcours (balises justes) et temps de course, sur des formats de plus en plus exigeants (étoile → circuit → papillon → course au score).\nAFL2 : choix d'itinéraire et régulation de l'allure au fil des séances (temps et réussite comparés d'un carton à l'autre).\nAFL3 : sécurité et respect des règles (retour avant la fin du temps limite, carton complet, rôles d'observateur ou de traceur).\nÀ adapter : vos cartons, votre correction et votre barème restent à saisir.",
   carnets:[],fiches:[],outils:[{kind:"co",titre:"Course d'orientation",cfg:{reponses:CO_REP,formats:CO_FORMATS}}]}];
+
+/* ===================== QCM d'une activité (2026.11.20-10 et -11) =====================
+   qcms/{id} : questions SANS les bonnes réponses (lu par les élèves).
+   qcmcles/{id} : corrigé, lisible par l'élève seulement après sa première validation.
+   qcmrep/{qcmId__uid} : réponses de l'élève (dernier essai + essais précédents).
+   aflnotes/{classeId__activite} : notes retenues par le prof (tableau des carnets). */
+const QAFL_DEF={AFL1:12,AFL2:4,AFL3:4};
+const qid=()=>"q"+Math.random().toString(36).slice(2,9);
+function qNorm(q){q=q||{};const afl=["AFL1","AFL2","AFL3"].includes(q.afl)?q.afl:"AFL1";
+  return{titre:q.titre||"QCM",afl,carnet:q.carnet||"",sur:+q.sur>0?+q.sur:QAFL_DEF[afl],partiel:!!q.partiel,montrer:q.montrer!==false,melange:!!q.melange,
+    essais:[0,1,2,3].includes(+q.essais)?+q.essais:1,garder:q.garder==="derniere"?"derniere":"meilleure",
+    questions:(q.questions||[]).map(x=>({id:x.id||qid(),type:["une","plusieurs","vf"].includes(x.type)?x.type:"une",texte:String(x.texte||""),
+      reponses:(x.type==="vf"?["Vrai","Faux"]:(x.reponses||["",""])).slice(0,8).map(String),points:+x.points>0?+x.points:1}))}}
+// Réponse correcte d'une question (indices)
+function qScore(Q,cle,q,sel){const bon=(cle&&cle[q.id])||[],s=(sel||[]).map(Number);
+  if(!bon.length)return 0;
+  if(q.type!=="plusieurs")return s.length===1&&bon.includes(s[0])?q.points:0;
+  const ok=s.filter(i=>bon.includes(i)).length,ko=s.filter(i=>!bon.includes(i)).length;
+  if(Q.partiel)return Math.max(0,(ok-ko)/bon.length)*q.points;
+  return ok===bon.length&&!ko?q.points:0}
+function qcmNote(Q,cle,rep){const max=Q.questions.reduce((a,q)=>a+q.points,0);if(!max)return{pts:0,max:0,note:0};
+  const pts=Q.questions.reduce((a,q)=>a+qScore(Q,cle,q,(rep||{})[q.id]),0);return{pts,max,note:Math.round(pts/max*Q.sur*100)/100}}
+// Note retenue : meilleure ou dernière de tous les essais
+function qcmRetenue(Q,cle,rep){if(!rep)return null;const all=[...(rep.prec||[]).map(p=>p.r),rep.reponses].filter(Boolean);if(!all.length)return null;
+  const ns=all.map(r=>qcmNote(Q,cle,r));return Q.garder==="derniere"?ns[ns.length-1]:ns.reduce((a,b)=>b.note>a.note?b:a)}
+// Ordre mélangé, stable pour un élève
+function qHash(s){let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function qShuffle(arr,seed){const a=arr.map((x,i)=>[x,i]);let h=qHash(seed);for(let i=a.length-1;i>0;i--){h=Math.imul(h^(h>>>15),2246822519)>>>0;const j=h%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+function qcmOrdre(Q,uid){const qs=Q.melange?qShuffle(Q.questions,uid+Q.titre).map(x=>x[0]):Q.questions;
+  return qs.map(q=>({q,ord:Q.melange&&q.type!=="vf"?qShuffle(q.reponses,uid+q.id).map(x=>x[1]):q.reponses.map((_,i)=>i)}))}
+const qOuvertPour=(cl,id)=>!!(cl&&cl.seanceJour&&cl.seanceJour.date===today()&&(cl.seanceJour.qcms||[]).includes(id));
+const qEssaisRest=(Q,rep)=>Q.essais===0?Infinity:Q.essais-((rep&&rep.essais)||0);
+
+/* ---------- Prof : éditeur ---------- */
+let QE=null;
+async function openQcmEd(id){RETRY=()=>openQcmEd(id);go("loading",{msg:"Ouverture du QCM…"});
+  try{if(!dossier)throw{code:"not-found"};await loadClasses();let q=null,c=null;
+    if(id){[q,c]=await Promise.all([fb.getQcm(id),fb.getQcmCle(id).catch(()=>null)]);if(!q)throw{code:"not-found"}}
+    const Q=qNorm(q||{titre:"QCM · "+dossier.titre,carnet:((dossier.items||[]).find(x=>x.t==="carnet")||{}).id||""});
+    QE={id:id||null,Q,cle:clone((c&&c.cle)||{}),dirty:!id,tab:"q",res:{},ia:{busy:false,err:""},cls:classes.filter(cl=>(cl.dossiers||[]).includes(dossier.id))};
+    go("qcmEd")}catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+function qeAflInfo(){const Q=QE.Q,it=dossierItems.find(x=>x.id===Q.carnet);let p=Q.afl==="AFL1"?12:4;
+  if(Q.afl==="AFL1"&&it){try{const M=it.M||normModele(it.doc.modele||it.doc.brouillon);const b=M.bareme&&M.bareme.afl1;if(b&&b.max)p=b.max}catch(e){}}
+  const qp=Math.min(Q.sur,p);return`L'${Q.afl} vaut ${p} points${Q.afl!=="AFL1"?" (selon la répartition choisie par l'élève, 4 par défaut)":""} : le QCM en apporte ${fmtN(qp)}${p>qp?`, les ${fmtN(p-qp)} autres viennent du carnet`:""}.`}
+function vQcmEd(){const Q=QE.Q,cars=dossierItems.filter(x=>x.t==="carnet"),fis=dossierItems.filter(x=>x.t==="fiche");
+  const qh=Q.questions.map((q,i)=>{const bon=QE.cle[q.id]||[];return`<section class="card stack qe-q" style="gap:8px">
+    <div class="row" style="gap:6px"><b>Question ${i+1}</b><span class="spacer"></span><select data-qe="type" data-i="${i}" aria-label="Type"><option value="une" ${q.type==="une"?"selected":""}>Une bonne réponse</option><option value="plusieurs" ${q.type==="plusieurs"?"selected":""}>Plusieurs bonnes réponses</option><option value="vf" ${q.type==="vf"?"selected":""}>Vrai / faux</option></select>
+      <label class="hint" style="display:flex;gap:4px;align-items:center">Points <input data-qe="points" data-i="${i}" value="${q.points}" inputmode="decimal" style="width:50px"></label>
+      <button class="btn ghost small" data-act="qeUp" data-i="${i}" aria-label="Monter">↑</button><button class="btn ghost small" data-act="qeDown" data-i="${i}" aria-label="Descendre">↓</button><button class="btn ghost small danger" data-act="qeDelQ" data-i="${i}" aria-label="Supprimer la question">✕</button></div>
+    <textarea data-qe="texte" data-i="${i}" rows="2" placeholder="Énoncé de la question">${esc(q.texte)}</textarea>
+    <div class="stack" style="gap:4px">${q.reponses.map((r,k)=>`<div class="row" style="gap:6px;flex-wrap:nowrap"><label class="qe-ok" title="Bonne réponse"><input type="${q.type==="plusieurs"?"checkbox":"radio"}" name="qe-ok-${i}" data-qe="ok" data-i="${i}" data-k="${k}" ${bon.includes(k)?"checked":""}> ✓</label>
+      ${q.type==="vf"?`<span style="flex:1">${esc(r)}</span>`:`<input data-qe="rep" data-i="${i}" data-k="${k}" value="${esc(r)}" placeholder="Réponse ${k+1}" style="flex:1">${q.reponses.length>2?`<button class="btn ghost small" data-act="qeDelR" data-i="${i}" data-k="${k}" aria-label="Retirer la réponse">✕</button>`:""}`}</div>`).join("")}</div>
+    ${q.type!=="vf"&&q.reponses.length<8?`<button class="btn ghost small" data-act="qeAddR" data-i="${i}" style="align-self:flex-start">+ Réponse</button>`:""}
+    ${bon.length?"":`<p class="err" style="margin:0">Cochez la ou les bonnes réponses (✓).</p>`}</section>`}).join("");
+  const sel=(k,opts,v)=>`<select data-qe="${k}">${opts.map(([a,l])=>`<option value="${a}" ${String(v)===String(a)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const reg=`<section class="card stack" style="gap:10px"><h3>Réglages</h3>
+    <label class="f">Titre<input data-qe="titre" value="${esc(Q.titre)}" maxlength="80"></label>
+    <div class="grid2"><label class="f">Compte pour${sel("afl",[["AFL1","AFL1"],["AFL2","AFL2"],["AFL3","AFL3"]],Q.afl)}</label>
+      <label class="f">Noté sur (points)<input data-qe="sur" value="${fmtN(Q.sur)}" inputmode="decimal"></label></div>
+    <label class="f">Carnet où la note est reportée<select data-qe="carnet"><option value="">— Aucun (note seule)</option>${cars.map(c=>`<option value="${c.id}" ${Q.carnet===c.id?"selected":""}>${esc(c.titre)}</option>`).join("")}</select></label>
+    ${Q.carnet?`<p class="hint" style="margin:0">${qeAflInfo()}</p>`:""}
+    <div class="grid2"><label class="f">Essais${sel("essais",[[1,"Une seule chance"],[2,"2 essais"],[3,"3 essais"],[0,"Illimité tant qu'il est ouvert"]],Q.essais)}</label>
+      ${Q.essais!==1?`<label class="f">Note gardée${sel("garder",[["meilleure","La meilleure"],["derniere","La dernière"]],Q.garder)}</label>`:"<span></span>"}</div>
+    <label class="chk"><input type="checkbox" data-qe="partiel" ${Q.partiel?"checked":""}> Plusieurs bonnes réponses : points partiels (bonnes − fausses), sinon tout ou rien</label>
+    <label class="chk"><input type="checkbox" data-qe="montrer" ${Q.montrer?"checked":""}> Montrer la correction à l'élève à la fin</label>
+    <label class="chk"><input type="checkbox" data-qe="melange" ${Q.melange?"checked":""}> Mélanger les questions et les réponses (ordre différent pour chaque élève)</label></section>`;
+  const iaC=`<section class="card stack" style="gap:8px"><h3>✨ Créer les questions à partir d'une fiche</h3>
+    <label class="f">Fiche de l'activité<select id="qe-fi"><option value="">—</option>${fis.map(f=>`<option value="${f.id}">${esc(f.titre)}</option>`).join("")}</select></label>
+    <label class="f">ou un fichier (PDF, photo)<input type="file" id="qe-file" accept="application/pdf,image/*" multiple></label>
+    <label class="f">ou du texte<textarea id="qe-txt" rows="3" placeholder="Collez un cours, des règles…"></textarea></label>
+    <div class="grid2"><label class="f">Nombre de questions<input id="qe-nb" value="10" inputmode="numeric"></label><label class="f">Consignes (facultatif)<input id="qe-cons" placeholder="niveau 2nde, règles de sécurité…"></label></div>
+    <button class="btn primary" data-act="qeIa" ${QE.ia.busy?"disabled":""}>${QE.ia.busy?"L'IA écrit les questions…":"✨ Créer les questions"}</button><p class="err" id="qe-err" style="margin:0">${esc(QE.ia.err||"")}</p></section>`;
+  const dispo=`<section class="card stack" style="gap:8px"><h3>Disponibilité et résultats</h3>
+    ${QE.id?(QE.cls.length?QE.cls.map(cl=>{const o=qOuvertPour(cl,QE.id),r=QE.res[cl.id];return`<div class="qe-cl"><div class="row"><b>${esc(cl.nom)}</b><span class="hint">${o?"Ouvert aujourd'hui":"Fermé"}</span><span class="spacer"></span>
+      <button class="btn small ${o?"":"primary"}" data-act="${o?"qeFermer":"qeOuvrir"}" data-c="${cl.id}">${o?"Fermer":"Rendre disponible aujourd'hui"}</button><button class="btn small" data-act="qeRes" data-c="${cl.id}">${r?"Masquer":"Résultats"}</button></div>${r?vQeRes(cl,r):""}</div>`}).join("")
+      :`<p class="hint" style="margin:0">Activez d'abord cette activité dans une classe.</p>`):`<p class="hint" style="margin:0">Enregistrez le QCM pour pouvoir l'ouvrir aux élèves.</p>`}</section>`;
+  return`<div class="stack"><div class="row"><button class="btn ghost small" data-act="qeBack">← ${esc(dossier.titre)}</button><span class="spacer"></span>${QE.id?`<button class="btn danger small" data-act="qeDel">Supprimer</button>`:""}<button class="btn small" data-act="qeTry">▶ Essayer</button><button class="btn primary small" data-act="qeSave" ${QE.dirty?"":"disabled"}>${QE.dirty?"Enregistrer":"Enregistré ✓"}</button></div>
+  <section class="class-hero"><span class="eyebrow">📝 QCM · ${esc(dossier.titre)}</span><h2>${esc(Q.titre)}</h2></section>
+  ${reg}${dispo}${iaC}
+  <div class="sec-h"><h3>Questions (${Q.questions.length})</h3><span class="spacer"></span><span class="hint">Total : ${fmtN(Q.questions.reduce((a,q)=>a+q.points,0))} pts → ramené sur ${fmtN(Q.sur)}</span></div>
+  ${qh||`<p class="hint">Aucune question : ajoutez-en ou créez-les avec l'IA.</p>`}
+  <button class="btn" data-act="qeAddQ">+ Question</button></div>`}
+function vQeRes(cl,r){if(r.load)return`<p class="hint">Chargement…</p>`;if(r.err)return`<p class="err">${esc(r.err)}</p>`;
+  const Q=QE.Q,rows=r.eleves.map(e=>{const rep=r.reps.find(x=>x.eleveUid===e.id),n=rep?qcmRetenue(Q,QE.cle,rep):null;
+    return`<tr><td><strong>N°${e.numero}</strong> <code>${esc(e.login)}</code></td><td class="n">${n?`<strong>${fmtN(n.note)}</strong><span class="hint"> / ${fmtN(Q.sur)}</span>`:"–"}</td><td class="n">${rep?rep.essais||1:"–"}</td>
+    <td class="hint">${rep&&(rep.prec||[]).length?[...rep.prec.map(p=>qcmNote(Q,QE.cle,p.r).note),qcmNote(Q,QE.cle,rep.reponses).note].map(fmtN).join(" → "):""}</td>
+    <td>${rep?`<button class="btn ghost small" data-act="qeZero" data-c="${cl.id}" data-id="${rep.id}">Remettre à zéro</button>`:""}</td></tr>`}).join("");
+  return`<div class="scroll"><table class="suivi"><thead><tr><th>Élève</th><th class="n">Note</th><th class="n">Essais</th><th>Historique</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="hint">Aucun élève.</td></tr>'}</tbody></table></div>
+    <p class="hint" style="margin:4px 0 0">${r.reps.length} réponse${r.reps.length>1?"s":""} · note ${Q.garder==="derniere"?"du dernier essai":"du meilleur essai"}. « Remettre à zéro » efface tous les essais de l'élève (absence, problème technique).</p>`}
+async function qeLoadRes(cid){QE.res[cid]={load:true};rerenderKeep();
+  try{const[el,reps]=await Promise.all([fb.listEleves(cid),fb.listQcmReps(QE.id,me.uid,cid)]);QE.res[cid]={eleves:el.sort((a,b)=>(a.numero||0)-(b.numero||0)),reps}}
+  catch(e){QE.res[cid]={err:authMsg(e)}}if(route.name==="qcmEd")rerenderKeep()}
+async function qeSave(){const Q=QE.Q,bad=Q.questions.findIndex(q=>!q.texte.trim()||!(QE.cle[q.id]||[]).length);
+  if(!Q.questions.length){toast("Ajoutez au moins une question");return false}
+  if(bad>=0){toast(`Question ${bad+1} : énoncé ou bonne réponse manquant`);return false}
+  const id=QE.id||"qcm_"+Math.random().toString(36).slice(2,10),cle={};Q.questions.forEach(q=>cle[q.id]=(QE.cle[q.id]||[]).filter(k=>k<q.reponses.length));
+  try{await fb.setQcm(id,{profId:me.uid,dossierId:dossier.id,...clone(Q)});await fb.setQcmCle(id,{profId:me.uid,cle});
+    if(!QE.id){QE.id=id;await dosItems([...(dossier.items||[]),{t:"qcm",id}]);dossierItems.push({t:"qcm",id,titre:Q.titre,q:Q,pub:true})}
+    else{const it=dossierItems.find(x=>x.id===id);if(it){it.titre=Q.titre;it.q=Q}}
+    QE.dirty=false;toast("QCM enregistré");rerenderKeep();return true}catch(e){toast(authMsg(e));return false}}
+// Ouvre / ferme le QCM pour aujourd'hui dans une classe (séance d'aujourd'hui)
+async function qeOuvrir(cid,ouvrir){const cl=QE.cls.find(c=>c.id===cid);if(!cl)return;if(QE.dirty&&!(await qeSave()))return;
+  let sj=cl.seanceJour&&cl.seanceJour.date===today()?clone(cl.seanceJour):{date:today(),dossierId:dossier.id,titre:dossier.titre,items:[],qcms:[]};
+  sj.items=(sj.items||[]).filter(x=>x.id!==QE.id);sj.qcms=(sj.qcms||[]).filter(x=>x!==QE.id);
+  if(ouvrir){sj.items.push({id:QE.id,t:"qcm",titre:QE.Q.titre,...(sj.dossierId!==dossier.id?{d:dossier.id}:{})});sj.qcms.push(QE.id)}
+  try{await fb.updateClasse(cid,{seanceJour:sj});cl.seanceJour=sj;const c2=classes.find(c=>c.id===cid);if(c2)c2.seanceJour=sj;toast(ouvrir?`QCM disponible aujourd'hui pour ${cl.nom}`:"QCM fermé");rerenderKeep()}catch(e){toast(authMsg(e))}}
+async function qeIa(){const err=t=>{QE.ia.err=t;QE.ia.busy=false;if(route.name==="qcmEd")rerenderKeep()};
+  const fid=$("#qe-fi").value,files=[...($("#qe-file").files||[])],texte=$("#qe-txt").value.trim(),nb=Math.max(1,Math.min(30,parseInt($("#qe-nb").value)||10)),consignes=$("#qe-cons").value.trim();
+  if(!fid&&!files.length&&!texte){err("Choisissez une fiche, un fichier ou collez un texte.");return}
+  QE.ia={busy:true,err:""};rerenderKeep();
+  try{const fichiers=[];let txt=texte;
+    if(fid){const f=dossierItems.find(x=>x.id===fid).f;if(f.type==="texte")txt=(txt?txt+"\n\n":"")+(f.texte||"");
+      else{const parts=await fb.getFicheParts(fid);if(f.type==="pdf")fichiers.push({mime:"application/pdf",base64:parts.map(p=>p.data).join("")});else parts.forEach(p=>fichiers.push({mime:p.mime||"image/jpeg",base64:p.data}))}}
+    for(const f of files)fichiers.push({mime:f.type||"application/pdf",base64:await fileToB64(f)});
+    const ia=await import("./ia.js?v=2026.11.21-1");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
+    const add=qNorm({questions:(r.questions||[])}).questions;(r.questions||[]).forEach((x,k)=>{const q=add[k];if(!q)return;QE.cle[q.id]=(x.bonnes||[]).map(Number).filter(n=>n>=0&&n<q.reponses.length)});
+    if(!add.length)throw new Error("Réponse de l'IA illisible.");QE.Q.questions.push(...add);QE.dirty=true;QE.ia={busy:false,err:""};toast(`${add.length} question${add.length>1?"s":""} ajoutée${add.length>1?"s":""} : vérifiez-les`);if(route.name==="qcmEd")rerenderKeep()}
+  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-1");m=ia.iaMessage(e)}catch(x){}err(m)}}
+function qeField(t){const k=t.dataset.qe,i=+t.dataset.i,Q=QE.Q,q=Q.questions[i];let re=false;
+  if(k==="titre")Q.titre=t.value;else if(k==="sur"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)Q.sur=v;re=true}
+  else if(["afl","carnet","garder"].includes(k)){Q[k]=t.value;if(k==="afl")Q.sur=QAFL_DEF[t.value];re=true}
+  else if(k==="essais"){Q.essais=+t.value;re=true}else if(["partiel","montrer","melange"].includes(k))Q[k]=t.checked;
+  else if(k==="texte")q.texte=t.value;else if(k==="rep")q.reponses[+t.dataset.k]=t.value;
+  else if(k==="points"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)q.points=v}
+  else if(k==="type"){q.type=t.value;if(q.type==="vf")q.reponses=["Vrai","Faux"];else if(q.reponses.join()==="Vrai,Faux")q.reponses=["",""];if(q.type!=="plusieurs")QE.cle[q.id]=(QE.cle[q.id]||[]).slice(0,1);re=true}
+  else if(k==="ok"){const n=+t.dataset.k;if(q.type==="plusieurs"){const s=new Set(QE.cle[q.id]||[]);t.checked?s.add(n):s.delete(n);QE.cle[q.id]=[...s].sort()}else QE.cle[q.id]=[n];re=true}
+  QE.dirty=true;if(re&&t.type!=="text"&&t.tagName!=="TEXTAREA")rerenderKeep();else{const b=document.querySelector('[data-act="qeSave"]');if(b){b.disabled=false;b.textContent="Enregistrer"}}}
+function qeClick(a,b){if(!QE)return false;const i=+b.dataset.i,Q=QE.Q;
+  if(a==="qeBack"){const go2=()=>openDossierEd(dossier.id);if(QE.dirty)confirmBox("Quitter sans enregistrer ?","Les modifications du QCM seront perdues.","Quitter",()=>{closeModal();go2()},true);else go2();return true}
+  if(a==="qeAddQ"){Q.questions.push({id:qid(),type:"une",texte:"",reponses:["","",""],points:1});QE.dirty=true;rerenderKeep();return true}
+  if(a==="qeDelQ"){const q=Q.questions[i];Q.questions.splice(i,1);delete QE.cle[q.id];QE.dirty=true;rerenderKeep();return true}
+  if(a==="qeUp"||a==="qeDown"){const j=a==="qeUp"?i-1:i+1;if(j<0||j>=Q.questions.length)return true;[Q.questions[i],Q.questions[j]]=[Q.questions[j],Q.questions[i]];QE.dirty=true;rerenderKeep();return true}
+  if(a==="qeAddR"){Q.questions[i].reponses.push("");QE.dirty=true;rerenderKeep();return true}
+  if(a==="qeDelR"){const q=Q.questions[i],k=+b.dataset.k;q.reponses.splice(k,1);QE.cle[q.id]=(QE.cle[q.id]||[]).filter(x=>x!==k).map(x=>x>k?x-1:x);QE.dirty=true;rerenderKeep();return true}
+  if(a==="qeSave"){qeSave();return true}
+  if(a==="qeIa"){if(!QE.ia.busy)qeIa();return true}
+  if(a==="qeOuvrir"||a==="qeFermer"){qeOuvrir(b.dataset.c,a==="qeOuvrir");return true}
+  if(a==="qeRes"){const c=b.dataset.c;if(QE.res[c]){delete QE.res[c];rerenderKeep()}else qeLoadRes(c);return true}
+  if(a==="qeZero"){confirmBox("Remettre à zéro ?","Tous les essais de cet élève seront effacés : il pourra refaire le QCM s'il est ouvert.","Remettre à zéro",async()=>{try{await fb.deleteQcmRep(b.dataset.id);closeModal();qeLoadRes(b.dataset.c)}catch(x){closeModal();toast(authMsg(x))}},true);return true}
+  if(a==="qeTry"){QV={Q:clone(Q),cle:clone(QE.cle),rep:null,sel:{},prof:true,back:"qcmEd",ord:qcmOrdre(Q,"essai"),fini:false};go("qcm");return true}
+  if(a==="qeDel"){confirmBox("Supprimer ce QCM ?","Les questions, le corrigé et sa place dans la séance d'aujourd'hui sont supprimés. Les réponses déjà données restent en base.","Supprimer",async()=>{
+      try{for(const cl of QE.cls)if(qOuvertPour(cl,QE.id)||(cl.seanceJour&&(cl.seanceJour.items||[]).some(x=>x.id===QE.id))){const sj=clone(cl.seanceJour);sj.items=(sj.items||[]).filter(x=>x.id!==QE.id);sj.qcms=(sj.qcms||[]).filter(x=>x!==QE.id);await fb.updateClasse(cl.id,{seanceJour:sj});cl.seanceJour=sj}
+        await dosItems((dossier.items||[]).filter(y=>y.id!==QE.id));await fb.deleteQcmCle(QE.id).catch(()=>{});await fb.deleteQcm(QE.id);closeModal();QE=null;openDossierEd(dossier.id)}catch(x){closeModal();toast(authMsg(x))}},true);return true}
+  return false}
+
+/* ---------- Élève : passer le QCM ---------- */
+let QV=null;
+async function openQcmEleve(id,back){RETRY=()=>openQcmEleve(id,back);go("loading",{msg:"Ouverture du QCM…"});
+  try{const Q0=await fb.getQcm(id);if(!Q0)throw{code:"not-found"};const Q=qNorm(Q0);
+    if(VUE){let cle={};try{cle=((await fb.getQcmCle(id))||{}).cle||{}}catch(e){}QV={id,Q,cle,rep:null,sel:{},prof:true,back:back||"dossier",ord:qcmOrdre(Q,me.uid),fini:false};go("qcm");return}
+    const[rep,cl]=await Promise.all([fb.getQcmRep(id+"__"+me.uid).catch(()=>null),fb.getClasse(me.classeId).catch(()=>eleveClasse)]);if(cl)eleveClasse=cl;
+    let cle=null;if(rep){try{cle=((await fb.getQcmCle(id))||{}).cle||null}catch(e){}}
+    QV={id,Q,cle,rep,sel:{},prof:false,back:back||"dossier",ord:qcmOrdre(Q,me.uid),fini:!!rep};go("qcm")}
+  catch(e){console.error(e);go("error",{msg:authMsg(e)})}}
+function vQcm(){const{Q,rep}=QV,ouvert=QV.prof||qOuvertPour(eleveClasse,QV.id),rest=QV.prof?Infinity:qEssaisRest(Q,rep);
+  const fini=QV.fini,der=fini?(QV.prof?QV.sel:rep.reponses):QV.sel,can=fini&&!QV.prof&&ouvert&&rest>0,dernier=fini&&!can;
+  const corr=fini&&QV.cle&&(dernier?Q.montrer||QV.prof:false),marks=fini&&QV.cle;
+  const n=fini&&QV.cle?(QV.prof?qcmNote(Q,QV.cle,QV.sel):qcmRetenue(Q,QV.cle,rep)):null,nDer=fini&&QV.cle?qcmNote(Q,QV.cle,der):null;
+  const qs=QV.ord.map(({q,ord},i)=>{const s=(der[q.id]||[]).map(Number),bon=(QV.cle&&QV.cle[q.id])||[],pts=marks?qScore(Q,QV.cle,q,s):0,ok=marks&&pts>=q.points;
+    return`<section class="card stack qv-q${marks?(ok?" ok":pts>0?" mid":" ko"):""}" style="gap:8px"><div class="row" style="gap:6px;flex-wrap:nowrap"><b style="flex:1">${i+1}. ${esc(q.texte)}</b>${marks?`<span class="qv-m">${ok?"✓":pts>0?"½":"✗"}</span>`:""}<span class="hint">${fmtN(q.points)} pt${q.points>1?"s":""}</span></div>
+      ${q.type==="plusieurs"&&!fini?`<span class="hint">Plusieurs réponses possibles</span>`:""}
+      <div class="qv-reps">${ord.map(k=>{const on=s.includes(k),good=corr&&bon.includes(k);return`<label class="qv-r${on?" on":""}${good?" good":""}${corr&&on&&!bon.includes(k)?" bad":""}"><input type="${q.type==="plusieurs"?"checkbox":"radio"}" name="qv-${q.id}" data-qv="${q.id}" data-k="${k}" ${on?"checked":""} ${fini?"disabled":""}><span>${esc(q.reponses[k])}</span>${good?"<em>✓</em>":""}</label>`}).join("")}</div></section>`}).join("");
+  const nb=Object.keys(QV.sel).filter(k=>(QV.sel[k]||[]).length).length;
+  const head=fini?`<section class="card qv-res"><div class="qv-note">${n?`<b>${fmtN(n.note)}</b><span> / ${fmtN(Q.sur)}</span>`:"✓"}</div><div>${QV.prof?"Essai du professeur (rien n'est enregistré)":n?`Note ${Q.essais===1?"":Q.garder==="derniere"?"retenue (dernier essai)":"retenue (meilleur essai)"}${rep&&rep.essais>1&&nDer?` · dernier essai : ${fmtN(nDer.note)}`:""}`:"Réponses envoyées"}
+      ${!QV.prof?`<div class="hint">${rep.essais||1} essai${(rep.essais||1)>1?"s":""}${Q.essais===0?"":` sur ${Q.essais}`}${can?` · tu peux encore le refaire${Q.essais===0?"":` (${rest})`}`:""}</div>`:""}
+      ${marks&&!corr?`<div class="hint">${can?"Les ✓ / ✗ montrent tes réussites ; les bonnes réponses ne sont pas affichées tant que tu peux refaire le QCM.":"Les bonnes réponses ne sont pas affichées."}</div>`:""}</div>
+      ${can||QV.prof?`<button class="btn primary" data-act="qvRedo">↺ Refaire le QCM</button>`:""}</section>`
+    :`<section class="card"><p style="margin:0">${QV.prof?"Essai : vos réponses ne sont pas enregistrées.":!ouvert?"<b>Ce QCM n'est pas ouvert.</b> Ton enseignant l'ouvre pendant la séance.":Q.essais===1?"<b>Une seule chance :</b> vérifie bien tes réponses avant de valider.":`Tu as ${Q.essais===0?"autant d'essais que tu veux":`${rest} essai${rest>1?"s":""}`} tant que le QCM est ouvert.`}</p></section>`;
+  return`<div class="stack qv"><div class="row"><button class="btn ghost small" data-act="qvBack">← Retour</button><span class="spacer"></span><span class="hint">📝 ${Q.questions.length} question${Q.questions.length>1?"s":""} · noté sur ${fmtN(Q.sur)}</span></div>
+    <section class="class-hero"><span class="eyebrow">QCM${dossier?" · "+esc(dossier.titre):""}</span><h2>${esc(Q.titre)}</h2></section>
+    ${VUE&&!QV.prof?"":""}${head}${fini||ouvert?qs:""}
+    ${!fini&&ouvert?`<button class="btn primary big" data-act="qvValider">Valider mes réponses (${nb} / ${Q.questions.length})</button>`:""}</div>`}
+async function qvValider(){const{Q}=QV,manq=Q.questions.length-Object.keys(QV.sel).filter(k=>(QV.sel[k]||[]).length).length;
+  confirmBox("Valider le QCM ?",`${manq?`<b>${manq} question${manq>1?"s":""} sans réponse.</b><br>`:""}${QV.prof?"Essai : rien n'est enregistré.":Q.essais===1?"Tu ne pourras plus modifier tes réponses.":"Cet essai sera compté."}`,"Valider",async()=>{closeModal();
+    if(QV.prof){if(!Object.keys(QV.cle||{}).length){try{QV.cle=((await fb.getQcmCle(QV.id))||{}).cle||{}}catch(e){}}QV.fini=true;rerenderKeep();window.scrollTo(0,0);return}
+    const rep0=QV.rep,reps=clone(QV.sel),d={qcmId:QV.id,profId:me.profId,classeId:me.classeId,eleveUid:me.uid,login:me.login,numero:me.numero||null,reponses:reps,date:new Date().toISOString()};
+    try{if(!rep0){d.essais=1;d.prec=[];await fb.createQcmRep(QV.id+"__"+me.uid,d)}
+      else{const prec=[...(rep0.prec||[]),{r:rep0.reponses,date:rep0.date}].slice(-20);d.essais=(rep0.essais||1)+1;d.prec=prec;await fb.updateQcmRep(QV.id+"__"+me.uid,d)}
+      QV.rep=d;try{QV.cle=((await fb.getQcmCle(QV.id))||{}).cle||null}catch(e){QV.cle=null}QV.fini=true;QV.sel={};toast("Réponses envoyées");rerenderKeep();window.scrollTo(0,0)}
+    catch(e){toast(e&&e.code==="permission-denied"?"Le QCM n'est plus ouvert ou tu n'as plus d'essai.":authMsg(e))}})}
+function qvClick(a,b){if(!QV)return false;
+  if(a==="qvBack"){const bk=QV.back;QV=null;if(bk==="qcmEd"&&QE){go("qcmEd")}else if(bk==="enclasse")go("enclasse");else if(dossier)openDossier(dossier.id);else go("home");return true}
+  if(a==="qvValider"){qvValider();return true}
+  if(a==="qvRedo"){QV.fini=false;QV.sel={};rerenderKeep();window.scrollTo(0,0);return true}
+  return false}
+function qvField(t){if(!QV||QV.fini)return;const q=QV.Q.questions.find(x=>x.id===t.dataset.qv),k=+t.dataset.k;if(!q)return;
+  if(q.type==="plusieurs"){const s=new Set(QV.sel[q.id]||[]);t.checked?s.add(k):s.delete(k);QV.sel[q.id]=[...s]}else QV.sel[q.id]=[k];
+  t.closest(".qv-reps").querySelectorAll(".qv-r").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked));
+  const bt=document.querySelector('[data-act="qvValider"]');if(bt)bt.textContent=`Valider mes réponses (${Object.keys(QV.sel).filter(x=>(QV.sel[x]||[]).length).length} / ${QV.Q.questions.length})`}
+document.addEventListener("change",e=>{const t=e.target;if(t.dataset&&t.dataset.qe&&QE&&route.name==="qcmEd")qeField(t);else if(t.dataset&&t.dataset.qv&&route.name==="qcm")qvField(t)});
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset&&t.dataset.qe&&QE&&route.name==="qcmEd"&&(t.tagName==="TEXTAREA"||t.type==="text"||!t.type)&&t.tagName!=="SELECT")qeField(t)});
+
+/* ---------- Report dans le tableau des carnets ---------- */
+let QS=null;
+async function qsLoad(act){QS=null;try{const all=(await fb.listQcms(me.uid)).filter(q=>q.carnet===act);if(!all.length)return;
+    const items=await Promise.all(all.map(async q=>{const[c,reps]=await Promise.all([fb.getQcmCle(q.id).catch(()=>null),fb.listQcmReps(q.id,me.uid,classe.id).catch(()=>[])]);return{Q:qNorm(q),id:q.id,cle:(c&&c.cle)||{},reps}}));
+    const an=await fb.getAflNotes(classe.id+"__"+act).catch(()=>null);QS={act,items,notes:(an&&an.notes)||{}}}catch(e){console.warn(e)}}
+// Valeur AFL retenue (QCM + carnet) pour un élève
+function qsAfl(uid,afl,P,carnetVal){if(!QS)return null;const its=QS.items.filter(x=>x.Q.afl===afl);if(!its.length)return null;
+  const ns=its.map(x=>{const rep=x.reps.find(r=>r.eleveUid===uid);const n=rep?qcmRetenue(x.Q,x.cle,rep):null;return n?n.note/x.Q.sur:null});
+  const sur=its.reduce((a,x)=>a+x.Q.sur,0),done=ns.filter(v=>v!==null);
+  const manuel=((QS.notes[uid]||{})[afl]);
+  let auto=null;if(done.length&&P){const qp=Math.min(sur,P),r=done.reduce((a,b)=>a+b,0)/its.length,reste=P-qp;
+    auto=reste>0?(carnetVal===null||carnetVal===undefined?null:qp*r+carnetVal*reste/P):qp*r;if(auto!==null)auto=Math.round(auto*100)/100}
+  return{afl,P,auto,manuel:manuel===undefined?null:manuel,val:manuel!==undefined&&manuel!==null?manuel:auto,n:done.length,tot:its.length}}
+const qsAfls=()=>QS?[...new Set(QS.items.map(x=>x.Q.afl))].sort():[];
+async function qsSetNote(uid,afl,v){const n=JSON.parse(JSON.stringify(QS.notes));n[uid]={...(n[uid]||{})};if(v===null)delete n[uid][afl];else n[uid][afl]=v;
+  try{await fb.setAflNotes(classe.id+"__"+QS.act,{profId:me.uid,classeId:classe.id,activite:QS.act,notes:n});QS.notes=n;toast("Note retenue enregistrée");rerenderKeep()}catch(e){toast(authMsg(e))}}
+document.addEventListener("change",e=>{const t=e.target;if(!t.dataset||!t.dataset.qsn||route.name!=="suivi"||!QS)return;const[uid,afl]=t.dataset.qsn.split("|"),s=String(t.value).trim().replace(",",".");
+  const v=s===""?null:parseFloat(s);if(v!==null&&!(v>=0)){toast("Note invalide");return}qsSetNote(uid,afl,v)});
+
+/* ===================== Fiche d'observation cliquable « copie fidèle » (2026.11.21-1) =====================
+   modele.gabarit = {html, css, ficheId} : mise en page de la fiche papier du prof, redessinée par l'IA.
+   Chaque case à remplir y est un repère <span data-f="section.champ"></span>, remplacé à l'affichage par la case du moteur
+   (mêmes valeurs, même correction, même coach, même note de juge). Le gabarit est nettoyé : ni script, ni lien, ni image externe. */
+const FF_TAGS=new Set("div span p b strong i em u s br hr table thead tbody tfoot tr th td caption colgroup col h1 h2 h3 h4 h5 h6 ul ol li small sup sub mark section header footer label".split(" "));
+const FF_ATTR=new Set(["class","style","colspan","rowspan","data-f","align","valign","width","height","title"]);
+const ffBadCss=v=>/url\s*\(|expression|@import|javascript:|behavior|-moz-binding|position\s*:\s*(fixed|sticky)|<\//i.test(v);
+function ffSanitize(html){const doc=new DOMParser().parseFromString(`<div id="ffr">${String(html||"").slice(0,120000)}</div>`,"text/html"),root=doc.getElementById("ffr");
+  const walk=el=>{[...el.children].forEach(c=>{const t=c.tagName.toLowerCase();
+    if(!FF_TAGS.has(t)){if(["script","style","iframe","object","embed","link","meta","img","svg","math","form","input","select","textarea","button","a","video","audio","template"].includes(t)){c.remove();return}
+      const s=doc.createElement("span");while(c.firstChild)s.appendChild(c.firstChild);c.replaceWith(s);walk(s);return}
+    [...c.attributes].forEach(a=>{const n=a.name.toLowerCase();if(!FF_ATTR.has(n)||(n==="style"&&ffBadCss(a.value)))c.removeAttribute(a.name)});
+    if(c.hasAttribute("class"))c.setAttribute("class",c.getAttribute("class").split(/\s+/).filter(x=>/^[a-z][\w-]{0,40}$/i.test(x)).map(x=>"ff-"+x.replace(/^ff-/,"")).join(" "));
+    walk(c)})};
+  walk(root);return root.innerHTML}
+// CSS du gabarit, limité au conteneur .ff-fiche (les classes du gabarit sont préfixées ff-)
+function ffScopeCss(css){css=String(css||"").slice(0,30000).replace(/\/\*[\s\S]*?\*\//g,"").replace(/@[a-z-]+[^{;]*;/gi,"");
+  let out="",i=0;const rules=[];let depth=0,start=0;
+  for(;i<css.length;i++){if(css[i]==="{")depth++;else if(css[i]==="}"){depth--;if(depth<=0){rules.push(css.slice(start,i+1));start=i+1;depth=0}}}
+  rules.forEach(r=>{const k=r.indexOf("{");let sel=r.slice(0,k).trim(),body=r.slice(k+1,-1);if(!sel||sel.startsWith("@")||body.includes("{"))return;if(ffBadCss(body))return;
+    sel=sel.split(",").map(x=>x.trim()).filter(Boolean).map(x=>x.replace(/\.(?!ff-)([a-z][\w-]*)/gi,".ff-$1").replace(/^(html|body|:root)\b/i,"")).map(x=>".ff-fiche "+x.trim()).join(",");
+    out+=sel+"{"+body.replace(/[<>]/g,"")+"}\n"});return out}
+let FF_CACHE={};
+function ffPrep(G){const key=G.html+"\u0000"+G.css;if(FF_CACHE.key===key)return FF_CACHE;
+  const h=ffSanitize(G.html).replace(/<span data-f="([^"]+)"[^>]*>[\s\S]*?<\/span>/g,(m,p)=>`@@FF:${p}@@`);
+  FF_CACHE={key,h,css:ffScopeCss(G.css),paths:[...h.matchAll(/@@FF:([^@]+)@@/g)].map(x=>x[1])};return FF_CACHE}
+function normGabarit(g){if(!g||typeof g!=="object"||!g.html)return null;return{html:String(g.html).slice(0,120000),css:String(g.css||"").slice(0,30000),...(g.ficheId?{ficheId:String(g.ficheId)}:{})}}
+// La fiche affichée : chaque repère devient la case du moteur, sans son intitulé (la fiche l'affiche déjà)
+function ffHTML(M,s,base,lockFor,V,sm){const P=ffPrep(M.gabarit),done=new Set();
+  const cell=path=>{const[a,b]=path.split(".");const S=gSec(M,a),f=S&&S.champs.find(c=>c.id===b);if(!f)return"";done.add(path);
+    const f2={...f,label:"",aide:"",unite:""};return`<span class="ff-cell ff-t-${f.type}${f.coach&&M.partage==="coach"?" ff-coach":""}" title="${esc(f.label)}">${gFieldHTML(M,s,S,f2,base,lockFor(f),V,sm&&sm[path])}</span>`};
+  let h=P.h.replace(/@@FF:([^@]+)@@/g,(m,p)=>cell(p));
+  const rest=[];M.sections.forEach(S=>S.champs.forEach(f=>{const p=S.id+"."+f.id;if(!done.has(p)&&f.type!=="resume")rest.push(`<div class="ff-rest">${gFieldHTML(M,s,S,f,base,lockFor(f),V,sm&&sm[p])}</div>`)}));
+  return`<style>${P.css}</style><section class="card ff-wrap" id="gsec-ff"><div class="ff-scroll"><div class="ff-fiche">${h}</div></div>
+    ${rest.length?`<div class="ff-more"><div class="hint" style="margin:6px 0">Autres cases de la fiche</div><div class="stack" style="gap:10px">${rest.join("")}</div></div>`:""}
+    ${M.gabarit.ficheId&&me&&me.role!=="eleve"?`<button class="btn ghost small" data-act="ffOrig" style="margin-top:8px">📄 Voir la fiche d'origine</button>`:""}</section>`}
+// Carte de l'éditeur (onglet Page)
+function ffEdCard(M){const P=ffPrep(M.gabarit),all=[];M.sections.forEach(S=>S.champs.forEach(f=>all.push(S.id+"."+f.id)));const manq=all.filter(p=>!P.paths.includes(p)).length;
+  return`<section class="card stack" style="gap:8px;border:2px solid #5b5bd6"><div class="sec-h"><h3>🖼️ Copie fidèle de votre fiche</h3></div>
+    <p class="hint" style="margin:0">La page garde la mise en page de votre fiche papier. Les cases ci-dessous (types, coach, calculs) se placent dans la fiche ; leur intitulé sert d'aide. ${manq?`${manq} case${manq>1?"s":""} ne figure${manq>1?"nt":""} pas dans la fiche : elle${manq>1?"s":""} s'affiche${manq>1?"nt":""} en dessous.`:""} Pour changer la mise en page, utilisez « Modifier en parlant à l'IA ».</p>
+    <div class="row">${M.gabarit.ficheId?`<button class="btn small" data-act="ffOrig">📄 Voir la fiche d'origine</button>`:""}<button class="btn small" data-act="mTab" data-t="apercu">▶ Voir la fiche cliquable</button><button class="btn ghost small danger" data-act="ffDrop">Retirer la mise en page</button></div></section>`}
+async function ffOrig(){const id=MOD&&MOD.gabarit&&MOD.gabarit.ficheId||modeleEdit&&modeleEdit.draft.gabarit&&modeleEdit.draft.gabarit.ficheId;if(!id)return;
+  try{const f=await fb.getFiche(id);if(!f)throw{code:"not-found"};await loadFicheData(f);openModal(`<h3>Fiche d'origine</h3><div style="max-height:70vh;overflow:auto">${vFicheViewer(f)}</div><button class="btn" data-mact="close">Fermer</button>`)}catch(e){toast(authMsg(e))}}
+function ffClick(a,b){
+  if(a==="ffOrig"){ffOrig();return true}
+  if(a==="ffDrop"&&modeleEdit){confirmBox("Retirer la mise en page ?","Le carnet garde ses cases, mais s'affichera comme un carnet classique (une partie sous l'autre).","Retirer",()=>{closeModal();mutDraft(M=>{delete M.gabarit})},true);return true}
+  return false}

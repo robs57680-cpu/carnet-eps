@@ -593,7 +593,7 @@ body.shell{background:#080b13}
 .bnav button[aria-current="true"]::after{content:"";position:absolute;bottom:0;left:32%;right:32%;height:2px;border-radius:2px;background:#22d3ee}
 
 /* ---------- Espace élève v15 : En classe, activité, Vue élève, Progrès (maquettes) ---------- */
-body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.20-9) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
+body.shell::before{content:"";position:fixed;left:0;right:0;bottom:0;height:min(48vh,420px);background:url(bg-deco.jpg?v=2026.11.21-1) center bottom/cover no-repeat;pointer-events:none;z-index:0;opacity:.95}
 body.shell main{position:relative;z-index:1}
 .bnav{z-index:12}
 .bnav.four{grid-template-columns:repeat(4,1fr)}
@@ -753,7 +753,7 @@ details.ia-box:not([open])>summary h3::after{content:" ▾";color:var(--muted,#6
 .tuto-dots{display:flex;justify-content:center;gap:6px;margin:8px 0}.tuto-dots button{width:8px;height:8px;border-radius:50%;border:0;background:#d1d5db;padding:0;cursor:pointer}.tuto-dots button[aria-current="true"]{background:#111827;width:20px;border-radius:4px}
 .tuto-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 body.tuto-on .pad,body.tuto-on #pad{display:none!important}
-/* Course d'orientation (2026.11.20-9) */
+/* Course d'orientation (2026.11.21-1) */
 .co-hero{background:linear-gradient(135deg,#0f3d2e,#14532d);}
 .co-list{display:grid;gap:8px}
 .co-k{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-left:5px solid #16a34a;border-radius:12px;padding:12px;font:inherit;color:inherit;cursor:pointer}
@@ -814,7 +814,7 @@ body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 .vg-info{margin:0 4px;color:#94a3b8;font-size:.8rem}
 
 
-/* Correction du prof et bac à sable (2026.11.20-9) */
+/* Correction du prof et bac à sable (2026.11.21-1) */
 .gf.cd-on{border-left:4px solid #f59e0b;padding-left:10px;border-radius:2px}
 .cdiff{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.84rem;background:#fff7e6;border:1px solid #f6c56b;color:#5c3b00;border-radius:9px;padding:6px 9px}
 .cdiff.juge{background:#fdecec;border-color:#f2a3a3;color:#6b1717}
@@ -830,7 +830,7 @@ body.tuto-on .pad,body.tuto-on #pad{display:none!important}
 .ok-chip{background:#d9f2e4;color:#155c36;border-color:#8fd3ae}
 .sbx-bar{border:2px dashed #e0a400;background:#fffbea}
 
-/* Tableau à double entrée (2026.11.20-9) */
+/* Tableau à double entrée (2026.11.21-1) */
 .gri-res{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.95rem}
 .gri-n{font:700 1.05rem var(--font-display);text-transform:uppercase}
 .gri-n b{font-size:1.5rem;color:var(--accent)}
@@ -845,7 +845,7 @@ table.grille td.hit{background:var(--accent);color:#fff;font-weight:800;font-siz
 table.grille.ed td{padding:2px}
 table.grille.ed input{width:52px;padding:4px;text-align:center}
 
-/* Colonne « partenaires » (2026.11.20-9) */
+/* Colonne « partenaires » (2026.11.21-1) */
 .mb-dd{position:relative;min-width:0}
 .mb-dd>summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px 26px 9px 10px;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
 .mb-dd>summary::-webkit-details-marker{display:none}
@@ -856,7 +856,7 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 .mb-pan label:has(input:checked){background:color-mix(in srgb,var(--accent) 12%,#fff)}
 .mb-pan input{width:20px;height:20px}
 .mb-ro{display:block;padding:9px 4px;font-size:.92rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
-/* Mode paysage (2026.11.20-9) : téléphone tourné. Toute la largeur sert, les parties du carnet passent sur deux colonnes,
+/* Mode paysage (2026.11.21-1) : téléphone tourné. Toute la largeur sert, les parties du carnet passent sur deux colonnes,
    le bandeau se compacte et le pavé numérique se range sur le côté droit pour garder la case visible. */
 @media (orientation:landscape) and (max-height:600px){
   .wrap{max-width:none;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
@@ -887,6 +887,37 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
   .bnav{padding-top:3px;padding-bottom:max(4px,env(safe-area-inset-bottom))}
   .toast{bottom:10px}
 }
+/* Pseudo et calcul automatique (2026.11.20-11/12) */
+.ps-auto{padding:10px 12px;border:1px dashed #b9c0cc;border-radius:10px;background:#f5f6f9;font-weight:700;min-height:42px}
+.calc-v{padding:8px 12px;border-radius:10px;background:#eef6ff;border:1px solid #cfe2ff;font-size:1.3rem;min-height:42px}
+/* Fiche d'observation cliquable « copie fidèle » (2026.11.21-1) */
+.ff-wrap{padding:10px}.ff-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.ff-fiche{color:#111;background:#fff;font-size:14px;line-height:1.3;min-width:min(100%,320px)}
+.ff-fiche table{border-collapse:collapse;max-width:none}.ff-fiche td,.ff-fiche th{vertical-align:middle}
+.ff-fiche :where(td,th){padding:4px}
+.ff-cell{display:inline-block;vertical-align:middle;min-width:44px;max-width:100%}
+.ff-cell .gf{margin:0;padding:0}.ff-cell .gf>.hint:empty{display:none}
+.ff-cell label.f{display:block;margin:0;font-size:inherit}.ff-cell label.f>:is(input,select,textarea){margin:0;min-height:36px;padding:4px 6px;font-size:15px}
+.ff-cell select{min-width:64px;max-width:100%}.ff-cell input{min-width:52px;width:100%}.ff-t-texte_long{display:block}.ff-t-texte_long textarea{min-height:54px}
+.ff-t-texte_long,.ff-t-texte{min-width:110px}
+.ff-cell .cnt{width:auto!important;min-width:110px}.ff-cell .mlab:empty{display:none}
+.ff-t-case label.row{justify-content:center;gap:0!important}.ff-t-case input{width:28px!important;height:28px!important}
+.ff-cell .ps-auto{min-height:30px;padding:4px 8px;font-size:14px}.ff-cell .calc-v{min-height:30px;padding:3px 8px;font-size:1.1rem}
+.ff-coach .gf :is(input:not([type=checkbox]),select,textarea,.cnt){outline:2px solid #ffd6a8;outline-offset:-1px}.ff-t-case input{accent-color:#1f6feb;min-width:0!important;-webkit-appearance:checkbox!important;appearance:auto!important;opacity:1!important}.ff-cell select{-webkit-appearance:menulist!important;appearance:auto!important}.ff-t-case label.row{display:flex!important}.ff-cell .calc-v~.hint{display:none}
+.ff-more{margin-top:10px;border-top:1px dashed #d5d9e2;padding-top:6px}
+body.carnet .ff-fiche,body.carnet .ff-fiche *{color-scheme:light}
+/* QCM (2026.11.20-10) */
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;line-height:1.3}.chk input{margin-top:3px;width:auto!important;flex:none;min-height:0}.chk span,.chk{text-align:left}
+.qe-ok{display:flex;align-items:center;gap:3px;font-weight:700;color:#0a8a4f;white-space:nowrap}
+.qe-cl{border-top:1px solid #e6e8ef;padding-top:8px}.qe-cl:first-of-type{border-top:0}
+.qv-reps{display:flex;flex-direction:column;gap:6px}
+.qv-r{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid #e3e6ee;border-radius:12px;background:#fff;cursor:pointer;min-height:44px}
+.qv-r input{width:20px;height:20px;flex:none}.qv-r span{flex:1}.qv-r.on{border-color:#5b5bd6;background:#f1f1ff}
+.qv-r.good{border-color:#12a150;background:#e9f9ef}.qv-r.bad{border-color:#e5484d;background:#fff0f0}.qv-r em{font-style:normal;font-weight:800;color:#12a150}
+.qv-q.ok{border-left:5px solid #12a150}.qv-q.mid{border-left:5px solid #f5a524}.qv-q.ko{border-left:5px solid #e5484d}
+.qv-m{font-weight:800;font-size:1.2rem}.qv-q.ok .qv-m{color:#12a150}.qv-q.mid .qv-m{color:#c27c00}.qv-q.ko .qv-m{color:#e5484d}
+.qv-res{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.qv-res>div:nth-child(2){flex:1;min-width:180px}
+.qv-note{background:#5b5bd6;color:#fff;border-radius:16px;padding:10px 16px;font-size:1.1rem}.qv-note b{font-size:1.8rem}
 </style>
 </head>
 <body>
@@ -909,6 +940,6 @@ table.grille.ed input{width:52px;padding:4px;text-align:center}
 <div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
 <div id="toast" class="toast" hidden></div>
 <div id="print"></div>
-<script type="module" src="app.js?v=2026.11.20-9"></script>
+<script type="module" src="app.js?v=2026.11.21-1"></script>
 </body>
 </html>

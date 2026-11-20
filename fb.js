@@ -5,7 +5,8 @@ import {
   createUserWithEmailAndPassword, signOut as fbSignOut, sendPasswordResetEmail, updatePassword
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocs, setDoc,
+  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc as _getDoc, getDocs as _getDocs, setDoc,
+  getDocFromCache, getDocsFromCache, disableNetwork, enableNetwork,
   updateDoc, deleteDoc, addDoc, collection, query, where, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
@@ -23,6 +24,43 @@ const auth = getAuth(app);
 let db;
 try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = getFirestore(app); }
+
+/* ---------- Lectures limitées dans le temps (2026.11.20-10) ----------
+   Sur téléphone, après un passage en arrière-plan ou un changement de réseau, la connexion Firestore
+   peut rester figée : getDoc ne répond jamais. Chaque lecture attend 6 s au plus, relance la connexion,
+   prend la copie locale si elle existe, sinon réessaie 9 s, sinon erreur « lent ». */
+const delai = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error("lent"), { code: "lent" })), ms))]);
+let relanceEnCours = null;
+export function relancerReseau() {
+  if (relanceEnCours) return relanceEnCours;
+  relanceEnCours = (async () => {
+    try { await delai(disableNetwork(db), 4000); } catch (e) {}
+    try { await delai(enableNetwork(db), 4000); } catch (e) {}
+  })().finally(() => setTimeout(() => (relanceEnCours = null), 1500));
+  return relanceEnCours;
+}
+async function lire(enLigne, cache, vide) {
+  try { return await delai(enLigne(), 6000); }
+  catch (e) {
+    if (e.code !== "lent") throw e;
+    relancerReseau();
+    try { const c = await delai(cache(), 2500); if (!vide(c)) return c; } catch (e2) {}
+    try { return await delai(enLigne(), 9000); }
+    catch (e3) { throw e3.code === "lent" ? Object.assign(new Error("Connexion trop lente"), { code: "lent" }) : e3; }
+  }
+}
+const getDoc = r => lire(() => _getDoc(r), () => getDocFromCache(r), d => !d || !d.exists());
+const getDocs = q => lire(() => _getDocs(q), () => getDocsFromCache(q), s => !s || s.empty);
+if (typeof window !== "undefined" && !globalThis.__carnetRelance) {
+  globalThis.__carnetRelance = true;
+  let cache0 = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) cache0 = Date.now();
+    else if (cache0 && Date.now() - cache0 > 20000) relancerReseau();
+  });
+  window.addEventListener("online", () => relancerReseau());
+  window.addEventListener("pageshow", e => { if (e.persisted) relancerReseau(); });
+}
 
 // Application secondaire : sert à créer des comptes (élèves, profs) sans déconnecter la personne connectée.
 const app2 = getApps().find(a => a.name === "creation-comptes") || initializeApp(firebaseConfig, "creation-comptes");
@@ -193,3 +231,20 @@ export const listCorrectionsEleve = async (uid, carnetId) => list(await getDocs(
 export const setCorrection = (id, data) => setDoc(doc(db, "corrections", id), { ...clean(data), maj: serverTimestamp() });
 export const updateCorrection = (id, patch) => updateDoc(doc(db, "corrections", id), { ...clean(patch), maj: serverTimestamp() });
 export const deleteCorrection = id => deleteDoc(doc(db, "corrections", id));
+
+/* ---------- QCM (2026.11.20-10) ---------- */
+// qcms : questions sans les bonnes réponses ; qcmcles : corrigé ; qcmrep/{qcmId__uid} : réponses de l'élève ; aflnotes : notes retenues par le prof
+export const getQcm = async id => snap(await getDoc(doc(db, "qcms", id)));
+export const setQcm = (id, data) => setDoc(doc(db, "qcms", id), { ...clean(data), maj: serverTimestamp() });
+export const deleteQcm = id => deleteDoc(doc(db, "qcms", id));
+export const listQcms = async profId => list(await getDocs(query(collection(db, "qcms"), where("profId", "==", profId))));
+export const getQcmCle = async id => snap(await getDoc(doc(db, "qcmcles", id)));
+export const setQcmCle = (id, data) => setDoc(doc(db, "qcmcles", id), clean(data));
+export const deleteQcmCle = id => deleteDoc(doc(db, "qcmcles", id));
+export const getQcmRep = async id => snap(await getDoc(doc(db, "qcmrep", id)));
+export const createQcmRep = (id, data) => setDoc(doc(db, "qcmrep", id), clean(data));
+export const updateQcmRep = (id, data) => setDoc(doc(db, "qcmrep", id), clean(data), { merge: true });
+export const deleteQcmRep = id => deleteDoc(doc(db, "qcmrep", id));
+export const listQcmReps = async (qcmId, profId, classeId) => list(await getDocs(query(collection(db, "qcmrep"), where("qcmId", "==", qcmId), where("profId", "==", profId), where("classeId", "==", classeId))));
+export const getAflNotes = async id => snap(await getDoc(doc(db, "aflnotes", id)));
+export const setAflNotes = (id, data) => setDoc(doc(db, "aflnotes", id), { ...clean(data), maj: serverTimestamp() });

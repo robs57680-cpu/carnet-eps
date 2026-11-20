@@ -47,7 +47,11 @@ FORMAT DU MODÈLE DE CARNET (JSON strict, clés en français, identifiants en mi
       "calcul": CALCUL } ],
   "bareme": { "afl1": { "max": 12, "table": [ { "pts": 6, "note": 0.5 } ] } }   // table facultative : conversion points → note si le référentiel en donne une
 }
-TYPES de champ : texte, texte_long, nombre, temps (format min:s), choix, case (oui/non), echelle, compteur (+/-), tableau (lignes ajoutables), passages (chronomètre + temps de passage par tour), exercices (lignes exercice / type haltéro-gym-cardio / répétitions / charge ou niveau, avec % du 1RM), resume (récapitulatif lisible d'un champ exercices), grille (tableau à double entrée calculé : note lue au croisement de deux grandeurs).
+TYPES SPÉCIAUX :
+  { "type": "pseudo", "qui": "eleve" | "juge" }   // rempli automatiquement avec le PSEUDO de l'élève qui pratique (eleve) ou du coach / juge / observateur (juge, avec "coach": true). RGPD : JAMAIS de case nom, prénom, classe ou identité d'élève : utilise toujours une case pseudo à la place.
+  { "type": "calcul", "op": "somme|moyenne|max|min|nombre", "src": [ { "champ": "section.champ" }, { "champ": "section.tableau", "colonne": "id" } ] }   // calculé automatiquement, jamais saisi : tout « total », « nombre total d'étoiles », « score », « somme » = case calcul (un choix vaut le dernier nombre de son texte, une case cochée vaut 1). Peut servir de source à un critère ou à un champ grille.
+  Pour désigner des camarades dans un tableau, utilise une colonne "membres".
+TYPES de champ : pseudo, calcul, texte, texte_long, nombre, temps (format min:s), choix, case (oui/non), echelle, compteur (+/-), tableau (lignes ajoutables), passages (chronomètre + temps de passage par tour), exercices (lignes exercice / type haltéro-gym-cardio / répétitions / charge ou niveau, avec % du 1RM), resume (récapitulatif lisible d'un champ exercices), grille (tableau à double entrée calculé : note lue au croisement de deux grandeurs).
 CALCUL (correction automatique) — choisir le plus fidèle au référentiel :
   { "type": "seuils", "source": SOURCE, "sens": "haut|bas", "seuils": [s4, s3, s2] }   // sens haut : >= s4 → degré 4, >= s3 → 3, >= s2 → 2, sinon 1 ; sens bas : <= s4 → 4 …
   { "type": "ecart", "source": SOURCE, "cible": SOURCE ou nombre, "seuils": [e4, e3, e2] }  // |source - cible| <= e4 → degré 4 …
@@ -65,7 +69,7 @@ RÈGLES :
 - Reprendre fidèlement les AFL, éléments évalués, degrés et barèmes du référentiel (points, conversion). AFL1 sur 12 points ; AFL2 et AFL3 se partagent 8 points (répartition choisie par l'élève).
 - Une séance type : échauffement, conception (choix, charges, objectifs), réalisation (mesures pendant l'effort), analyse/régulation. Champs concrets et rapides à remplir sur téléphone.
 - 4 descripteurs exactement par critère, 4 valeurs de points croissantes.
-- Ne jamais inventer de données personnelles. Pas de nom ni prénom d'élève.
+- Ne jamais inventer de données personnelles. Pas de nom ni prénom d'élève : case "pseudo" (eleve ou juge) à la place. Tout total / score = case "calcul".
 - Réponds UNIQUEMENT avec le JSON du modèle complet.`;
 
 function parse(txt) {
@@ -176,6 +180,7 @@ export async function modifierModele(modele, demande, cle, fichiers) {
 ${SCHEMA}
 - Garde les identifiants existants inchangés (les élèves ont déjà des données), sauf pour ce qui est supprimé.
 - Ne change que ce qui est demandé.
+- Si le modèle a une clé "gabarit" (mise en page HTML de la fiche d'origine), renvoie-la aussi, mise à jour si la demande touche la mise en page ou les cases : chaque case garde son repère <span data-f="section.champ"></span>, une nouvelle case reçoit le sien, une case supprimée perd le sien.
 MODÈLE ACTUEL :
 ${JSON.stringify(modele)}
 DEMANDE DU PROFESSEUR : ${demande}` }], cle);
@@ -188,5 +193,46 @@ Recopie FIDÈLEMENT chaque tableau, case par case, ligne par ligne, sans rien in
 Garde la ligne et la colonne d'en-tête (numéros des balises, noms ou numéros des cartons). Une case vide s'écrit "". Écris les flèches avec ↑ ↓ ← →.
 Réponds uniquement en JSON : {"tableaux":[{"nom":"titre du tableau ou de la page","lignes":[["case","case"],["case","case"]]}]}` }];
   for (const f of fichiers || []) parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } });
+  return call(parts, cle);
+}
+
+/** Crée des questions de QCM à partir d'une fiche (images, PDF) et/ou d'un texte. */
+export async function genererQcm({ fichiers, texte, nb, consignes, cle }) {
+  const parts = [{ text: `Tu es professeur d'EPS (collège et lycée, France). À partir du document fourni, écris ${nb || 10} questions de QCM claires pour des élèves, portant sur les connaissances utiles du document (règles, sécurité, technique, principes d'entraînement, vocabulaire…).
+- Types : "une" (une seule bonne réponse, 3 ou 4 réponses), "plusieurs" (2 bonnes réponses ou plus parmi 4 à 6), "vf" (vrai / faux : réponses exactement ["Vrai","Faux"]).
+- Réponses courtes, plausibles, sans « toutes les réponses ». Ne rien inventer qui contredise le document.
+- "bonnes" = indices (à partir de 0) des bonnes réponses dans "reponses".
+- Aucune donnée personnelle, aucun nom d'élève.
+${consignes ? "CONSIGNES DU PROFESSEUR : " + consignes : ""}
+Réponds uniquement en JSON : {"questions":[{"type":"une|plusieurs|vf","texte":"énoncé","reponses":["…","…"],"bonnes":[0],"points":1}]}` }];
+  for (const f of fichiers || []) { parts.push({ text: "DOCUMENT :" }); parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } }); }
+  if (texte) parts.push({ text: "DOCUMENT (texte) :\n" + texte });
+  return call(parts, cle);
+}
+
+/** Fiche d'observation cliquable « copie fidèle » : modèle de carnet + gabarit HTML qui reproduit la mise en page. */
+export async function genererFicheFidele({ fichiers, consignes, cle }) {
+  const parts = [{ text: `Tu es un expert de l'EPS (collège et lycée, France) et un intégrateur web soigneux.
+Le professeur te donne la photo ou le PDF de SA fiche d'observation (ou fiche de juge / d'évaluation). Il veut la MÊME fiche, avec le MÊME design, mais cliquable sur téléphone : un camarade observateur (le coach) la remplit pendant que l'élève pratique.
+
+Réponds avec UN SEUL objet JSON : { "modele": MODELE, "gabarit": { "html": "...", "css": "..." } }
+
+1) MODELE = le modèle de carnet décrit ci-dessous. Il contient TOUTES les cases à remplir de la fiche :
+${SCHEMA}
+Règles en plus pour cette fiche :
+- "partage": "coach". Les cases d'observation (cocher, entourer, compter, chronométrer, noter, commenter) sont remplies par l'observateur : "coach": true. Ce que l'élève observé écrit lui-même (son projet, son ressenti, son bilan) : "coach": false.
+- Nom / prénom / élève observé → case "pseudo" "qui": "eleve" ; nom de l'observateur / juge / coach → case "pseudo" "qui": "juge". JAMAIS de case nom ou prénom.
+- Case à cocher (☐, oui/non, réussi) → "case" ; une seule réponse à entourer ou cocher parmi plusieurs (ex. + / = / −, A B C D, 1 2 3 4, ★ ★★ ★★★) → "choix" avec ces options exactes ; bâtons / nombre de réussites → "compteur" ; temps → "temps" ; mesure → "nombre" ; lignes à écrire → "texte" ou "texte_long".
+- Tableau d'observation (lignes = critères, colonnes = essais / passages / tours) : UNE case par cellule à remplir (ids courts : c1_e1, c1_e2…). 20 cases au plus par section : fais une section par ligne du tableau ou par bloc de la fiche.
+- Total, score, nombre total de réussites, moyenne → case "calcul" (jamais saisie) avec ses sources.
+- "pages": "seance" si la fiche sert à chaque séance, "cycle" si c'est une fiche de cycle.
+- Reprends les critères d'évaluation (AFL, degrés, barème) s'ils figurent sur la fiche ; sinon un critère simple fondé sur les cases (seuils ou complet).
+
+2) GABARIT = la fiche redessinée en HTML, le plus fidèlement possible : même titre, mêmes blocs dans le même ordre, mêmes tableaux (mêmes lignes et colonnes, cellules fusionnées avec colspan / rowspan), mêmes intitulés et consignes, mêmes couleurs de fond, bordures, gras, alignements, logos remplacés par leur texte.
+- Balises autorisées seulement : div span p b strong i em u br hr table thead tbody tr th td caption h1 h2 h3 h4 ul ol li small sup sub. Attributs : class, style, colspan, rowspan, data-f. AUCUN input, select, textarea, button, img, svg, lien, script.
+- À CHAQUE endroit où l'on écrit, coche, entoure ou compte sur la fiche papier, mets exactement <span data-f="idsection.idchamp"></span> (identifiants du MODELE). Chaque case du modèle apparaît une fois et une seule. Pour un "choix", ne réécris pas les options à côté : la liste déroulante les affiche.
+- css : quelques règles simples sur des classes (ex. .titre, .bloc, .grille td) ; tables en width:100% et border-collapse:collapse ; police lisible (14px minimum) ; pas de position fixed, pas d'url(), pas de @import. La fiche doit rester lisible sur un téléphone (un tableau large pourra défiler).
+${consignes ? "PRÉCISIONS DU PROFESSEUR : " + consignes : ""}` }];
+  for (const f of fichiers || []) { parts.push({ text: "FICHE DU PROFESSEUR À REPRODUIRE :" }); parts.push({ inlineData: { mimeType: f.mime, data: f.base64 } }); }
   return call(parts, cle);
 }
