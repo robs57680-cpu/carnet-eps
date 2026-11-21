@@ -1,7 +1,7 @@
 // Carnet d'entraînement EPS : application (élève, prof, développeur)
-import * as fb from "./fb.js?v=2026.11.21-13";
-import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-13";
-const APP_VERSION="2026.11.21-13";
+import * as fb from "./fb.js?v=2026.11.21-14";
+import { DEV_EMAIL, STUDENT_DOMAIN } from "./config.js?v=2026.11.21-14";
+const APP_VERSION="2026.11.21-14";
 
 /* ---------- Référentiel (paramètres par défaut, modifiables dans l'onglet Prof) ---------- */
 const DEF_SETTINGS={tol:5,themes:{
@@ -35,7 +35,7 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 const uid=()=>Math.random().toString(36).slice(2,9);
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
-/* Temps : « 4:30 », « 4'30 », « 4'30" », « 4’30’’ », « 4 min 30 », « 4' » = 4 min 30 s / 4 min ; un nombre seul = secondes (2026.11.21-13) */
+/* Temps : « 4:30 », « 4'30 », « 4'30" », « 4’30’’ », « 4 min 30 », « 4' » = 4 min 30 s / 4 min ; un nombre seul = secondes (2026.11.21-14) */
 function parseT(v){if(v===undefined||v===null)return NaN;v=String(v).trim().toLowerCase().replace(/\s+/g,"");if(!v)return NaN;
   v=v.replace(/(''|’’|′′|"|″|”|“|s|sec)$/,"").replace(/(mn|min|m|'|’|′|‘|´)/,":").replace(",",".");if(v.endsWith(":"))v+="0";
   if(v.includes(":")){const[a,b]=v.split(":");const m=+a,s=+b;return a===""||b===""||isNaN(m)||isNaN(s)||s>=60?NaN:m*60+s}
@@ -440,11 +440,11 @@ function go(name,params){clearTimeout(LOADT);route={name,...(params||{})};
   render();window.scrollTo(0,0)}
 async function retryNow(){go("loading",{msg:"Relance de la connexion…"});try{await fb.relancerReseau()}catch(e){}const f=RETRY;if(f){try{await f()}catch(e){go("error",{msg:authMsg(e),retry:true})}}else go("home")}
 function setView(v){view=v;if(v!=="seances")cur=null;render();window.scrollTo(0,0)}
-/* Demande à l'IA de l'éditeur : gardée d'un affichage à l'autre (2026.11.21-13) */
+/* Demande à l'IA de l'éditeur : gardée d'un affichage à l'autre (2026.11.21-14) */
 document.addEventListener("input",e=>{if(e.target&&e.target.id==="ia-req")iaDraft=e.target.value});
 document.addEventListener("change",e=>{if(e.target&&e.target.id==="ia-file"){const f=e.target.files&&e.target.files[0];if(f){iaFile=f;iaOpen=true;rerenderKeep()}}});
 document.addEventListener("toggle",e=>{if(e.target&&e.target.classList&&e.target.classList.contains("ia-box"))iaOpen=e.target.open},true);
-/* Case remplie par l'observateur : l'élève qui la touche est prévenu (2026.11.21-13) */
+/* Case remplie par l'observateur : l'élève qui la touche est prévenu (2026.11.21-14) */
 document.addEventListener("click",e=>{const c=e.target.closest&&e.target.closest(".coach-lock");if(c)toast("📣 Cette case est remplie par ton observateur (coach), depuis son téléphone")});
 function rerenderKeep(){const y=window.scrollY;render();window.scrollTo(0,y)}
 function renderHeader(){
@@ -790,7 +790,7 @@ main.addEventListener("submit",async e=>{e.preventDefault();const f=e.target;
   if(f.id==="gen-form"){if(!iaBusy)iaGenerer();return}
   if(f.id==="ia-key"){const v=$("#ik-val").value.trim(),err=$("#ik-err"),btn=f.querySelector("button[type=submit]");err.textContent="";if(!v){err.textContent="Collez votre clé.";return}
     btn.disabled=true;btn.textContent="Vérification…";
-    try{const ia=await import("./ia.js?v=2026.11.21-13");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
+    try{const ia=await import("./ia.js?v=2026.11.21-14");await ia.testerCle(v);await fb.setPrefs(me.uid,{geminiKey:v});IAKEY=v;toast("Clé personnelle enregistrée");render()}
     catch(x){btn.disabled=false;btn.textContent="Vérifier et enregistrer";err.textContent=/40[013]|API key|API_KEY/i.test(String(x&&x.message))?"Cette clé est refusée par Google. Vérifiez qu'elle est complète.":/429|quota/i.test(String(x&&x.message))?"Clé valide mais quota déjà atteint aujourd'hui.":authMsg(x)}return}
   if(f.id==="new-prof"){createProf($("#np-email").value);return}
   if(f.id==="chg-pwd"){const a=$("#cp-1").value,b=$("#cp-2").value,err=$("#cp-err");if(a!==b){err.textContent="Les deux mots de passe sont différents.";return}
@@ -799,7 +799,7 @@ main.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){
   const b=e.target.closest("[data-act]");if(!b)return;if(b.dataset.act==="openEleve"&&e.target.closest(".noclk"))return;
   const a=b.dataset.act,i=+b.dataset.i;
   if(a==="retryNow"){retryNow();return}
-  if(a==="iaStop"){import("./ia.js?v=2026.11.21-13").then(ia=>ia.annulerIA()).catch(()=>{});return}
+  if(a==="iaStop"){import("./ia.js?v=2026.11.21-14").then(ia=>ia.annulerIA()).catch(()=>{});return}
   if(/^(cr|mAddBloc|mPaste)/.test(a)&&crClick(a,b))return;
   if(/^(co|cc)[A-Z]/.test(a)&&coClick(a,b))return;
   if(/^cp[A-Z]/.test(a)&&cpClick(a,b))return;
@@ -1126,6 +1126,7 @@ function normModele(m){m=m&&typeof m==="object"?clone(m):{};
   if(!out.sections.length)out.sections.push({id:"seance",titre:"Ma séance",consigne:"",champs:[{id:"notes",type:"texte_long",label:"Ce que j'ai fait",aide:"",unite:"",requis:true}]});
   const exists=p=>{const[a,b]=String(p||"").split(".");const S=out.sections.find(x=>x.id===a);return!!(S&&S.champs.find(c=>c.id===b))};
   out.sections.forEach(S=>S.champs.forEach(f=>{if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src=f[k].src.filter(x=>exists(x.champ)));if(f.type==="calcul")f.src=f.src.filter(x=>exists(x.champ)&&x.champ!==S.id+"."+f.id)}));
+  gCapSync(out);
   const fixSrc=src=>src&&typeof src==="object"&&exists(src.champ)?src:null;
   const crIds=new Set();
   (Array.isArray(m.criteres)?m.criteres:[]).slice(0,20).forEach(K=>{if(!K)return;const afl=["AFL1","AFL2","AFL3"].includes(K.afl)?K.afl:"AFL1";
@@ -1288,16 +1289,32 @@ function normGrille(C){const ax=(x,t)=>{x=x&&typeof x==="object"?x:{};let src=Ar
     src=src.filter(o=>o&&o.champ).slice(0,8).map(o=>({champ:String(o.champ),...(o.colonne?{colonne:String(o.colonne)}:{})}));
     const bas=x.sens==="bas";let sl=numsOf(x.seuils).slice(0,100);if(!sl.length)sl=[0];sl=[...new Set(sl)].sort((a,b)=>bas?b-a:a-b);
     const labels=(Array.isArray(x.labels)?x.labels:typeof x.labels==="string"?x.labels.split(";"):[]).slice(0,100).map(l=>String(l??"").trim().slice(0,40));
-    return{titre:String(x.titre||t).slice(0,30),src,seuils:sl,labels,...(bas?{sens:"bas"}:{})}};
+    const cap=x.cap&&typeof x.cap==="object"&&x.cap.champ?{champ:String(x.cap.champ),n:Math.max(0,Math.min(11,parseInt(x.cap.n)||0))}:null;
+    return{titre:String(x.titre||t).slice(0,30),src,seuils:sl,labels,...(bas?{sens:"bas"}:{}),...(cap?{cap}:{})}};
   const L=ax(C.lignes,"Lignes"),K=ax(C.colonnes,"Colonnes"),raw=C.notes||[];
   /* Si l'IA a donné plus de lignes / colonnes de notes que de paliers, on ne perd rien : paliers ajoutés à la suite (à corriger dans l'éditeur). */
   const rowOf=rw=>Array.isArray(rw)?rw:(rw&&rw.v)||[];const nC=Math.min(100,Math.max(0,...raw.map(rw=>rowOf(rw).length))),nR=Math.min(100,raw.length);
-  const pad=(A,n)=>{while(A.seuils.length<n)A.seuils.push(A.seuils[A.seuils.length-1]+(A.sens==="bas"?-1:1))};pad(K,nC);pad(L,nR);
+  const pad=(A,n)=>{while(A.seuils.length<n)A.seuils.push(A.seuils[A.seuils.length-1]+(A.sens==="bas"?-1:1))};pad(K,nC-axE(K));pad(L,nR-axE(L));
   /* Firestore refuse les tableaux imbriqués : chaque ligne est rangée sous la forme {v:[…]} */
-  const notes=L.seuils.map((_,r)=>{const rw=raw[r]||{},row=Array.isArray(rw)?rw:rw.v||{};return{v:K.seuils.map((_,c)=>{const v=parseFloat(String(row[c]??"").replace(",","."));return Number.isFinite(v)?v:null})}});
+  const notes=axS(L).map(r=>{const rw=raw[r]||{},row=Array.isArray(rw)?rw:rw.v||{};return{v:axS(K).map(c=>{const v=parseFloat(String(row[c]??"").replace(",","."));return Number.isFinite(v)?v:null})}});
   return{lignes:L,colonnes:K,notes}}
 const gCell=(f,r,c)=>{const rw=(f.notes||[])[r];const v=rw?(Array.isArray(rw)?rw:rw.v||[])[c]:null;return Number.isFinite(v)?v:null};
-const grilleMax=f=>{let m=0;(f.notes||[]).forEach((_,r)=>f.colonnes.seuils.forEach((_,c)=>{const v=gCell(f,r,c);if(v!=null&&v>m)m=v}));return m};
+/* Time cap : une liste déroulante (1re option = « terminé », les suivantes = « -0,5 exo », « -1 exo »…) ajoute des paliers AVANT le 1er palier de l'axe
+   (les moins bons). ax.cap = {champ, n} ; n = nombre d'options - 1 (tenu à jour par gCapSync). Les notes rangent ces paliers en premier. */
+function axE(ax){return ax&&ax.cap&&ax.cap.n>0?ax.cap.n:0}
+function axN(ax){return axE(ax)+((ax&&ax.seuils)||[]).length}
+function axS(ax){return[...Array(axN(ax)).keys()]}
+function gCapSync(M){let chg=false;(M.sections||[]).forEach(S=>(S.champs||[]).forEach(f=>{if(!f||f.type!=="grille")return;["lignes","colonnes"].forEach(k=>{const ax=f[k];if(!ax||!ax.cap)return;
+    const[a,b]=String(ax.cap.champ||"").split("."),SS=(M.sections||[]).find(x=>x.id===a),cf=SS&&(SS.champs||[]).find(c=>c.id===b);
+    const old=Math.max(0,parseInt(ax.cap.n)||0),nw=cf&&cf.type==="choix"?Math.max(0,Math.min(11,(cf.options||[]).length-1)):0,d=nw-old;
+    if(!cf||cf.type!=="choix"||!ax.cap.champ){delete ax.cap}else ax.cap.n=nw;if(!d&&ax.cap)return;chg=true;if(!d)return;
+    f.notes=Array.isArray(f.notes)?f.notes:[];
+    if(k==="colonnes")f.notes=f.notes.map(rw=>{const v=[...(Array.isArray(rw)?rw:(rw&&rw.v)||[])];if(d>0)v.unshift(...Array(d).fill(null));else v.splice(0,-d);return{v}});
+    else{const nc=axN(f.colonnes);if(d>0)f.notes.unshift(...Array.from({length:d},()=>({v:Array(nc).fill(null)})));else f.notes.splice(0,-d)}})}));return chg}
+/** Palier « time cap » choisi : -1 si l'élève a terminé (1re option) ou rien n'est choisi */
+function gCapIdx(M,s,ax){const e=axE(ax);if(!e)return-1;const f=gField(M,ax.cap.champ);if(!f||f.type!=="choix")return-1;const k=(f.options||[]).indexOf(gVal(s,ax.cap.champ));return k<1?-1:Math.max(0,e-k)}
+function gAxSlot(M,ax,i){const e=axE(ax);if(i<e){const f=gField(M,ax.cap.champ);return(f&&(f.options||[])[e-i])||`Time cap (${e-i})`}return gAxL(M,ax,i-e)}
+const grilleMax=f=>{let m=0;(f.notes||[]).forEach((_,r)=>axS(f.colonnes).forEach(c=>{const v=gCell(f,r,c);if(v!=null&&v>m)m=v}));return m};
 /** Valeur d'un axe : somme des cases choisies. Un choix vaut le dernier nombre de son texte (« … (3 étoiles) » → 3), sinon son rang. */
 function gAxis(M,s,ax){if(!ax.src.length)return NaN;let tot=0,any=false;
   for(const o of ax.src){const f=gField(M,o.champ);if(!f)continue;let v;
@@ -1317,17 +1334,17 @@ function gAxT(M,ax){return!!(ax.src.length&&ax.src.every(o=>{const f=gField(M,o.
 const gAxLabT=(ax,i)=>ax.labels[i]||(ax.sens==="bas"?(i===0&&ax.seuils.length>1?`> ${fmtT(ax.seuils[1])}`:`≤ ${fmtT(ax.seuils[i])}`):i<ax.seuils.length-1?`${fmtT(ax.seuils[i])} à ${fmtT(ax.seuils[i+1]-1)}`:`≥ ${fmtT(ax.seuils[i])}`);
 const gAxL=(M,ax,i)=>gAxT(M,ax)?gAxLabT(ax,i):gAxLab(ax,i);
 const gAxLab=(ax,i)=>ax.labels[i]||(ax.sens==="bas"?(i===0&&ax.seuils.length>1?`> ${fmtN(ax.seuils[1])}`:`≤ ${fmtN(ax.seuils[i])}`):i<ax.seuils.length-1?(ax.seuils[i+1]-ax.seuils[i]===1?fmtN(ax.seuils[i]):`${fmtN(ax.seuils[i])}–${fmtN(Number.isInteger(ax.seuils[i])&&Number.isInteger(ax.seuils[i+1])?ax.seuils[i+1]-1:ax.seuils[i+1])}`):`≥ ${fmtN(ax.seuils[i])}`);
-function gGrille(M,s,f){if(!f||f.type!=="grille")return null;const x=gAxis(M,s,f.lignes),y=gAxis(M,s,f.colonnes),mx=grilleMax(f);
-  if(isNaN(x)||isNaN(y))return{x,y,note:null,max:mx};const r=gIdx(f.lignes.seuils,x,f.lignes.sens==="bas"),c=gIdx(f.colonnes.seuils,y,f.colonnes.sens==="bas"),n=gCell(f,r,c);
-  const note=Number.isFinite(n)?n:null,fr=mx?note/mx:0;return{x,y,r,c,note,max:mx,deg:note==null?null:fr>=.75?4:fr>=.5?3:fr>=.25?2:1}}
+function gGrille(M,s,f){if(!f||f.type!=="grille")return null;const x=gAxis(M,s,f.lignes),y=gAxis(M,s,f.colonnes),mx=grilleMax(f),rc=gCapIdx(M,s,f.lignes),cc=gCapIdx(M,s,f.colonnes);
+  if((rc<0&&isNaN(x))||(cc<0&&isNaN(y)))return{x,y,rc,cc,note:null,max:mx};const r=rc>=0?rc:axE(f.lignes)+gIdx(f.lignes.seuils,x,f.lignes.sens==="bas"),c=cc>=0?cc:axE(f.colonnes)+gIdx(f.colonnes.seuils,y,f.colonnes.sens==="bas"),n=gCell(f,r,c);
+  const note=Number.isFinite(n)?n:null,fr=mx?note/mx:0;return{x,y,r,c,rc,cc,note,max:mx,deg:note==null?null:fr>=.75?4:fr>=.5?3:fr>=.25?2:1}}
 function gGrilleHTML(M,s,f,lab){const g=gGrille(M,s,f),mx=g.max,vide=!mx;
-  const axTxt=(ax,v)=>`${esc(ax.titre)} : <b>${isNaN(v)?"?":gAxT(M,ax)?fmtT(v):fmtN(v)}</b>`;
-  const tab=`<div class="scroll"><table class="grille"><thead><tr><th class="gc">${esc(f.lignes.titre)} ↓ · ${esc(f.colonnes.titre)} →</th>${f.colonnes.seuils.map((_,c)=>`<th${g.note!=null&&g.c===c?' class="on"':""}>${esc(gAxL(M,f.colonnes,c))}</th>`).join("")}</tr></thead>
-    <tbody>${f.lignes.seuils.map((_,r)=>`<tr><th${g.note!=null&&g.r===r?' class="on"':""}>${esc(gAxL(M,f.lignes,r))}</th>${f.colonnes.seuils.map((_,c)=>{const n=gCell(f,r,c);return`<td class="${g.note!=null&&g.r===r&&g.c===c?"hit":g.note!=null&&(g.r===r||g.c===c)?"axe":""}">${Number.isFinite(n)?fmtN(n):"·"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const axTxt=(ax,v,ci)=>`${esc(ax.titre)} : <b>${ci>=0?esc(gAxSlot(M,ax,ci)):isNaN(v)?"?":gAxT(M,ax)?fmtT(v):fmtN(v)}</b>`;
+  const tab=`<div class="scroll"><table class="grille"><thead><tr><th class="gc">${esc(f.lignes.titre)} ↓ · ${esc(f.colonnes.titre)} →</th>${axS(f.colonnes).map(c=>`<th${g.note!=null&&g.c===c?' class="on"':""}>${esc(gAxSlot(M,f.colonnes,c))}</th>`).join("")}</tr></thead>
+    <tbody>${axS(f.lignes).map(r=>`<tr><th${g.note!=null&&g.r===r?' class="on"':""}>${esc(gAxSlot(M,f.lignes,r))}</th>${axS(f.colonnes).map(c=>{const n=gCell(f,r,c);return`<td class="${g.note!=null&&g.r===r&&g.c===c?"hit":g.note!=null&&(g.r===r||g.c===c)?"axe":""}">${Number.isFinite(n)?fmtN(n):"·"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
   const src=ax=>ax.src.length?ax.src.map(o=>{const ff=gField(M,o.champ);return ff?esc(ff.label)+(o.colonne?` (${esc(((ff.colonnes||[]).find(c=>c.id===o.colonne)||{}).label||o.colonne)})`:""):""}).filter(Boolean).join(" + "):"aucune case choisie";
   return`<div class="f gri"><span class="mlab">${lab}</span>
-    <div class="gri-res"><span>${axTxt(f.lignes,g.x)}</span><span>×</span><span>${axTxt(f.colonnes,g.y)}</span><span class="spacer"></span><span class="gri-n">${vide?"Tableau à compléter":g.note==null?"Note : —":`Note : <b>${fmtN(g.note)}</b> / ${fmtN(mx)}`}</span></div>
-    ${tab}<div class="hint">Calculé automatiquement. ${esc(f.lignes.titre)} = ${src(f.lignes)} · ${esc(f.colonnes.titre)} = ${src(f.colonnes)}.</div></div>`}
+    <div class="gri-res"><span>${axTxt(f.lignes,g.x,g.rc)}</span><span>×</span><span>${axTxt(f.colonnes,g.y,g.cc)}</span><span class="spacer"></span><span class="gri-n">${vide?"Tableau à compléter":g.note==null?"Note : —":`Note : <b>${fmtN(g.note)}</b> / ${fmtN(mx)}`}</span></div>
+    ${tab}<div class="hint">Calculé automatiquement. ${esc(f.lignes.titre)} = ${src(f.lignes)} · ${esc(f.colonnes.titre)} = ${src(f.colonnes)}.${[f.lignes,f.colonnes].filter(ax=>axE(ax)).map(ax=>{const cf=gField(M,ax.cap.champ);return cf?` Time cap : si « ${esc(cf.label)} » indique des exercices non faits, la note se lit dans la colonne correspondante (le temps n'est pas pris en compte).`:""}).join("")}</div></div>`}
 /* Éditeur : axes (titre, cases additionnées, paliers) et notes du tableau */
 function mGrilleEd(M,p,f){const G=normGrille(f);
   const opts=allFields(M,["nombre","compteur","echelle","choix","case","temps","calcul"]).filter(([v])=>v!==p),tabs=[];
@@ -1338,8 +1355,10 @@ function mGrilleEd(M,p,f){const G=normGrille(f);
     <div class="grid2">${mIn(`${p}.${k}.titre`,ax.titre,'data-rerender',"Nom (ex. Acros, Étoiles)")}${gAxT(M,ax)?mIn(`${p}.${k}.seuils`,ax.seuils.map(fmtT).join(", "),'data-mt="list" data-rerender',"Paliers en min:s (ex. 15:00, 14:45, 14:30) : "+(ax.sens==="bas"?"temps maximal":"temps minimal")+" de chaque "+(k==="lignes"?"ligne":"colonne")):mIn(`${p}.${k}.seuils`,ax.seuils.join(", "),'data-mt="list" data-rerender inputmode="decimal"',"Paliers : valeur "+(ax.sens==="bas"?"maximale":"minimale")+" de chaque "+(k==="lignes"?"ligne":"colonne"))}</div>
     ${mSel(`${p}.${k}.sens`,ax.sens==="bas"?"bas":"haut",[["haut","Plus c'est haut, mieux c'est (points…) : palier = valeur minimale"],["bas","Plus c'est bas, mieux c'est (temps…) : palier = valeur maximale"]],"Sens","data-rerender")}
     ${mIn(`${p}.${k}.labels`,ax.labels.join(" ; "),'data-mt="tlist" data-rerender',"Intitulés affichés, comme sur le référentiel (facultatif, séparés par ;) — ex. < 10 ; 10 à 19 ; ≥ 20")}
+    ${mSel(`${p}.${k}.cap.champ`,ax.cap&&ax.cap.champ||"",[["","— pas de time cap —"],...allFields(M,["choix"])],"Au-delà du dernier palier (time cap) : liste déroulante « exercices non faits »",'data-rerender')}
+    <p class="hint" style="margin:0">Facultatif. 1re option de la liste = « terminé » (on lit le temps) ; chaque option suivante (« -0,5 exo », « -1 exo »…) ajoute une ${k==="lignes"?"ligne":"colonne"} avant le premier palier, de la moins mauvaise à la pire.</p>
     <div class="f"><span class="mlab">Cases additionnées</span><div class="mchecks">${[...opts.filter(([v])=>v!==selfPath),...tabs].map(([v,l])=>`<label><input type="checkbox" data-mgsrc="${p}.${k}" value="${esc(v)}" ${on.has(v)?"checked":""}> ${esc(l)}</label>`).join("")||'<span class="hint">Ajoutez d\'abord des cases nombre, compteur ou choix.</span>'}</div></div></div>`};
-  const grid=`<div class="scroll"><table class="grille ed"><thead><tr><th class="gc">${esc(G.lignes.titre)} ↓ · ${esc(G.colonnes.titre)} →</th>${G.colonnes.seuils.map((_,c)=>`<th>${esc(gAxL(M,G.colonnes,c))}</th>`).join("")}</tr></thead><tbody>${G.lignes.seuils.map((_,r)=>`<tr><th>${esc(gAxL(M,G.lignes,r))}</th>${G.colonnes.seuils.map((_,c)=>`<td><input data-m="${p}.notes.${r}.v.${c}" data-mt="num" value="${G.notes[r].v[c]??""}" inputmode="decimal" aria-label="Note ligne ${r+1} colonne ${c+1}"></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const grid=`<div class="scroll"><table class="grille ed"><thead><tr><th class="gc">${esc(G.lignes.titre)} ↓ · ${esc(G.colonnes.titre)} →</th>${axS(G.colonnes).map(c=>`<th>${esc(gAxSlot(M,G.colonnes,c))}</th>`).join("")}</tr></thead><tbody>${axS(G.lignes).map(r=>`<tr><th>${esc(gAxSlot(M,G.lignes,r))}</th>${axS(G.colonnes).map(c=>`<td><input data-m="${p}.notes.${r}.v.${c}" data-mt="num" value="${G.notes[r].v[c]??""}" inputmode="decimal" aria-label="Note ligne ${r+1} colonne ${c+1}"></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   return`${axEd("lignes",G.lignes)}${axEd("colonnes",G.colonnes)}<div class="f"><span class="mlab">Notes du tableau (au croisement)</span>${grid}<p class="hint" style="margin:0">Une ligne par palier de ${esc(G.lignes.titre)}, une colonne par palier de ${esc(G.colonnes.titre)}. Un choix compte pour le dernier nombre de son texte : « Tous éléments présents (3 étoiles) » vaut 3. Pour noter l'AFL1 avec ce tableau : onglet Critères › Correction › « tableau à double entrée ».</p></div>`}
 /* --- Rendu d'une séance générique --- */
 function gFieldHTML(M,s,S,f,base,L,V,deg){const lockF=!L&&f.type!=="resume"&&(!PREVIEW||sbxOn())&&!CORR&&(((COACH||SBXOBS)&&!f.coach)||(!COACH&&!SBXOBS&&f.coach&&s.coachUid&&M.partage==="coach"));L=L||lockF;const v=s.valeurs[S.id][f.id],k=`${base}.${S.id}.${f.id}`,id="g-"+S.id+"-"+f.id,lab=`${esc(f.label)}${f.unite?` <span class="hint">(${esc(f.unite)})</span>`:""}`,help=f.aide?`<div class="hint">${esc(f.aide)}</div>`:"",st=V&&deg?stamp(deg):"";
@@ -1833,14 +1852,14 @@ async function iaGenerer(){const fv=id=>{const x=$(id);return x&&x.files?x.files
   if(mode==="phrase"&&consignes.length<8){err.textContent="Décrivez votre carnet en une ou deux phrases.";return}
   if((f1&&f1.size>15e6)||(f2&&f2.size>15e6)){err.textContent="Fichier trop lourd (15 Mo maximum chacun).";return}
   iaBusy=true;render();
-  try{const ia=await import("./ia.js?v=2026.11.21-13");const fichiers=[];
+  try{const ia=await import("./ia.js?v=2026.11.21-14");const fichiers=[];
     if(f1)fichiers.push({role:"referentiel",mime:f1.type||"application/pdf",base64:await fileToB64(f1)});
     if(f2)fichiers.push({role:"fiche",mime:f2.type||"application/pdf",base64:await fileToB64(f2)});
     let m;if(mode==="fidele"){const r=await ia.genererFicheFidele({fichiers,consignes,cle:IAKEY});m=r&&r.modele?r.modele:r;if(!r||!r.gabarit||!r.gabarit.html)throw new Error("Réponse de l'IA illisible.");m.gabarit=r.gabarit;if(r.versions&&!m.versions)m.versions=r.versions;m.partage=m.partage==="groupe"?"groupe":"coach";
       try{const pr=/pdf/i.test(f2.type)||/\.pdf$/i.test(f2.name)?await pdfParts(f2,()=>{}):{type:"images",parts:await imageParts(f2)};m.gabarit.ficheId=await fb.addFiche({profId:me.uid,activite:dossier?dossier.id:"",titre:"Fiche d'origine · "+String(m.titre||f2.name).slice(0,60),type:pr.type,origine:true},pr.parts)}catch(x){console.warn("fiche d'origine",x)}}
     else m=await ia.genererModele({fichiers,texte:texte.slice(0,60000),consignes,cle:IAKEY,mode});iaBusy=false;dosGen=false;startEditor({modele:null,brouillon:iaGrilleAfl(m)});toast("Ébauche prête : modifiez-la en bac à sable, puis publiez")}
-  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
-/* Après l'IA : un tableau à double entrée que rien ne lit donne la note de l'AFL1 (jamais une autoévaluation) — 2026.11.21-13 */
+  catch(e){console.error(e);iaBusy=false;render();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-14");msg=ia.iaMessage(e)}catch(x){}const el=$("#gen-err");if(el)el.textContent=msg}}
+/* Après l'IA : un tableau à double entrée que rien ne lit donne la note de l'AFL1 (jamais une autoévaluation) — 2026.11.21-14 */
 function iaInfo(t){openModal(`<h3>✨ Ce que l'IA a fait</h3><p>${esc(t)}</p><p class="hint">Vérifiez dans l'aperçu, puis publiez. « ↶ Annuler » revient à la version d'avant.</p><div class="row"><span class="spacer"></span><button class="btn primary" data-mact="close">OK</button></div>`)}
 function iaGrilleAfl(m){if(!m||!Array.isArray(m.sections)||!Array.isArray(m.criteres))return m;
   const G=m.sections.flatMap(S=>(S.champs||[]).filter(c=>c&&c.type==="grille").map(c=>S.id+"."+c.id));if(!G.length)return m;
@@ -1850,8 +1869,8 @@ async function iaModifier(){const ta=$("#ia-req");if(ta)iaDraft=ta.value;const r
   const fl=iaFile||($("#ia-file")&&$("#ia-file").files[0])||null;if(fl&&fl.size>15e6){err.textContent="Fichier trop lourd (15 Mo maximum).";return}
   let fichiers=[];try{if(fl)fichiers=[{mime:fl.type||"application/pdf",base64:await fileToB64(fl)}]}catch(x){}
   iaBusy=true;rerenderKeep();
-  try{const ia=await import("./ia.js?v=2026.11.21-13");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);const chg=m&&typeof m._changements==="string"?m._changements.trim().slice(0,400):"";if(m)delete m._changements;const v0=modeleEdit.draft.versions;if(v0&&m&&!("versions" in m))m.versions=v0;if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(iaGrilleAfl(m));modeleEdit.dirty=true;iaBusy=false;iaDraft="";iaFile=null;iaOpen=true;setPreview();rerenderKeep();if(chg)iaInfo(chg);else toast("Carnet modifié par l'IA : vérifiez-le")}
-  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-13");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
+  try{const ia=await import("./ia.js?v=2026.11.21-14");const g0=modeleEdit.draft.gabarit;const m=await ia.modifierModele(normModele(modeleEdit.draft),req,IAKEY,fichiers);const chg=m&&typeof m._changements==="string"?m._changements.trim().slice(0,400):"";if(m)delete m._changements;const v0=modeleEdit.draft.versions;if(v0&&m&&!("versions" in m))m.versions=v0;if(g0&&m&&!m.gabarit)m.gabarit=g0;else if(g0&&m&&m.gabarit&&g0.ficheId)m.gabarit.ficheId=g0.ficheId;modeleHist.push(clone(modeleEdit.draft));modeleEdit.draft=normModele(iaGrilleAfl(m));modeleEdit.dirty=true;iaBusy=false;iaDraft="";iaFile=null;iaOpen=true;setPreview();rerenderKeep();if(chg)iaInfo(chg);else toast("Carnet modifié par l'IA : vérifiez-le")}
+  catch(e){console.error(e);iaBusy=false;rerenderKeep();let msg=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-14");msg=ia.iaMessage(e)}catch(x){}const el=$("#ia-err");if(el){el.textContent=msg;$("#ia-req").value=req}}}
 async function saveModele(quiet){const E=modeleEdit,M=normModele(E.draft);E.draft=M;
   try{if(E.id)await fb.updateModele(E.id,{titre:M.titre,ca:M.ca,brouillon:M,statut:E.statut});
     else if(E.fixedId){await fb.setModele(E.fixedId,{profId:me.uid,titre:M.titre,ca:M.ca,brouillon:M,modele:E.pub||null,statut:E.statut});E.id=E.fixedId}
@@ -1895,6 +1914,8 @@ function mField(el,e){if(!modeleEdit||route.name!=="modele")return false;const M
   const path=el.dataset.m,t=el.dataset.mt;let v=t==="bool"?el.checked:el.value;
   if(t==="num")v=el.value===""?"":num(el.value);if(t==="list")v=el.value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);if(t==="list"&&/\.(lignes|colonnes)\.seuils$/.test(path))v=numsOf(v);if(t==="tlist"){v=el.value.split(/[;\n]/).map(x=>x.trim());while(v.length&&!v[v.length-1])v.pop()}
   setPath(M,path,v);modeleEdit.dirty=true;if(path==="versions.nb"&&e.type==="change")rerenderKeep();
+  if(/\.cap\.champ$/.test(path)&&!v){const o=path.split(".").slice(0,-2).reduce((o,k)=>o&&o[k],M);if(o&&o.cap){o.cap.champ="";}}
+  if(gCapSync(M)&&e.type==="change")rerenderKeep();
   if(/\.type$/.test(path)&&/^sections\.\d+\.champs\.\d+\.type$/.test(path)&&e.type==="change"){const[, si,fi]=path.match(/sections\.(\d+)\.champs\.(\d+)/);const f=M.sections[+si].champs[+fi];
     if(v==="tableau"&&!(f.colonnes&&f.colonnes.length))f.colonnes=[{id:newId("k"),type:"texte",label:"Colonne",options:[]}];if(v==="passages"&&!f.nb)f.nb=4;if(v==="exercices"&&!f.nb)f.nb=3;if(v==="resume")f.src=f.src||{exos:(allFields(normModele(M),["exercices"])[0]||[""])[0],tours:"",temps:""};if(v==="echelle"){f.min=f.min||1;f.max=f.max||10}if(v==="choix"&&!f.options)f.options=[]}
   if(/^criteres\.\d+\.calcul\.type$/.test(path)&&e.type==="change"){const ci=+path.split(".")[1],c=M.criteres[ci],first=(allFields(normModele(M),["nombre","temps","compteur","echelle"])[0]||[""])[0];
@@ -2010,7 +2031,7 @@ const isGroupe=()=>!!(carnetDoc&&carnetDoc.groupe);
 function modFor(M,uid){if(!M||M.partage!=="groupe"||!uid)return M;
   const ind=new Set(M.sections.filter(S=>S.portee==="individuelle").map(S=>S.id)),sfx="__"+uid;
   const mp=p=>{if(!p||typeof p!=="string")return p;const i=p.indexOf(".");const a=i<0?p:p.slice(0,i);return ind.has(a)?a+sfx+(i<0?"":p.slice(i)):p};
-  const M2=clone(M);M2.sections.forEach(S=>{if(ind.has(S.id)){S.base=S.id;S.id=S.id+sfx}S.champs.forEach(f=>{if(f.nbChamp)f.nbChamp=mp(f.nbChamp);if(f.type==="grille")["lignes","colonnes"].forEach(k=>f[k].src.forEach(x=>x.champ=mp(x.champ)));else if(f.type==="calcul")(f.src||[]).forEach(x=>x.champ=mp(x.champ));else if(f.src)Object.keys(f.src).forEach(k=>f.src[k]=mp(f.src[k]))})});
+  const M2=clone(M);M2.sections.forEach(S=>{if(ind.has(S.id)){S.base=S.id;S.id=S.id+sfx}S.champs.forEach(f=>{if(f.nbChamp)f.nbChamp=mp(f.nbChamp);if(f.type==="grille")["lignes","colonnes"].forEach(k=>{f[k].src.forEach(x=>x.champ=mp(x.champ));if(f[k].cap)f[k].cap.champ=mp(f[k].cap.champ)});else if(f.type==="calcul")(f.src||[]).forEach(x=>x.champ=mp(x.champ));else if(f.src)Object.keys(f.src).forEach(k=>f.src[k]=mp(f.src[k]))})});
   const fixC=c=>{if(!c)return;if(c.source){c.source.champ=mp(c.source.champ);if(c.source.cible&&typeof c.source.cible==="object")c.source.cible.champ=mp(c.source.cible.champ)}
     if(c.cible&&typeof c.cible==="object")c.cible.champ=mp(c.cible.champ);if(c.condition)c.condition.champ=mp(c.condition.champ);if(c.champs)c.champs=c.champs.map(mp);if(c.champ)c.champ=mp(c.champ)};
   const paths=c=>[c.source&&c.source.champ,c.champ,...(c.champs||[])].filter(Boolean);
@@ -2087,7 +2108,7 @@ function vDossierEleve(){const d=dossier,its=dossierItems.filter(x=>x.t==="fiche
   <div class="dos-h"><button class="dos-back" data-nav="acts" aria-label="Retour">${IC.chev}</button><div><h1>Carnet d'entraînement</h1><p>EPS${k?" · Bac":""}</p></div><span class="spacer"></span><button class="dos-st" data-act="dosTab" data-t="res" aria-label="Mes résultats">${IC.bars}</button></div>
   ${vVueBanner(true)}
   <div class="dos-seg" role="tablist"><button role="tab" data-act="dosTab" data-t="act" aria-selected="${dosTab==="act"}"><span>${IC.cal}</span>Mes activités</button><button role="tab" data-act="dosTab" data-t="res" aria-selected="${dosTab==="res"}"><span>${IC.trophy}</span>Mes résultats</button></div>
-  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-13" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
+  <button class="dos-hero" ${carnets[0]?`data-act="openAct" data-a="${carnets[0].id}"`:"disabled"} style="--c:${CA_COL[k]}"><img src="ca-hero.jpg?v=2026.11.21-14" alt=""><span class="dh-ic">${IC.runner}</span><span class="dh-t">${k?`<small>${k}</small>`:""}<b>${esc(d.titre)}</b><em>${esc(d.desc||CA_TAG[k]||"Donne le meilleur de toi-même !")}</em></span><span class="dh-go">${IC.chev}</span></button>
   ${dosTab==="res"?qResItems(its)+coResItems(its)+(carnets.length||its.some(x=>x.kind==="co")?carnets.map(x=>`<div class="dl-it carnet"><span class="dl-ic">${IC.trophy}</span><div class="dl-t"><b>${esc(x.titre)}</b><small>Bilan et note de ton carnet</small></div><button class="dl-go" data-act="openBilan" data-a="${x.id}">Voir ${IC.arrow}</button></div>`).join(""):`<section class="ec-empty">Pas encore de carnet dans cette activité.</section>`)
     :(its.length?its.map(item).join(""):`<section class="ec-empty">Ton enseignant n'a encore rien déposé dans cette activité.</section>`)}</div>`}
 /* --- Prof : dossiers --- */
@@ -2481,7 +2502,7 @@ function vEnClasse(){const sj=eleveClasse&&eleveClasse.seanceJour,isToday=sj&&sj
     :`<b>Pas de séance programmée aujourd'hui.</b><small>Profite pour bouger quand même !</small>`}</div></div><i class="ec-sw pink" aria-hidden="true"></i></section>
   ${cl.length?`<div class="ec-sub"><h2>Séances à coacher</h2><span class="spacer"></span><button class="h2-link" data-act="refreshCoach">Actualiser</button></div>${cl.map(c=>`<button class="ec-row" data-act="openCoach" data-id="${c.id}"><span class="ec-rowic">📣</span><div><b>${esc(c.eleveLogin)}</b><small>${fmtDate(c.date)}</small></div><span class="spacer"></span><span class="h2-chev">${IC.chev}</span></button>`).join("")}`:""}
   ${Object.keys(CA_FR).concat([""]).filter(k=>groups[k]).map(k=>`<button class="ec-ca" data-act="ecFold" data-k="${k}" aria-expanded="${!ecFold[k]}" style="--c:${CA_COL[k]}"><span class="ec-cab">${k||"+"}</span><span class="ec-cat">${esc(CA_FR[k]||"Autres activités")}</span><span class="ec-cach">${IC.chev}</span></button>
-    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-13" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
+    ${ecFold[k]?"":groups[k].map(d=>`<button class="ec-act" data-act="openDossier" data-id="${d.id}" style="--c:${CA_COL[k]}"><img class="ec-actimg" src="gym.jpg?v=2026.11.21-14" alt=""><span class="ec-actic">${IC.dumbbell}</span><span class="ec-chev sm" aria-hidden="true">›</span><span class="ec-actt"><b>${esc(d.titre)}</b><span>Ouvrir ›</span></span></button>`).join("")}`).join("")}
   ${ds.length?"":`<section class="ec-empty">Ton enseignant n'a pas encore ouvert d'activité pour ta classe.</section>`}
   <div class="ec-h tools"><span class="ec-hic tb" aria-hidden="true">🧰</span><div><h1>Outils</h1><p>Pour toutes tes activités</p></div><i class="ec-sw" aria-hidden="true"></i></div>
   <div class="ec-tools"><button data-act="toolScoreur" class="sc"><span class="ec-tic">⏱️</span><b>Scoreur</b><small>Compte tes points en temps réel</small><span class="ec-tch">${IC.chev}</span></button>
@@ -2581,7 +2602,7 @@ const SHELL_R=["home","enclasse","profilEl","conseils","actus","dossier","progre
 function isShell(){return!!(me&&me.role==="eleve"&&SHELL_R.includes(route.name))}
 function vVueBanner(alt){if(!VUE)return"";
   if(!isShell())return`<div class="vue-banner" role="status"><span>👁 Vue élève · ${esc(VUE.nom)}</span><span class="hint" style="color:#cbd5e1">rien n'est enregistré</span><button data-act="vueQuit">Quitter</button></div>`;
-  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-13" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
+  return`<div class="vb2${alt?" alt":""}" role="status">${alt?"":`<img class="vb2-img" src="vue-bar.jpg?v=2026.11.21-14" alt="">`}<span class="vb2-eye" aria-hidden="true">👁️</span><div class="vb2-t"><b>Vue élève · ${esc(VUE.nom)}</b><small>Rien n'est enregistré</small></div><button data-act="vueQuit">Quitter${alt?`<span class="vb2-x">${IC.exit}</span>`:""}</button></div>`}
 
 
 /* --- Accueil élève fidèle à la maquette : icônes SVG maison --- */
@@ -2614,14 +2635,14 @@ Object.assign(IC,{
   trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M12 14v3M8.5 20.5h7M9.5 17h5v3.5h-5z"/></svg>',
   dumbbellH:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.6" height="6" rx="1"/><rect x="4.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="7.6" y="11" width="8.8" height="2" rx=".6"/><rect x="16.4" y="6.5" width="3.2" height="11" rx="1.2"/><rect x="19.9" y="9" width="2.6" height="6" rx="1"/></svg>',
   crown:'<svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 30L7 9l8 12 5-16 5 16 9-12-2 20"/><path d="M15 5l1-3M24 4l2-3M33 6l3-2"/></svg>'});
-function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-13" alt=""></div>`}
+function homeAvatar(){return me.avatar?`<div class="h2-av2"><span>${esc(me.avatar)}</span></div>`:`<div class="h2-av2"><img src="avatar.jpg?v=2026.11.21-14" alt=""></div>`}
 function vHome(){const P=H.pc,a=H.ac,r=scoreAct(a,P),nv=r?niveauDe(r.score,P):null,col=(v,s)=>P.couleurs[lvl3(+v||0,s)];
   const ring=(v,max,id,c1,c2,R,W)=>{const C=2*Math.PI*R,p=Math.max(0,Math.min(1,v/max)),S=2*R+W+4;return`<svg viewBox="0 0 ${S} ${S}" class="ring-svg" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="#1c2433" stroke-width="${W}"/><circle cx="${S/2}" cy="${S/2}" r="${R}" fill="none" stroke="url(#${id})" stroke-width="${W}" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" transform="rotate(-90 ${S/2} ${S/2})"/></svg>`};
   const cur=a&&a.semaine===semaineId(),jours=cur?+a.jours||0:0,DS=defisH();DI=DS.length?((DI%DS.length)+DS.length)%DS.length:0;const dfi=DS[DI],defiOk=dfi&&defiFait(a,dfi);
   const [a0,...aRest]=H.actus,nvC=nv?nv.c:"#22c55e";
   const stat=(ic,v,l,c)=>`<div class="hs"><span class="hs-ic">${IC[ic]}</span><div><b style="${c?`color:${c}`:""}">${v}</b><small>${l}</small></div></div>`;
   return`<div class="shell-home home2">
-  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-13" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
+  <section class="h2-hero"><div class="h2-img" aria-hidden="false"><img class="bg" src="hero.jpg?v=2026.11.21-14" alt=""><button class="h2-avbtn" data-act="shTab" data-t="profilEl" aria-label="Mon profil">${homeAvatar()}</button></div>
     <div class="h2-txt"><div class="h2-date"><span>${esc(new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).toUpperCase())}</span><i></i></div>
       <h1>Salut <em>${esc(me.pseudo||"toi")}</em> ! <span class="wave" aria-hidden="true">👋</span></h1><p>Prêt à bouger aujourd'hui ?</p></div></section>
   ${vgHomeCard()}
@@ -3098,7 +3119,7 @@ async function ccImport(f){if(!f)return;CC.busy="Lecture du document…";CC.msg=
     CC.imp={nom:f.name,sheets,si:0,sens:"ligne",h:0,map:{},ia};ccDetect();CC.busy=""}
   catch(e){console.error(e);CC.busy="";CC.imp=null;CC.msg=e.message||String(e);CC.msgErr=true}
   if(route.name==="coCfg")rerenderKeep()}
-async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-13");
+async function ccIaSheets(f){CC.busy="L'IA lit le document (30 secondes à 1 minute)…";if(route.name==="coCfg")rerenderKeep();const ia=await import("./ia.js?v=2026.11.21-14");
   try{const mime=f.type||(/\.pdf$/i.test(f.name)?"application/pdf":"image/jpeg"),r=await ia.lireTableau({fichiers:[{mime,base64:await fileToB64(f)}],cle:IAKEY});
     return((r&&r.tableaux)||[]).map((t,i)=>({nom:t.nom||`Tableau ${i+1}`,rows:(t.lignes||[]).map(l=>(Array.isArray(l)?l:[]).map(x=>String(x??"")))}))}
   catch(e){throw new Error(ia.iaMessage(e))}}
@@ -3483,10 +3504,10 @@ async function qeIa(){const err=t=>{QE.ia.err=t;QE.ia.busy=false;if(route.name==
     if(fid){const f=dossierItems.find(x=>x.id===fid).f;if(f.type==="texte")txt=(txt?txt+"\n\n":"")+(f.texte||"");
       else{const parts=await fb.getFicheParts(fid);if(f.type==="pdf")fichiers.push({mime:"application/pdf",base64:parts.map(p=>p.data).join("")});else parts.forEach(p=>fichiers.push({mime:p.mime||"image/jpeg",base64:p.data}))}}
     for(const f of files)fichiers.push({mime:f.type||"application/pdf",base64:await fileToB64(f)});
-    const ia=await import("./ia.js?v=2026.11.21-13");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
+    const ia=await import("./ia.js?v=2026.11.21-14");const r=await ia.genererQcm({fichiers,texte:txt,nb,consignes,cle:IAKEY});
     const add=qNorm({questions:(r.questions||[])}).questions;(r.questions||[]).forEach((x,k)=>{const q=add[k];if(!q)return;QE.cle[q.id]=(x.bonnes||[]).map(Number).filter(n=>n>=0&&n<q.reponses.length)});
     if(!add.length)throw new Error("Réponse de l'IA illisible.");QE.Q.questions.push(...add);QE.dirty=true;QE.ia={busy:false,err:""};toast(`${add.length} question${add.length>1?"s":""} ajoutée${add.length>1?"s":""} : vérifiez-les`);if(route.name==="qcmEd")rerenderKeep()}
-  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-13");m=ia.iaMessage(e)}catch(x){}err(m)}}
+  catch(e){console.error(e);let m=String(e&&e.message||e);try{const ia=await import("./ia.js?v=2026.11.21-14");m=ia.iaMessage(e)}catch(x){}err(m)}}
 function qeField(t){const k=t.dataset.qe,i=+t.dataset.i,Q=QE.Q,q=Q.questions[i];let re=false;
   if(k==="titre")Q.titre=t.value;else if(k==="sur"){const v=parseFloat(String(t.value).replace(",","."));if(v>0)Q.sur=v;re=true}
   else if(["afl","carnet","garder"].includes(k)){Q[k]=t.value;if(k==="afl")Q.sur=QAFL_DEF[t.value];re=true}
