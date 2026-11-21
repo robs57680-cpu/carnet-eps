@@ -132,6 +132,12 @@ export const listCoachings = async uid => list(await getDocs(query(collection(db
 
 /* ---------- Modèles de carnets (créés avec l'IA) ---------- */
 export const listModeles = async profId => list(await getDocs(query(collection(db, "modeles"), where("profId", "==", profId))));
+// Mot de passe personnalisé des élèves (le mot de passe initial reste valable)
+export const getAlias = async login => snap(await getDoc(doc(db, "pwalias", login)));
+export const setAlias = (login, data) => setDoc(doc(db, "pwalias", login), data);
+export const deleteAlias = login => deleteDoc(doc(db, "pwalias", login));
+export const getEleveSelf = async (cid, uid) => snap(await getDoc(doc(db, "classes", cid, "eleves", uid)));
+export const currentUid = () => auth.currentUser && auth.currentUser.uid;
 export const getModele = async id => snap(await getDoc(doc(db, "modeles", id)));
 // Pseudo choisi par l'élève (affiché sur les feuilles de match)
 export const updateLogin = (login, patch) => updateDoc(doc(db, "logins", login), clean(patch));

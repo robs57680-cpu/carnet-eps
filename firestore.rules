@@ -47,6 +47,8 @@ service cloud.firestore {
       match /eleves/{eid} {
         allow read, write: if isProf()
           && get(/databases/$(database)/documents/classes/$(cid)).data.profId == request.auth.uid;
+        // L'élève relit son propre mot de passe initial (pour garder les deux mots de passe valides)
+        allow get: if signedIn() && eid == request.auth.uid;
       }
     }
 
@@ -126,6 +128,19 @@ service cloud.firestore {
         && request.resource.data.get('pseudo', '') is string && request.resource.data.get('pseudo', '').size() <= 20
         && request.resource.data.get('avatar', '') is string && request.resource.data.get('avatar', '').size() <= 8
         && ((isEleve() && resource.data.uid == request.auth.uid) || (isProf() && resource.data.profId == request.auth.uid));
+    }
+
+    // ---------- Mot de passe personnalisé d'un élève ----------
+    // Le mot de passe Firebase reste le mot de passe initial. Le mot de passe choisi par l'élève sert de clé
+    // (PBKDF2 + AES-GCM) pour déchiffrer le mot de passe initial : les deux fonctionnent. Lecture par identifiant seulement (pas de liste).
+    match /pwalias/{login} {
+      allow get: if true;
+      allow create, update: if isEleve()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'salt', 'iv', 'ct', 't'])
+        && get(/databases/$(database)/documents/logins/$(login)).data.uid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid
+        || get(/databases/$(database)/documents/logins/$(login)).data.profId == request.auth.uid);
     }
 
     // ---------- Séances d'outils (feuille de match, scoreur) ----------
